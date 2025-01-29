@@ -31,7 +31,9 @@
     <details open>
       <summary>Immersive VR Session</summary>
       <p>
-        Here is a button for you to click and enter VR
+        This sample demonstrates how to use an 'immersive-vr' XRSession to
+        present a simple WebGL scene to an XR device. The scene is not
+        rendered to the page.
         <a class="back" href="./">Back</a>
       </p>
     </details>
@@ -75,6 +77,7 @@
         onEndSession: onEndSession
       });
       document.body.appendChild(xrButton.domElement);
+      console.log('XR Button added to the DOM');
     }
 
     // Handle window resize
