@@ -1,113 +1,159 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-  <meta name='mobile-web-app-capable' content='yes'>
-  <meta name='apple-mobile-web-app-capable' content='yes'>
-  <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
-  <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-  <link rel='stylesheet' href='css/common.css'>
-  <title>Immersive VR Session</title>
-  <style>
-    body { margin: 0; }
-    canvas { display: block; }
-    #parentDiv { width: 100%; height: 100vh; }
-    .xr-button {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      padding: 10px 20px;
-      background-color: #0078d7;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <details open>
-      <summary>Immersive VR Session</summary>
-      <p>
-        This sample demonstrates how to use an 'immersive-vr' XRSession to
-        present a simple WebGL scene to an XR device. The scene is not
-        rendered to the page.
-        <a class="back" href="./">Back</a>
-      </p>
-    </details>
-  </header>
-  <div id="parentDiv"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="ringring1test1.js"></script>
-  <script type="module">
-    import {WebXRButton} from './js/util/webxr-button.js';
-    import {Scene} from './js/render/scenes/scene.js';
-    import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
-    import {Gltf2Node} from './js/render/nodes/gltf2.js';
-    import {SkyboxNode} from './js/render/nodes/skybox.js';
-    import {QueryArgs} from './js/util/query-args.js';
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js vr - handinput</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
 
-    // If requested, use the polyfill to provide support for mobile devices
-    // and devices which only support WebVR.
-    import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
-    if (QueryArgs.getBool('usePolyfill', true)) {
-      let polyfill = new WebXRPolyfill();
-    }
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> vr - handinput<br/>
+			(Oculus Browser 15.1+)
+		</div>
 
-    // XR globals.
-    let xrButton = null;
-    let xrRefSpace = null;
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
 
-    // WebGL scene globals.
-    let gl = null;
-    let renderer = null;
-    let scene = new Scene();
-    scene.addNode(new Gltf2Node({url: 'media/gltf/space/space.gltf'}));
-    scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+		<script type="module">
 
-    // Checks to see if WebXR is available and, if so, queries a list of
-    // XRDevices that are connected to the system.
-    function initXR() {
-      // Adds a helper button to the page that indicates if any XRDevices are
-      // available and let's the user pick between them if there's multiple.
-      xrButton = new WebXRButton({
-        onRequestSession: onRequestSession,
-        onEndSession: onEndSession
-      });
-      document.body.appendChild(xrButton.domElement);
-      console.log('XR Button added to the DOM');
-    }
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { VRButton } from 'three/addons/webxr/VRButton.js';
+			import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+			import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 
-    // Handle window resize
-    function onWindowResize() {
-      const width = parentDiv.clientWidth;
-      const height = parentDiv.clientHeight;
+			let container;
+			let camera, scene, renderer;
+			let hand1, hand2;
+			let controller1, controller2;
+			let controllerGrip1, controllerGrip2;
 
-      // Update camera
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+			let controls;
 
-      // Update renderer and composer
-      renderer.setSize(width, height);
-      composer.setSize(width, height);
+			init();
 
-      // Update post-processing passes
-      bloomPass.resolution.set(width, height);
-      smaaPass.setSize(width, height);
-    }
+			function init() {
 
-    // Add event listeners
-    window.addEventListener('resize', onWindowResize);
-    const resizeObserver = new ResizeObserver(onWindowResize);
-    resizeObserver.observe(parentDiv);
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
 
-    // Start animation
-    animate();
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 0x444444 );
 
-    // Start the XR application.
-    initXR();
-  </script>
-</body>
+				camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 10 );
+				camera.position.set( 0, 1.6, 3 );
+
+				controls = new OrbitControls( camera, container );
+				controls.target.set( 0, 1.6, 0 );
+				controls.update();
+
+				const floorGeometry = new THREE.PlaneGeometry( 4, 4 );
+				const floorMaterial = new THREE.MeshStandardMaterial( { color: 0x666666 } );
+				const floor = new THREE.Mesh( floorGeometry, floorMaterial );
+				floor.rotation.x = - Math.PI / 2;
+				floor.receiveShadow = true;
+				scene.add( floor );
+
+				scene.add( new THREE.HemisphereLight( 0xbcbcbc, 0xa5a5a5, 3 ) );
+
+				const light = new THREE.DirectionalLight( 0xffffff, 3 );
+				light.position.set( 0, 6, 0 );
+				light.castShadow = true;
+				light.shadow.camera.top = 2;
+				light.shadow.camera.bottom = - 2;
+				light.shadow.camera.right = 2;
+				light.shadow.camera.left = - 2;
+				light.shadow.mapSize.set( 4096, 4096 );
+				scene.add( light );
+
+				//
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setAnimationLoop( animate );
+				renderer.shadowMap.enabled = true;
+				renderer.xr.enabled = true;
+
+				container.appendChild( renderer.domElement );
+
+				const sessionInit = {
+					requiredFeatures: [ 'hand-tracking' ]
+				};
+
+				document.body.appendChild( VRButton.createButton( renderer, sessionInit ) );
+
+				// controllers
+
+				controller1 = renderer.xr.getController( 0 );
+				scene.add( controller1 );
+
+				controller2 = renderer.xr.getController( 1 );
+				scene.add( controller2 );
+
+				const controllerModelFactory = new XRControllerModelFactory();
+				const handModelFactory = new XRHandModelFactory();
+
+				// Hand 1
+				controllerGrip1 = renderer.xr.getControllerGrip( 0 );
+				controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
+				scene.add( controllerGrip1 );
+
+				hand1 = renderer.xr.getHand( 0 );
+				hand1.add( handModelFactory.createHandModel( hand1 ) );
+
+				scene.add( hand1 );
+
+				// Hand 2
+				controllerGrip2 = renderer.xr.getControllerGrip( 1 );
+				controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+				scene.add( controllerGrip2 );
+
+				hand2 = renderer.xr.getHand( 1 );
+				hand2.add( handModelFactory.createHandModel( hand2 ) );
+				scene.add( hand2 );
+
+				//
+
+				const geometry = new THREE.BufferGeometry().setFromPoints( [ new THREE.Vector3( 0, 0, 0 ), new THREE.Vector3( 0, 0, - 1 ) ] );
+
+				const line = new THREE.Line( geometry );
+				line.name = 'line';
+				line.scale.z = 5;
+
+				controller1.add( line.clone() );
+				controller2.add( line.clone() );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+			//
+
+			function animate() {
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
 </html>
