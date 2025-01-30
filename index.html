@@ -85,9 +85,8 @@
       // VR Button
       vrButton.addEventListener('click', async () => {
         try {
-          await navigator.xr.requestSession('immersive-vr').then((session) => {
-            renderer.xr.setSession(session);
-          });
+          const session = await navigator.xr.requestSession('immersive-vr');
+          renderer.xr.setSession(session);
           vrButton.style.display = 'none';
           container.style.display = 'block';
           console.log('VR Button clicked');
