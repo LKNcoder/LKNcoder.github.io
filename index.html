@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter bongo VR</button>
+  <button id="vrButton">Enter cheerio VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -116,7 +116,7 @@
       console.log('Initializing hands...');
       function createHand(color) {
         const handGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-        const handMaterial = new THREE.MeshBasicMaterial({ color: color });
+        const handMaterial = new THREE.MeshStandardMaterial({ color: color, emissive: 0x000000, roughness: 0.5, metalness: 0.5 });
         const handMesh = new THREE.Mesh(handGeometry, handMaterial);
         return handMesh;
       }
