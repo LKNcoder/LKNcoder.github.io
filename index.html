@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter VR</button>
+  <button id="vrButton">Enter birdface VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -92,24 +92,6 @@
       controller2.addEventListener('selectend', onSelectEnd);
       scene.add(controller2);
 
-      // Hands
-      const handModelFactory = new XRHandModelFactory();
-
-      function initializeHands() {
-        console.log('Initializing hands...');
-        hand1 = renderer.xr.getHand(0);
-        hand1.add(handModelFactory.createHandModel(hand1));
-        scene.add(hand1);
-
-        hand2 = renderer.xr.getHand(1);
-        hand2.add(handModelFactory.createHandModel(hand2));
-        scene.add(hand2);
-
-        console.log('Hands initialized:', hand1, hand2);
-      }
-
-      initializeHands();
-
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
       vrButton.addEventListener('click', async () => {
@@ -122,17 +104,29 @@
           container.style.display = 'block';
           console.log('VR Button clicked');
 
-          // Check if hands are initialized
-          if (!hand1 || !hand2) {
-            console.log('Hands not initialized, trying again...');
-            initializeHands();
-          }
+          // Initialize hands after entering VR
+          initializeHands();
         } catch (error) {
           console.error('Failed to enter VR:', error);
         }
       });
 
       window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function initializeHands() {
+      console.log('Initializing hands...');
+      const handModelFactory = new XRHandModelFactory();
+
+      hand1 = renderer.xr.getHand(0);
+      hand1.add(handModelFactory.createHandModel(hand1));
+      scene.add(hand1);
+
+      hand2 = renderer.xr.getHand(1);
+      hand2.add(handModelFactory.createHandModel(hand2));
+      scene.add(hand2);
+
+      console.log('Hands initialized:', hand1, hand2);
     }
 
     function onWindowResize() {
