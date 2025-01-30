@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter nomaVR</button>
+  <button id="vrButton">Enter VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -95,13 +95,20 @@
       // Hands
       const handModelFactory = new XRHandModelFactory();
 
-      hand1 = renderer.xr.getHand(0);
-      hand1.add(handModelFactory.createHandModel(hand1));
-      scene.add(hand1);
+      function initializeHands() {
+        console.log('Initializing hands...');
+        hand1 = renderer.xr.getHand(0);
+        hand1.add(handModelFactory.createHandModel(hand1));
+        scene.add(hand1);
 
-      hand2 = renderer.xr.getHand(1);
-      hand2.add(handModelFactory.createHandModel(hand2));
-      scene.add(hand2);
+        hand2 = renderer.xr.getHand(1);
+        hand2.add(handModelFactory.createHandModel(hand2));
+        scene.add(hand2);
+
+        console.log('Hands initialized:', hand1, hand2);
+      }
+
+      initializeHands();
 
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
@@ -114,6 +121,12 @@
           vrButton.style.display = 'none';
           container.style.display = 'block';
           console.log('VR Button clicked');
+
+          // Check if hands are initialized
+          if (!hand1 || !hand2) {
+            console.log('Hands not initialized, trying again...');
+            initializeHands();
+          }
         } catch (error) {
           console.error('Failed to enter VR:', error);
         }
