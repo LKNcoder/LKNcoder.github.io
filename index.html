@@ -96,11 +96,18 @@
       scene.add(hand2);
 
       // VR Button
-      document.body.appendChild(VRButton.createButton(renderer));
-      vrButton.addEventListener('click', () => {
-        vrButton.style.display = 'none';
-        container.style.display = 'block';
-        console.log('VR Button clicked');
+      vrButton.addEventListener('click', async () => {
+        try {
+          const session = await navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+          });
+          renderer.xr.setSession(session);
+          vrButton.style.display = 'none';
+          container.style.display = 'block';
+          console.log('VR Button clicked');
+        } catch (error) {
+          console.error('Failed to enter VR:', error);
+        }
       });
 
       window.addEventListener('resize', onWindowResize, false);
