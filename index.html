@@ -7,7 +7,6 @@
   <meta name='apple-mobile-web-app-capable' content='yes'>
   <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
   <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-  <link rel='stylesheet' href='css/common.css'>
   <title>Simple VR App</title>
   <style>
     body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
@@ -30,11 +29,11 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter cowface VR</button>
+  <button id="vrButton">Enter zebra VR</button>
   <script type="module">
-    import * as THREE from '../node_modules/three/build/three.module.js';
-    import { VRButton } from '../node_modules/three/examples/jsm/webxr/VRButton.js';
-    import { XRHandModelFactory } from '../node_modules/three/examples/jsm/webxr/XRHandModelFactory.js';
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+    import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js';
+    import { XRHandModelFactory } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
