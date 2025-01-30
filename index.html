@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter VR</button>
+  <button id="vrButton">Enter chicken VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -103,6 +103,8 @@
 
       scene.add(hand1);
       scene.add(hand2);
+
+      console.log('Hand models added to the scene:', hand1, hand2);
 
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
@@ -184,6 +186,7 @@
               if (pose) {
                 handMesh.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
                 handMesh.quaternion.set(pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, pose.transform.orientation.w);
+                console.log(`Updated ${inputSource.handedness} hand position:`, handMesh.position);
               }
             }
           }
