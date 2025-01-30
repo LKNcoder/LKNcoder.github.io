@@ -83,11 +83,17 @@
       scene.add(controller2);
 
       // VR Button
-      vrButton.addEventListener('click', () => {
-        document.body.appendChild(VRButton.createButton(renderer));
-        vrButton.style.display = 'none';
-        container.style.display = 'block';
-        console.log('VR Button clicked');
+      vrButton.addEventListener('click', async () => {
+        try {
+          await navigator.xr.requestSession('immersive-vr').then((session) => {
+            renderer.xr.setSession(session);
+          });
+          vrButton.style.display = 'none';
+          container.style.display = 'block';
+          console.log('VR Button clicked');
+        } catch (error) {
+          console.error('Failed to enter VR:', error);
+        }
       });
 
       window.addEventListener('resize', onWindowResize, false);
