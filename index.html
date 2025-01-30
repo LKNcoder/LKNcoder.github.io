@@ -96,6 +96,7 @@
       scene.add(hand2);
 
       // VR Button
+      document.body.appendChild(VRButton.createButton(renderer));
       vrButton.addEventListener('click', async () => {
         try {
           const session = await navigator.xr.requestSession('immersive-vr', {
