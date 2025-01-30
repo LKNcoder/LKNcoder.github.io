@@ -29,11 +29,20 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter zebra VR</button>
+  <button id="vrButton">Enter snek VR</button>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+        "three/examples/jsm/webxr/XRHandModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js"
+      }
+    }
+  </script>
   <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
-    import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js';
-    import { XRHandModelFactory } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js';
+    import * as THREE from 'three';
+    import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+    import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
