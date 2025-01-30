@@ -34,9 +34,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script type="module">
     import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js';
+    import { XRHandModelFactory } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
+    let hand1, hand2;
     let cube;
     let vrButton = document.getElementById('vrButton');
 
@@ -82,9 +84,20 @@
       controller2.addEventListener('selectend', onSelectEnd);
       scene.add(controller2);
 
+      // Hands
+      const handModelFactory = new XRHandModelFactory();
+
+      hand1 = renderer.xr.getHand(0);
+      hand1.add(handModelFactory.createHandModel(hand1));
+      scene.add(hand1);
+
+      hand2 = renderer.xr.getHand(1);
+      hand2.add(handModelFactory.createHandModel(hand2));
+      scene.add(hand2);
+
       // VR Button
+      document.body.appendChild(VRButton.createButton(renderer));
       vrButton.addEventListener('click', () => {
-        document.body.appendChild(VRButton.createButton(renderer));
         vrButton.style.display = 'none';
         container.style.display = 'block';
         console.log('VR Button clicked');
