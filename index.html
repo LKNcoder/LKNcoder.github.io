@@ -34,15 +34,13 @@
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRHandModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js"
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js"
       }
     }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-    import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
@@ -92,6 +90,20 @@
       controller2.addEventListener('selectend', onSelectEnd);
       scene.add(controller2);
 
+      // Hands
+      function createHand(color) {
+        const handGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+        const handMaterial = new THREE.MeshBasicMaterial({ color: color });
+        const handMesh = new THREE.Mesh(handGeometry, handMaterial);
+        return handMesh;
+      }
+
+      hand1 = createHand(0xff0000); // Red hand for left
+      hand2 = createHand(0x0000ff); // Blue hand for right
+
+      scene.add(hand1);
+      scene.add(hand2);
+
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
       vrButton.addEventListener('click', async () => {
@@ -103,30 +115,12 @@
           vrButton.style.display = 'none';
           container.style.display = 'block';
           console.log('VR Button clicked');
-
-          // Initialize hands after entering VR
-          initializeHands();
         } catch (error) {
           console.error('Failed to enter VR:', error);
         }
       });
 
       window.addEventListener('resize', onWindowResize, false);
-    }
-
-    function initializeHands() {
-      console.log('Initializing hands...');
-      const handModelFactory = new XRHandModelFactory();
-
-      hand1 = renderer.xr.getHand(0);
-      hand1.add(handModelFactory.createHandModel(hand1));
-      scene.add(hand1);
-
-      hand2 = renderer.xr.getHand(1);
-      hand2.add(handModelFactory.createHandModel(hand2));
-      scene.add(hand2);
-
-      console.log('Hands initialized:', hand1, hand2);
     }
 
     function onWindowResize() {
@@ -173,6 +167,29 @@
     }
 
     function render() {
+      // Update hand positions
+      if (renderer.xr.isPresenting) {
+        const session = renderer.xr.getSession();
+        const inputSources = session.inputSources;
+
+        for (const inputSource of inputSources) {
+          if (inputSource.hand) {
+            const hand = inputSource.hand;
+            const handMesh = inputSource.handedness === 'left' ? hand1 : hand2;
+
+            if (handMesh) {
+              const referenceSpace = renderer.xr.getReferenceSpace();
+              const pose = session.getPose(hand.get('wrist').targetRaySpace, referenceSpace);
+
+              if (pose) {
+                handMesh.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+                handMesh.quaternion.set(pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, pose.transform.orientation.w);
+              }
+            }
+          }
+        }
+      }
+
       renderer.render(scene, camera);
     }
 
