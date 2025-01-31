@@ -44,8 +44,15 @@
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+    import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+    import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 
-    let camera, scene, renderer;
+    let camera, scene, renderer, composer;
     let controller1, controller2;
     let sphere1, sphere2;
     let cube;
@@ -55,6 +62,7 @@
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
+    let ringMesh, timerMesh, textMaterial;
 
     init();
     animate();
@@ -128,12 +136,66 @@
           console.error('Failed to enter VR:', error);
         }
       });
+
+      // Create text material
+      textMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00ffff,
+        emissive: 0x00ffff,
+        emissiveIntensity: 20,
+        metalness: 0,
+        roughness: 0,
+        side: THREE.DoubleSide
+      });
+
+      // Create ring
+      const ringGeometry = new THREE.TorusGeometry(0.1, 0.015, 32, 32);
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x800080, // Pure purple
+        emissive: 0xff69b4, // Hot pink emissive
+        emissiveIntensity: 1.0,
+        metalness: 1.0,
+        roughness: 0.0
+      });
+      ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
+      ringMesh.position.set(0, 1.4, 0.75);
+      scene.add(ringMesh);
+
+      // Create particles
+      const particlesGeometry = new THREE.BufferGeometry();
+      const particlesCount = 3000;
+      const posArray = new Float32Array(particlesCount * 3);
+      for (let i = 0; i < particlesCount * 3; i += 3) {
+        posArray[i] = (Math.random() - 0.5) * 100;
+        posArray[i + 1] = (Math.random() - 0.5) * 100;
+        posArray[i + 2] = (Math.random() - 0.5) * 100;
+      }
+      particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      const particlesMaterial = new THREE.PointsMaterial({
+        size: 0.2,
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+      });
+      const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+      scene.add(particlesMesh);
+
+      // Initialize post-processing
+      composer = new EffectComposer(renderer);
+      const renderPass = new RenderPass(scene, camera);
+      composer.addPass(renderPass);
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.2, 0.4, 0.9);
+      composer.addPass(bloomPass);
+      const smaaPass = new SMAAPass(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio());
+      composer.addPass(smaaPass);
+      composer.setSize(window.innerWidth, window.innerHeight);
     }
 
     function onWindowResize() {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
     }
 
     function updateBoundingBoxes() {
@@ -185,7 +247,7 @@
         cube.position.copy(grabbingController.position).add(grabOffset);
       }
 
-      renderer.render(scene, camera);
+      composer.render();
     }
   </script>
 </body>
