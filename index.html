@@ -54,6 +54,7 @@
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
     let colorIndex = 0;
     let cubeBox, sphereBox1, sphereBox2;
+    let grabbedObject = null;
 
     init();
     animate();
@@ -100,6 +101,8 @@
       const controllerModelFactory = new XRControllerModelFactory();
 
       controller1 = renderer.xr.getController(0);
+      controller1.addEventListener('selectstart', onSelectStart);
+      controller1.addEventListener('selectend', onSelectEnd);
       scene.add(controller1);
 
       controllerGrip1 = renderer.xr.getControllerGrip(0);
@@ -107,6 +110,8 @@
       scene.add(controllerGrip1);
 
       controller2 = renderer.xr.getController(1);
+      controller2.addEventListener('selectstart', onSelectStart);
+      controller2.addEventListener('selectend', onSelectEnd);
       scene.add(controller2);
 
       controllerGrip2 = renderer.xr.getControllerGrip(1);
@@ -145,9 +150,33 @@
 
     function checkCollision() {
       if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
-        colorIndex = (colorIndex + 1) % colors.length;
-        cube.material.color.setHex(colors[colorIndex]);
-        console.log('Cube color changed to:', colors[colorIndex].toString(16));
+        if (!grabbedObject) {
+          colorIndex = (colorIndex + 1) % colors.length;
+          cube.material.color.setHex(colors[colorIndex]);
+          console.log('Cube color changed to:', colors[colorIndex].toString(16));
+        }
+      }
+    }
+
+    function onSelectStart(event) {
+      const controller = event.target;
+      const controllerBox = new THREE.Box3().setFromObject(controller);
+      const cubeBox = new THREE.Box3().setFromObject(cube);
+
+      if (controllerBox.intersectsBox(cubeBox)) {
+        grabbedObject = cube;
+        controller.attach(grabbedObject);
+        console.log('Cube grabbed');
+      }
+    }
+
+    function onSelectEnd(event) {
+      const controller = event.target;
+
+      if (grabbedObject) {
+        scene.attach(grabbedObject);
+        grabbedObject = null;
+        console.log('Cube released');
       }
     }
 
@@ -163,6 +192,11 @@
       // Update bounding boxes and check for collisions
       updateBoundingBoxes();
       checkCollision();
+
+      // Update grabbed object position
+      if (grabbedObject) {
+        grabbedObject.position.copy(sphere1.position);
+      }
 
       renderer.render(scene, camera);
     }
