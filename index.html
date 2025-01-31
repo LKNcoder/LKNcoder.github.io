@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter rangr VR</button>
+  <button id="vrButton">Enter jeebs VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -135,6 +135,8 @@
 
       // Change controller color to red
       controller.children[0].material.color.set(0xff0000);
+      // Change cube color to blue
+      cube.material.color.set(0x0000ff);
       console.log('Grab trigger pulled');
     }
 
@@ -152,6 +154,8 @@
 
       // Change controller color back to blue
       controller.children[0].material.color.set(0x0000ff);
+      // Change cube color back to green
+      cube.material.color.set(0x00ff00);
       console.log('Grab trigger released');
     }
 
