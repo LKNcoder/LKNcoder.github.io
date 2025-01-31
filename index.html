@@ -56,6 +56,7 @@
     let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
+    let grabOffset = new THREE.Vector3();
 
     init();
     animate();
@@ -151,9 +152,7 @@
 
     function checkCollision() {
       if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
-        colorIndex = (colorIndex + 1) % colors.length;
-        cube.material.color.setHex(colors[colorIndex]);
-        console.log('Cube color changed to:', colors[colorIndex].toString(16));
+        console.log('Collision detected');
       }
     }
 
@@ -161,9 +160,11 @@
       if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
         grabbed = true;
         grabbingController = controller1;
+        grabOffset.copy(cube.position).sub(controller1.position);
       } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
+        grabOffset.copy(cube.position).sub(controller2.position);
       }
     }
 
@@ -185,9 +186,9 @@
       updateBoundingBoxes();
       checkCollision();
 
-      // Move cube with the grabbing controller
+      // Move cube with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
-        cube.position.copy(grabbingController.position);
+        cube.position.copy(grabbingController.position).add(grabOffset);
       }
 
       renderer.render(scene, camera);
