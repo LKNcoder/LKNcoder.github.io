@@ -29,24 +29,27 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter cheerio VR</button>
+  <button id="vrButton">Enter matrix VR</button>
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js"
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+        "three/examples/jsm/webxr/XRHandModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js"
       }
     }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+    import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
     let hand1, hand2;
     let cube;
     let vrButton = document.getElementById('vrButton');
+    let grabbedObject = null;
 
     function init() {
       const container = document.getElementById('parentDiv');
@@ -80,15 +83,19 @@
       scene.add(cube);
 
       // Controllers
-      controller1 = renderer.xr.getController(0);
-      controller1.addEventListener('selectstart', onSelectStart);
-      controller1.addEventListener('selectend', onSelectEnd);
-      scene.add(controller1);
+      controller1 = createController(0);
+      controller2 = createController(1);
 
-      controller2 = renderer.xr.getController(1);
-      controller2.addEventListener('selectstart', onSelectStart);
-      controller2.addEventListener('selectend', onSelectEnd);
-      scene.add(controller2);
+      // Hands
+      const handModelFactory = new XRHandModelFactory();
+
+      hand1 = renderer.xr.getHand(0);
+      hand1.add(handModelFactory.createHandModel(hand1));
+      scene.add(hand1);
+
+      hand2 = renderer.xr.getHand(1);
+      hand2.add(handModelFactory.createHandModel(hand2));
+      scene.add(hand2);
 
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
@@ -101,9 +108,6 @@
           vrButton.style.display = 'none';
           container.style.display = 'block';
           console.log('VR Button clicked');
-
-          // Initialize hands after entering VR
-          initializeHands();
         } catch (error) {
           console.error('Failed to enter VR:', error);
         }
@@ -112,22 +116,16 @@
       window.addEventListener('resize', onWindowResize, false);
     }
 
-    function initializeHands() {
-      console.log('Initializing hands...');
-      function createHand(color) {
-        const handGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-        const handMaterial = new THREE.MeshStandardMaterial({ color: color, emissive: 0x000000, roughness: 0.5, metalness: 0.5 });
-        const handMesh = new THREE.Mesh(handGeometry, handMaterial);
-        return handMesh;
-      }
-
-      hand1 = createHand(0xff0000); // Red hand for left
-      hand2 = createHand(0x0000ff); // Blue hand for right
-
-      scene.add(hand1);
-      scene.add(hand2);
-
-      console.log('Hand models added to the scene:', hand1, hand2);
+    function createController(controllerId) {
+      const controller = renderer.xr.getController(controllerId);
+      const cylinderGeometry = new THREE.CylinderGeometry(0.025, 0.025, 1, 32);
+      const cylinderMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+      const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+      cylinder.geometry.translate(0, 0.5, 0);
+      cylinder.rotateX(-0.25 * Math.PI);
+      controller.add(cylinder);
+      scene.add(controller);
+      return controller;
     }
 
     function onWindowResize() {
@@ -145,6 +143,7 @@
         const object = intersection.object;
         controller.userData.selected = object;
         object.material.emissive.b = 1;
+        grabbedObject = object;
       }
     }
 
@@ -155,6 +154,7 @@
         const object = controller.userData.selected;
         object.material.emissive.b = 0;
         controller.userData.selected = undefined;
+        grabbedObject = null;
       }
     }
 
@@ -196,6 +196,13 @@
             }
           }
         }
+      }
+
+      // Update grabbed object position
+      if (grabbedObject) {
+        const controller = grabbedObject === controller1.userData.selected ? controller1 : controller2;
+        grabbedObject.position.copy(controller.position);
+        grabbedObject.quaternion.copy(controller.quaternion);
       }
 
       renderer.render(scene, camera);
