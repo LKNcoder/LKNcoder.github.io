@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter cyclone VR</button>
+  <button id="vrButton">Enter rangr VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -131,19 +131,7 @@
 
     function onSelectStart(event) {
       const controller = event.target;
-      const intersections = getIntersections(controller);
-
-      if (intersections.length > 0) {
-        const intersection = intersections[0];
-        const object = intersection.object;
-        if (object.userData.isGrabbable) {
-          controller.userData.selected = object;
-          object.material.emissive.b = 1;
-          grabbedObject = object;
-          controller.attach(object);
-          console.log('Object grabbed:', object);
-        }
-      }
+      grabObject(controller);
 
       // Change controller color to red
       controller.children[0].material.color.set(0xff0000);
@@ -167,11 +155,16 @@
       console.log('Grab trigger released');
     }
 
-    function getIntersections(controller) {
+    function grabObject(controller) {
       const controllerBox = new THREE.Box3().setFromObject(controller);
       const cubeBox = new THREE.Box3().setFromObject(cube);
 
-      return controllerBox.intersectsBox(cubeBox) ? [cube] : [];
+      if (controllerBox.intersectsBox(cubeBox)) {
+        controller.attach(cube);
+        controller.userData.selected = cube;
+        grabbedObject = cube;
+        console.log('Cube grabbed');
+      }
     }
 
     function animate() {
@@ -186,20 +179,7 @@
         grabbedObject.quaternion.copy(controller.quaternion);
       }
 
-      // Check for collisions and change cube color
-      checkCollisions(controller1);
-      checkCollisions(controller2);
-
       renderer.render(scene, camera);
-    }
-
-    function checkCollisions(controller) {
-      const intersections = getIntersections(controller);
-      if (intersections.length > 0) {
-        cube.material.color.set(0xff0000); // Change cube color to red on collision
-      } else {
-        cube.material.color.set(0x00ff00); // Change cube color back to green when not colliding
-      }
     }
 
     init();
