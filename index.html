@@ -47,24 +47,26 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
         "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
+        "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.18.0/dist/cannon-es.js"
       }
     }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+    import * as CANNON from 'cannon-es';
 
     let camera, scene, renderer;
     let controller1, controller2;
     let sphere1, sphere2;
-    let cube, target;
+    let cube, cubeBody, target, targetBox;
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
     let colorIndex = 0;
-    let cubeBox, targetBox, sphereBox1, sphereBox2;
+    let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
+    let world;
     const initialCubePosition = new THREE.Vector3(0, 1.5, -0.5);
     const targetPosition = new THREE.Vector3(0, 1.5, -15.24); // 50 feet in meters
     const maxDistance = 21.34; // 70 feet in meters
@@ -86,6 +88,10 @@
       light.position.set(0.5, 1, 0.25);
       scene.add(light);
 
+      // Physics world setup
+      world = new CANNON.World();
+      world.gravity.set(0, 0, 0); // No gravity
+
       // Add objects to the scene
       const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
       const material = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
@@ -93,18 +99,15 @@
       cube.position.copy(initialCubePosition);
       scene.add(cube);
 
+      // Physics body for the cube
+      const cubeShape = new CANNON.Box(new CANNON.Vec3(0.05, 0.05, 0.05));
+      cubeBody = new CANNON.Body({ mass: 1 });
+      cubeBody.addShape(cubeShape);
+      cubeBody.position.copy(cube.position);
+      world.addBody(cubeBody);
+
       // Initialize bounding boxes
       cubeBox = new THREE.Box3().setFromObject(cube);
-
-      // Add target
-      const targetGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-      const targetMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-      target = new THREE.Mesh(targetGeometry, targetMaterial);
-      target.position.copy(targetPosition);
-      scene.add(target);
-
-      // Initialize bounding box for target
-      targetBox = new THREE.Box3().setFromObject(target);
 
       // Add spheres as controllers
       const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
@@ -147,10 +150,23 @@
           renderer.xr.setSession(session);
           vrButton.style.display = 'none';
           console.log('VR Button clicked');
+          addTarget();
         } catch (error) {
           console.error('Failed to enter VR:', error);
         }
       });
+    }
+
+    function addTarget() {
+      // Add target
+      const targetGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+      const targetMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+      target = new THREE.Mesh(targetGeometry, targetMaterial);
+      target.position.copy(targetPosition);
+      scene.add(target);
+
+      // Initialize bounding box for target
+      targetBox = new THREE.Box3().setFromObject(target);
     }
 
     function onWindowResize() {
@@ -161,7 +177,9 @@
 
     function updateBoundingBoxes() {
       cubeBox.setFromObject(cube);
-      targetBox.setFromObject(target);
+      if (target) {
+        targetBox.setFromObject(target);
+      }
       sphereBox1.set(sphere1.position, 0.05);
       sphereBox2.set(sphere2.position, 0.05);
     }
@@ -177,10 +195,12 @@
         grabbed = true;
         grabbingController = controller1;
         grabOffset.copy(cube.position).sub(controller1.position);
+        cubeBody.velocity.set(0, 0, 0); // Stop the cube's movement
       } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
         grabOffset.copy(cube.position).sub(controller2.position);
+        cubeBody.velocity.set(0, 0, 0); // Stop the cube's movement
       }
     }
 
@@ -188,6 +208,9 @@
       if (event.target === grabbingController) {
         grabbed = false;
         grabbingController = null;
+        // Apply a throw force to the cube
+        const throwVelocity = new THREE.Vector3().subVectors(cube.position, event.target.position).multiplyScalar(10);
+        cubeBody.velocity.set(throwVelocity.x, throwVelocity.y, throwVelocity.z);
       }
     }
 
@@ -196,6 +219,9 @@
     }
 
     function render() {
+      // Update physics
+      world.step(1 / 60);
+
       // Update sphere positions to match controller positions
       sphere1.position.copy(controller1.position);
       sphere2.position.copy(controller2.position);
@@ -207,10 +233,14 @@
       // Move cube with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
         cube.position.copy(grabbingController.position).add(grabOffset);
+        cubeBody.position.copy(cube.position);
+      } else {
+        // Update cube position from physics
+        cube.position.copy(cubeBody.position);
       }
 
       // Check if the cube hits the target
-      if (cubeBox.intersectsBox(targetBox)) {
+      if (target && cubeBox.intersectsBox(targetBox)) {
         document.getElementById('winnerMessage').style.display = 'block';
         resetCube();
       }
@@ -225,7 +255,8 @@
 
     function resetCube() {
       cube.position.copy(initialCubePosition);
-      cubeBox.setFromObject(cube);
+      cubeBody.position.copy(initialCubePosition);
+      cubeBody.velocity.set(0, 0, 0);
       document.getElementById('winnerMessage').style.display = 'none';
     }
   </script>
