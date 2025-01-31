@@ -37,28 +37,22 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
         "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
+        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js",
         "three/examples/jsm/loaders/FontLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/FontLoader.js"
       }
-{
-  "type": "setting",
-  "settings": {
-    "three/examples/jsm/loaders/FontLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/FontLoader.js"
-  }
-}
     }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-    import { FontLoader } from 'three/addons/loaders/FontLoader.js';
-    import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-    import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+    import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+    import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+    import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+    import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+    import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 
     let camera, scene, renderer, controller1, controller2, sphere1, sphere2, cube;
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
