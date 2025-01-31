@@ -11,9 +11,27 @@
   <style>
     body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
     canvas { display: block; }
+    #vrButton {
+      padding: 20px 40px;
+      font-size: 24px;
+      background-color: #0078d7;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #vrButton:hover {
+      background-color: #005bb5;
+    }
   </style>
 </head>
 <body>
+  <button id="vrButton">Enter VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -32,7 +50,8 @@
     let controller1, controller2;
     let controllerGrip1, controllerGrip2;
     let cube;
-    let grabbedObject = null;
+    let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+    let colorIndex = 0;
 
     init();
     animate();
@@ -44,7 +63,6 @@
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
-      document.body.appendChild(VRButton.createButton(renderer));
       document.body.appendChild(renderer.domElement);
 
       // Add light
@@ -54,10 +72,9 @@
 
       // Add objects to the scene
       const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-      const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+      const material = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
       cube = new THREE.Mesh(geometry, material);
       cube.position.set(0, 1.5, -1);
-      cube.userData.isGrabbable = true;
       scene.add(cube);
 
       // Add controllers
@@ -65,7 +82,6 @@
 
       controller1 = renderer.xr.getController(0);
       controller1.addEventListener('selectstart', onSelectStart);
-      controller1.addEventListener('selectend', onSelectEnd);
       scene.add(controller1);
 
       controllerGrip1 = renderer.xr.getControllerGrip(0);
@@ -74,7 +90,6 @@
 
       controller2 = renderer.xr.getController(1);
       controller2.addEventListener('selectstart', onSelectStart);
-      controller2.addEventListener('selectend', onSelectEnd);
       scene.add(controller2);
 
       controllerGrip2 = renderer.xr.getControllerGrip(1);
@@ -82,6 +97,21 @@
       scene.add(controllerGrip2);
 
       window.addEventListener('resize', onWindowResize, false);
+
+      // VR Button
+      const vrButton = document.getElementById('vrButton');
+      vrButton.addEventListener('click', async () => {
+        try {
+          const session = await navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+          });
+          renderer.xr.setSession(session);
+          vrButton.style.display = 'none';
+          console.log('VR Button clicked');
+        } catch (error) {
+          console.error('Failed to enter VR:', error);
+        }
+      });
     }
 
     function onWindowResize() {
@@ -91,28 +121,9 @@
     }
 
     function onSelectStart(event) {
-      const controller = event.target;
-      const controllerBox = new THREE.Box3().setFromObject(controller);
-      const cubeBox = new THREE.Box3().setFromObject(cube);
-
-      if (controllerBox.intersectsBox(cubeBox)) {
-        controller.attach(cube);
-        controller.userData.selected = cube;
-        grabbedObject = cube;
-        console.log('Cube grabbed');
-      }
-    }
-
-    function onSelectEnd(event) {
-      const controller = event.target;
-
-      if (controller.userData.selected !== undefined) {
-        const object = controller.userData.selected;
-        controller.userData.selected = undefined;
-        grabbedObject = null;
-        scene.attach(object);
-        console.log('Cube released');
-      }
+      colorIndex = (colorIndex + 1) % colors.length;
+      cube.material.color.setHex(colors[colorIndex]);
+      console.log('Cube color changed to:', colors[colorIndex].toString(16));
     }
 
     function animate() {
@@ -120,11 +131,6 @@
     }
 
     function render() {
-      // Rotate the cube slowly if not grabbed
-      if (!grabbedObject) {
-        cube.rotation.y += 0.01;
-      }
-
       renderer.render(scene, camera);
     }
   </script>
