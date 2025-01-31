@@ -31,8 +31,8 @@
     let camera, scene, renderer;
     let controller1, controller2;
     let controllerGrip1, controllerGrip2;
-    let raycaster, intersectedObject;
-    let tempMatrix = new THREE.Matrix4();
+    let cube;
+    let grabbedObject = null;
 
     init();
     animate();
@@ -55,8 +55,9 @@
       // Add objects to the scene
       const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
       const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-      const cube = new THREE.Mesh(geometry, material);
+      cube = new THREE.Mesh(geometry, material);
       cube.position.set(0, 1.5, -1);
+      cube.userData.isGrabbable = true;
       scene.add(cube);
 
       // Add controllers
@@ -80,18 +81,25 @@
       controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
       scene.add(controllerGrip2);
 
-      // Raycaster for object intersection
-      raycaster = new THREE.Raycaster();
+      window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
     function onSelectStart(event) {
       const controller = event.target;
-      const intersections = getIntersections(controller);
+      const controllerBox = new THREE.Box3().setFromObject(controller);
+      const cubeBox = new THREE.Box3().setFromObject(cube);
 
-      if (intersections.length > 0) {
-        intersectedObject = intersections[0].object;
-        controller.attach(intersectedObject);
-        controller.userData.selected = intersectedObject;
+      if (controllerBox.intersectsBox(cubeBox)) {
+        controller.attach(cube);
+        controller.userData.selected = cube;
+        grabbedObject = cube;
+        console.log('Cube grabbed');
       }
     }
 
@@ -100,18 +108,11 @@
 
       if (controller.userData.selected !== undefined) {
         const object = controller.userData.selected;
-        scene.attach(object);
         controller.userData.selected = undefined;
+        grabbedObject = null;
+        scene.attach(object);
+        console.log('Cube released');
       }
-    }
-
-    function getIntersections(controller) {
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
-
-      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-
-      return raycaster.intersectObjects(scene.children, false);
     }
 
     function animate() {
@@ -119,6 +120,11 @@
     }
 
     function render() {
+      // Rotate the cube slowly if not grabbed
+      if (!grabbedObject) {
+        cube.rotation.y += 0.01;
+      }
+
       renderer.render(scene, camera);
     }
   </script>
