@@ -29,27 +29,28 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter rhombus VR</button>
+  <button id="vrButton">Enter yayaya VR</button>
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
         "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRHandModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js"
+        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
       }
     }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-    import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
+    import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
     let camera, scene, renderer;
-    let controller1, controller2;
+    let controllerL, controllerR;
     let hand1, hand2;
     let cube;
     let vrButton = document.getElementById('vrButton');
-    let grabbedObject = null;
+    let checkGrabbingR = false;
+    const controllerActionRadius = 0.1; // Adjust as needed
 
     function init() {
       const container = document.getElementById('parentDiv');
@@ -83,15 +84,14 @@
       cube.userData.isGrabbable = true;
       scene.add(cube);
 
-      // VR controller group
-      const controllerGroup = new THREE.Group();
-      scene.add(controllerGroup);
-
       // Controllers
-      controller1 = renderer.xr.getController(0);
-      controller2 = renderer.xr.getController(1);
-      controllerGroup.add(controller1);
-      controllerGroup.add(controller2);
+      const controllerModelFactory = new XRControllerModelFactory();
+      controllerL = renderer.xr.getControllerGrip(0);
+      controllerR = renderer.xr.getControllerGrip(1);
+      controllerL.add(controllerModelFactory.createControllerModel(controllerL));
+      controllerR.add(controllerModelFactory.createControllerModel(controllerR));
+      scene.add(controllerL);
+      scene.add(controllerR);
 
       // Hands
       const handModelFactory = new XRHandModelFactory();
@@ -103,10 +103,6 @@
       hand2 = renderer.xr.getHand(1);
       hand2.add(handModelFactory.createHandModel(hand2));
       scene.add(hand2);
-
-      // Add spheres to controllers
-      addSphereToController(controller1);
-      addSphereToController(controller2);
 
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
@@ -127,17 +123,16 @@
       window.addEventListener('resize', onWindowResize, false);
 
       // Event listeners for grabbing
-      controller1.addEventListener('selectstart', () => grabObject(controller1));
-      controller2.addEventListener('selectstart', () => grabObject(controller2));
-      controller1.addEventListener('selectend', () => releaseObject(controller1));
-      controller2.addEventListener('selectend', () => releaseObject(controller2));
-    }
-
-    function addSphereToController(controller) {
-      const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-      const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x0000ff });
-      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      controller.add(sphere);
+      controllerR.addEventListener('selectstart', () => {
+        checkGrabbingR = true;
+        cube.material.color.set(0x0000ff); // Change cube color to blue
+        console.log('Grab trigger pulled');
+      });
+      controllerR.addEventListener('selectend', () => {
+        checkGrabbingR = false;
+        cube.material.color.set(0x00ff00); // Change cube color back to green
+        console.log('Grab trigger released');
+      });
     }
 
     function onWindowResize() {
@@ -146,26 +141,13 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    function grabObject(controller) {
-      const intersections = controller.intersectObjects(scene.children);
-      if (intersections.length > 0) {
-        const object = intersections[0].object;
-        if (object.userData.isGrabbable) {
-          controller.attach(object);
-          controller.userData.selected = object;
-          grabbedObject = object;
-          console.log('Object grabbed:', object);
-        }
-      }
-    }
-
-    function releaseObject(controller) {
-      if (controller.userData.selected !== undefined) {
-        const object = controller.userData.selected;
-        controller.userData.selected = undefined;
-        grabbedObject = null;
-        scene.attach(object);
-        console.log('Object released:', object);
+    function CheckObjects() {
+      // If within a certain radius, snap object to controllerR
+      const dist = cube.position.distanceTo(controllerR.position);
+      if (dist <= controllerActionRadius) {
+        cube.position.copy(controllerR.position);
+        cube.quaternion.copy(controllerR.quaternion);
+        console.log('Cube snapped to controllerR');
       }
     }
 
@@ -199,16 +181,13 @@
       }
 
       // Rotate the cube slowly
-      if (!grabbedObject) {
+      if (!checkGrabbingR) {
         cube.rotation.y += 0.01;
       }
 
-      // Update grabbed object position
-      if (grabbedObject) {
-        const controller = grabbedObject === controller1.userData.selected ? controller1 : controller2;
-        grabbedObject.position.copy(controller.position);
-        grabbedObject.quaternion.copy(controller.quaternion);
-        console.log('Updated grabbed object position:', grabbedObject.position);
+      // Check for grabbing
+      if (checkGrabbingR) {
+        CheckObjects();
       }
 
       renderer.render(scene, camera);
