@@ -29,13 +29,12 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter bumba VR</button>
+  <button id="vrButton">Enter rudolph VR</button>
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRHandModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRHandModelFactory.js"
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js"
       }
     }
   </script>
@@ -112,6 +111,12 @@
       const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
       controller.add(sphere);
       scene.add(controller);
+
+      // Add collider
+      const collider = new THREE.Mesh(sphereGeometry, new THREE.MeshBasicMaterial({ visible: false }));
+      collider.name = 'collider';
+      controller.add(collider);
+
       return controller;
     }
 
@@ -132,8 +137,13 @@
           controller.userData.selected = object;
           object.material.emissive.b = 1;
           grabbedObject = object;
+          console.log('Object grabbed:', object);
         }
       }
+
+      // Change controller color to red
+      controller.children[0].material.color.set(0xff0000);
+      console.log('Grab trigger pulled');
     }
 
     function onSelectEnd(event) {
@@ -144,18 +154,20 @@
         object.material.emissive.b = 0;
         controller.userData.selected = undefined;
         grabbedObject = null;
+        console.log('Object released:', object);
       }
+
+      // Change controller color back to blue
+      controller.children[0].material.color.set(0x0000ff);
+      console.log('Grab trigger released');
     }
 
     function getIntersections(controller) {
-      const tempMatrix = new THREE.Matrix4();
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      const collider = controller.getObjectByName('collider');
+      const colliderBox = new THREE.Box3().setFromObject(collider);
+      const cubeBox = new THREE.Box3().setFromObject(cube);
 
-      const raycaster = new THREE.Raycaster();
-      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-
-      return raycaster.intersectObject(cube);
+      return colliderBox.intersectsBox(cubeBox) ? [cube] : [];
     }
 
     function animate() {
@@ -170,7 +182,20 @@
         grabbedObject.quaternion.copy(controller.quaternion);
       }
 
+      // Check for collisions and change cube color
+      checkCollisions(controller1);
+      checkCollisions(controller2);
+
       renderer.render(scene, camera);
+    }
+
+    function checkCollisions(controller) {
+      const intersections = getIntersections(controller);
+      if (intersections.length > 0) {
+        cube.material.color.set(0xff0000); // Change cube color to red on collision
+      } else {
+        cube.material.color.set(0x00ff00); // Change cube color back to green when not colliding
+      }
     }
 
     init();
