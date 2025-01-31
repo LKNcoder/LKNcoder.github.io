@@ -101,11 +101,15 @@
       controller1 = renderer.xr.getController(0);
       controller1.addEventListener('selectstart', onSelectStart);
       controller1.addEventListener('selectend', onSelectEnd);
+      controller1.addEventListener('squeezestart', onSelectStart);
+      controller1.addEventListener('squeezeend', onSelectEnd);
       scene.add(controller1);
 
       controller2 = renderer.xr.getController(1);
       controller2.addEventListener('selectstart', onSelectStart);
       controller2.addEventListener('selectend', onSelectEnd);
+      controller2.addEventListener('squeezestart', onSelectStart);
+      controller2.addEventListener('squeezeend', onSelectEnd);
       scene.add(controller2);
 
       window.addEventListener('resize', onWindowResize, false);
@@ -156,9 +160,11 @@
       }
     }
 
-    function onSelectEnd() {
-      grabbed = false;
-      grabbingController = null;
+    function onSelectEnd(event) {
+      if (event.target === grabbingController) {
+        grabbed = false;
+        grabbingController = null;
+      }
     }
 
     function animate() {
