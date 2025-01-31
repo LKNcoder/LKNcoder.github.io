@@ -92,14 +92,17 @@
 
     function onSelectStart(event) {
       const controller = event.target;
-      const controllerBox = new THREE.Box3().setFromObject(controller);
-      const cubeBox = new THREE.Box3().setFromObject(cube);
+      const intersections = getIntersections(controller);
 
-      if (controllerBox.intersectsBox(cubeBox)) {
-        controller.attach(cube);
-        controller.userData.selected = cube;
-        grabbedObject = cube;
-        console.log('Cube grabbed');
+      if (intersections.length > 0) {
+        const intersection = intersections[0];
+        const object = intersection.object;
+        if (object.userData.isGrabbable) {
+          controller.attach(object);
+          controller.userData.selected = object;
+          grabbedObject = object;
+          console.log('Object grabbed:', object);
+        }
       }
     }
 
@@ -111,8 +114,19 @@
         controller.userData.selected = undefined;
         grabbedObject = null;
         scene.attach(object);
-        console.log('Cube released');
+        console.log('Object released:', object);
       }
+    }
+
+    function getIntersections(controller) {
+      const tempMatrix = new THREE.Matrix4();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+      return raycaster.intersectObject(cube);
     }
 
     function animate() {
