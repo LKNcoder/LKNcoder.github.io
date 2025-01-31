@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter ralph VR</button>
+  <button id="vrButton">Enter rhombus VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -83,9 +83,15 @@
       cube.userData.isGrabbable = true;
       scene.add(cube);
 
+      // VR controller group
+      const controllerGroup = new THREE.Group();
+      scene.add(controllerGroup);
+
       // Controllers
-      controller1 = createController(0);
-      controller2 = createController(1);
+      controller1 = renderer.xr.getController(0);
+      controller2 = renderer.xr.getController(1);
+      controllerGroup.add(controller1);
+      controllerGroup.add(controller2);
 
       // Hands
       const handModelFactory = new XRHandModelFactory();
@@ -97,6 +103,10 @@
       hand2 = renderer.xr.getHand(1);
       hand2.add(handModelFactory.createHandModel(hand2));
       scene.add(hand2);
+
+      // Add spheres to controllers
+      addSphereToController(controller1);
+      addSphereToController(controller2);
 
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
@@ -115,31 +125,19 @@
       });
 
       window.addEventListener('resize', onWindowResize, false);
+
+      // Event listeners for grabbing
+      controller1.addEventListener('selectstart', () => grabObject(controller1));
+      controller2.addEventListener('selectstart', () => grabObject(controller2));
+      controller1.addEventListener('selectend', () => releaseObject(controller1));
+      controller2.addEventListener('selectend', () => releaseObject(controller2));
     }
 
-    function createController(controllerId) {
-      const controller = renderer.xr.getController(controllerId);
+    function addSphereToController(controller) {
       const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
       const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x0000ff });
       const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
       controller.add(sphere);
-      scene.add(controller);
-
-      // Add event listeners for color change
-      controller.addEventListener('selectstart', () => {
-        sphereMaterial.color.set(0xff0000);
-        cube.material.color.set(0x0000ff); // Change cube color to blue
-        grabObject(controller);
-        console.log('Grab trigger pulled');
-      });
-      controller.addEventListener('selectend', () => {
-        sphereMaterial.color.set(0x0000ff);
-        cube.material.color.set(0x00ff00); // Change cube color back to green
-        releaseObject(controller);
-        console.log('Grab trigger released');
-      });
-
-      return controller;
     }
 
     function onWindowResize() {
@@ -149,21 +147,21 @@
     }
 
     function grabObject(controller) {
-      const controllerBox = new THREE.Box3().setFromObject(controller);
-      const cubeBox = new THREE.Box3().setFromObject(cube);
-
-      if (controllerBox.intersectsBox(cubeBox)) {
-        controller.attach(cube);
-        controller.userData.selected = cube;
-        grabbedObject = cube;
-        console.log('Cube grabbed');
+      const intersections = controller.intersectObjects(scene.children);
+      if (intersections.length > 0) {
+        const object = intersections[0].object;
+        if (object.userData.isGrabbable) {
+          controller.attach(object);
+          controller.userData.selected = object;
+          grabbedObject = object;
+          console.log('Object grabbed:', object);
+        }
       }
     }
 
     function releaseObject(controller) {
       if (controller.userData.selected !== undefined) {
         const object = controller.userData.selected;
-        object.material.emissive.b = 0;
         controller.userData.selected = undefined;
         grabbedObject = null;
         scene.attach(object);
