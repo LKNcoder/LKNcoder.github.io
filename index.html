@@ -29,22 +29,24 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter rudolph VR</button>
+  <button id="vrButton">Enter fugazi VR</button>
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js"
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
       }
     }
   </script>
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+    import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
-    let hand1, hand2;
+    let controllerGrip1, controllerGrip2;
     let cube;
     let vrButton = document.getElementById('vrButton');
     let grabbedObject = null;
@@ -82,8 +84,25 @@
       scene.add(cube);
 
       // Controllers
-      controller1 = createController(0);
-      controller2 = createController(1);
+      const controllerModelFactory = new XRControllerModelFactory();
+
+      controller1 = renderer.xr.getController(0);
+      controller1.addEventListener('selectstart', onSelectStart);
+      controller1.addEventListener('selectend', onSelectEnd);
+      scene.add(controller1);
+
+      controller2 = renderer.xr.getController(1);
+      controller2.addEventListener('selectstart', onSelectStart);
+      controller2.addEventListener('selectend', onSelectEnd);
+      scene.add(controller2);
+
+      controllerGrip1 = renderer.xr.getControllerGrip(0);
+      controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+      scene.add(controllerGrip1);
+
+      controllerGrip2 = renderer.xr.getControllerGrip(1);
+      controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+      scene.add(controllerGrip2);
 
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
@@ -104,22 +123,6 @@
       window.addEventListener('resize', onWindowResize, false);
     }
 
-    function createController(controllerId) {
-      const controller = renderer.xr.getController(controllerId);
-      const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-      const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      controller.add(sphere);
-      scene.add(controller);
-
-      // Add collider
-      const collider = new THREE.Mesh(sphereGeometry, new THREE.MeshBasicMaterial({ visible: false }));
-      collider.name = 'collider';
-      controller.add(collider);
-
-      return controller;
-    }
-
     function onWindowResize() {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -137,6 +140,7 @@
           controller.userData.selected = object;
           object.material.emissive.b = 1;
           grabbedObject = object;
+          controller.attach(object);
           console.log('Object grabbed:', object);
         }
       }
@@ -154,6 +158,7 @@
         object.material.emissive.b = 0;
         controller.userData.selected = undefined;
         grabbedObject = null;
+        scene.attach(object);
         console.log('Object released:', object);
       }
 
@@ -163,11 +168,14 @@
     }
 
     function getIntersections(controller) {
-      const collider = controller.getObjectByName('collider');
-      const colliderBox = new THREE.Box3().setFromObject(collider);
-      const cubeBox = new THREE.Box3().setFromObject(cube);
+      const tempMatrix = new THREE.Matrix4();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
 
-      return colliderBox.intersectsBox(cubeBox) ? [cube] : [];
+      const raycaster = new THREE.Raycaster();
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+      return raycaster.intersectObject(cube);
     }
 
     function animate() {
