@@ -52,6 +52,7 @@
     let cube;
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
     let colorIndex = 0;
+    let cubeBox, controllerBox1, controllerBox2;
 
     init();
     animate();
@@ -77,6 +78,9 @@
       cube.position.set(0, 1.5, -0.5); // Move the cube closer to the player
       scene.add(cube);
 
+      // Initialize bounding boxes
+      cubeBox = new THREE.Box3().setFromObject(cube);
+
       // Add controllers
       const controllerModelFactory = new XRControllerModelFactory();
 
@@ -95,6 +99,10 @@
       controllerGrip2 = renderer.xr.getControllerGrip(1);
       controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
       scene.add(controllerGrip2);
+
+      // Initialize bounding boxes for controllers
+      controllerBox1 = new THREE.Box3().setFromObject(controller1);
+      controllerBox2 = new THREE.Box3().setFromObject(controller2);
 
       window.addEventListener('resize', onWindowResize, false);
 
@@ -132,11 +140,18 @@
       }
     }
 
+    function updateBoundingBoxes() {
+      cubeBox.setFromObject(cube);
+      controllerBox1.setFromObject(controller1);
+      controllerBox2.setFromObject(controller2);
+    }
+
     function animate() {
       renderer.setAnimationLoop(render);
     }
 
     function render() {
+      updateBoundingBoxes();
       renderer.render(scene, camera);
     }
   </script>
