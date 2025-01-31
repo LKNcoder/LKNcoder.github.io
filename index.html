@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter bing VR</button>
+  <button id="vrButton">Enter ralph VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -210,6 +210,7 @@
         const controller = grabbedObject === controller1.userData.selected ? controller1 : controller2;
         grabbedObject.position.copy(controller.position);
         grabbedObject.quaternion.copy(controller.quaternion);
+        console.log('Updated grabbed object position:', grabbedObject.position);
       }
 
       renderer.render(scene, camera);
