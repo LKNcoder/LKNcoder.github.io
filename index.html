@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter cylinds VR</button>
+  <button id="vrButton">Enter bumba VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -42,7 +42,6 @@
   <script type="module">
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-    import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 
     let camera, scene, renderer;
     let controller1, controller2;
@@ -87,17 +86,6 @@
       controller1 = createController(0);
       controller2 = createController(1);
 
-      // Hands
-      const handModelFactory = new XRHandModelFactory();
-
-      hand1 = renderer.xr.getHand(0);
-      hand1.add(handModelFactory.createHandModel(hand1));
-      scene.add(hand1);
-
-      hand2 = renderer.xr.getHand(1);
-      hand2.add(handModelFactory.createHandModel(hand2));
-      scene.add(hand2);
-
       // VR Button
       document.body.appendChild(VRButton.createButton(renderer));
       vrButton.addEventListener('click', async () => {
@@ -119,9 +107,10 @@
 
     function createController(controllerId) {
       const controller = renderer.xr.getController(controllerId);
-      const handModelFactory = new XRHandModelFactory();
-      const handModel = handModelFactory.createHandModel(controller);
-      controller.add(handModel);
+      const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+      const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      controller.add(sphere);
       scene.add(controller);
       return controller;
     }
@@ -174,30 +163,6 @@
     }
 
     function render() {
-      // Update hand positions
-      if (renderer.xr.isPresenting) {
-        const session = renderer.xr.getSession();
-        const inputSources = session.inputSources;
-
-        for (const inputSource of inputSources) {
-          if (inputSource.hand) {
-            const hand = inputSource.hand;
-            const handMesh = inputSource.handedness === 'left' ? hand1 : hand2;
-
-            if (handMesh) {
-              const referenceSpace = renderer.xr.getReferenceSpace();
-              const pose = session.getPose(hand.get('wrist').targetRaySpace, referenceSpace);
-
-              if (pose) {
-                handMesh.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
-                handMesh.quaternion.set(pose.transform.orientation.x, pose.transform.orientation.y, pose.transform.orientation.z, pose.transform.orientation.w);
-                console.log(`Updated ${inputSource.handedness} hand position:`, handMesh.position);
-              }
-            }
-          }
-        }
-      }
-
       // Update grabbed object position
       if (grabbedObject) {
         const controller = grabbedObject === controller1.userData.selected ? controller1 : controller2;
