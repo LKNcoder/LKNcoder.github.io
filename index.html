@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter geese VR</button>
+  <button id="vrButton">Enter red VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -80,6 +80,7 @@
       const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
       cube = new THREE.Mesh(geometry, material);
       cube.position.set(0, 1.5, -1);
+      cube.userData.isGrabbable = true;
       scene.add(cube);
 
       // Controllers
@@ -118,22 +119,20 @@
 
     function createController(controllerId) {
       const controller = renderer.xr.getController(controllerId);
-      const cylinderGeometry = new THREE.CylinderGeometry(0.025, 0.025, 1, 32);
-      const cylinderMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-      const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
-      cylinder.geometry.translate(0, 0.5, 0);
-      cylinder.rotateX(-0.25 * Math.PI);
-      controller.add(cylinder);
+      const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+      const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x0000ff });
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      controller.add(sphere);
       scene.add(controller);
 
       // Add event listeners for color change
       controller.addEventListener('selectstart', () => {
-        cylinderMaterial.color.set(0xff0000);
+        sphereMaterial.color.set(0xff0000);
         cube.material.color.set(0x0000ff); // Change cube color to blue
         console.log('Grab trigger pulled');
       });
       controller.addEventListener('selectend', () => {
-        cylinderMaterial.color.set(0xffff00);
+        sphereMaterial.color.set(0x0000ff);
         cube.material.color.set(0x00ff00); // Change cube color back to green
         console.log('Grab trigger released');
       });
