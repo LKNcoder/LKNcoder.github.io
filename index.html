@@ -54,7 +54,8 @@
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
     let colorIndex = 0;
     let cubeBox, sphereBox1, sphereBox2;
-    let grabbedObject = null;
+    let grabbed = false;
+    let grabbingController = null;
 
     init();
     animate();
@@ -150,34 +151,25 @@
 
     function checkCollision() {
       if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
-        if (!grabbedObject) {
-          colorIndex = (colorIndex + 1) % colors.length;
-          cube.material.color.setHex(colors[colorIndex]);
-          console.log('Cube color changed to:', colors[colorIndex].toString(16));
-        }
+        colorIndex = (colorIndex + 1) % colors.length;
+        cube.material.color.setHex(colors[colorIndex]);
+        console.log('Cube color changed to:', colors[colorIndex].toString(16));
       }
     }
 
     function onSelectStart(event) {
-      const controller = event.target;
-      const controllerBox = new THREE.Box3().setFromObject(controller);
-      const cubeBox = new THREE.Box3().setFromObject(cube);
-
-      if (controllerBox.intersectsBox(cubeBox)) {
-        grabbedObject = cube;
-        controller.attach(grabbedObject);
-        console.log('Cube grabbed');
+      if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+        grabbed = true;
+        grabbingController = controller1;
+      } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+        grabbed = true;
+        grabbingController = controller2;
       }
     }
 
-    function onSelectEnd(event) {
-      const controller = event.target;
-
-      if (grabbedObject) {
-        scene.attach(grabbedObject);
-        grabbedObject = null;
-        console.log('Cube released');
-      }
+    function onSelectEnd() {
+      grabbed = false;
+      grabbingController = null;
     }
 
     function animate() {
@@ -193,9 +185,9 @@
       updateBoundingBoxes();
       checkCollision();
 
-      // Update grabbed object position
-      if (grabbedObject) {
-        grabbedObject.position.copy(sphere1.position);
+      // Move cube with the grabbing controller
+      if (grabbed && grabbingController) {
+        cube.position.copy(grabbingController.position);
       }
 
       renderer.render(scene, camera);
