@@ -29,7 +29,7 @@
 </head>
 <body>
   <div id="parentDiv"></div>
-  <button id="vrButton">Enter fugazi VR</button>
+  <button id="vrButton">Enter donkey VR</button>
   <script type="importmap">
     {
       "imports": {
@@ -168,14 +168,10 @@
     }
 
     function getIntersections(controller) {
-      const tempMatrix = new THREE.Matrix4();
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      const controllerBox = new THREE.Box3().setFromObject(controller);
+      const cubeBox = new THREE.Box3().setFromObject(cube);
 
-      const raycaster = new THREE.Raycaster();
-      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-
-      return raycaster.intersectObject(cube);
+      return controllerBox.intersectsBox(cubeBox) ? [cube] : [];
     }
 
     function animate() {
