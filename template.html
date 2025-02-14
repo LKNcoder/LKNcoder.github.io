@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+  <title>Simple VR App</title>
+  <style>
+    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
+    canvas { display: block; }
+    #vrButton {
+      padding: 20px 40px;
+      font-size: 24px;
+      background-color: #0078d7;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #vrButton:hover {
+      background-color: #005bb5;
+    }
+  </style>
+</head>
+<body>
+  <button id="vrButton">Enter VR</button>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+
+    let camera, scene, renderer;
+    let controller1, controller2;
+    let sphere1, sphere2;
+    let cube;
+    let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+    let colorIndex = 0;
+    let cubeBox, sphereBox1, sphereBox2;
+    let grabbed = false;
+    let grabbingController = null;
+    let grabOffset = new THREE.Vector3();
+
+    init();
+    animate();
+
+    function init() {
+      // Basic Three.js setup
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Add light
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      light.position.set(0.5, 1, 0.25);
+      scene.add(light);
+
+      // Add objects to the scene
+      const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+      const material = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
+      cube = new THREE.Mesh(geometry, material);
+      cube.position.set(0, 1.5, -0.5); // Move the cube closer to the player
+      scene.add(cube);
+
+      // Initialize bounding boxes
+      cubeBox = new THREE.Box3().setFromObject(cube);
+
+      // Add spheres as controllers
+      const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+      const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
+
+      sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      scene.add(sphere1);
+
+      sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      scene.add(sphere2);
+
+      // Initialize bounding spheres for spheres
+      sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+      sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
+
+      // Add controllers
+      controller1 = renderer.xr.getController(0);
+      controller1.addEventListener('selectstart', onSelectStart);
+      controller1.addEventListener('selectend', onSelectEnd);
+      controller1.addEventListener('squeezestart', onSelectStart);
+      controller1.addEventListener('squeezeend', onSelectEnd);
+      scene.add(controller1);
+
+      controller2 = renderer.xr.getController(1);
+      controller2.addEventListener('selectstart', onSelectStart);
+      controller2.addEventListener('selectend', onSelectEnd);
+      controller2.addEventListener('squeezestart', onSelectStart);
+      controller2.addEventListener('squeezeend', onSelectEnd);
+      scene.add(controller2);
+
+      window.addEventListener('resize', onWindowResize, false);
+
+      // VR Button
+      const vrButton = document.getElementById('vrButton');
+      vrButton.addEventListener('click', async () => {
+        try {
+          const session = await navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+          });
+          renderer.xr.setSession(session);
+          vrButton.style.display = 'none';
+          console.log('VR Button clicked');
+        } catch (error) {
+          console.error('Failed to enter VR:', error);
+        }
+      });
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function updateBoundingBoxes() {
+      cubeBox.setFromObject(cube);
+      sphereBox1.set(sphere1.position, 0.05);
+      sphereBox2.set(sphere2.position, 0.05);
+    }
+
+    function checkCollision() {
+      if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
+        console.log('Collision detected');
+      }
+    }
+
+    function onSelectStart(event) {
+      if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+        grabbed = true;
+        grabbingController = controller1;
+        grabOffset.copy(cube.position).sub(controller1.position);
+      } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+        grabbed = true;
+        grabbingController = controller2;
+        grabOffset.copy(cube.position).sub(controller2.position);
+      }
+    }
+
+    function onSelectEnd(event) {
+      if (event.target === grabbingController) {
+        grabbed = false;
+        grabbingController = null;
+      }
+    }
+
+    function animate() {
+      renderer.setAnimationLoop(render);
+    }
+
+    function render() {
+      // Update sphere positions to match controller positions
+      sphere1.position.copy(controller1.position);
+      sphere2.position.copy(controller2.position);
+
+      // Update bounding boxes and check for collisions
+      updateBoundingBoxes();
+      checkCollision();
+
+      // Move cube with the grabbing controller while maintaining the offset
+      if (grabbed && grabbingController) {
+        cube.position.copy(grabbingController.position).add(grabOffset);
+      }
+
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>
