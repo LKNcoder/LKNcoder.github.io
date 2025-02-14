@@ -48,13 +48,14 @@
     let camera, scene, renderer;
     let controller1, controller2;
     let sphere1, sphere2;
-    let ring, textMesh;
+    let ring, textMesh, timerMesh;
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
     let colorIndex = 0;
     let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
+    let startTime = null;
 
     init();
     animate();
@@ -74,8 +75,14 @@
       scene.add(light);
 
       // Add 3D ring to the scene
-      const ringGeometry = new THREE.TorusGeometry(0.15, 0.0125, 16, 100);
-      const ringMaterial = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
+      const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x800080, // Pure purple
+        emissive: 0xff69b4, // Hot pink emissive
+        emissiveIntensity: 1.0,
+        metalness: 1.0,
+        roughness: 0.0
+      });
       ring = new THREE.Mesh(ringGeometry, ringMaterial);
       ring.position.set(0, 1.5, -0.5); // Move the ring closer to the player
       ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
@@ -87,10 +94,10 @@
       // Add text above the ring
       const loader = new THREE.FontLoader();
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
-        const textGeometry = new THREE.TextGeometry('Level 1', {
+        const textGeometry = new THREE.TextGeometry('LEVEL 1', {
           font: font,
-          size: 0.05,
-          height: 0.01,
+          size: 0.025,
+          height: 0.005,
         });
         const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
@@ -98,6 +105,19 @@
         const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
         textMesh.position.set(centerOffset, 1.7, -0.5); // Position text above the ring
         scene.add(textMesh);
+
+        // Add timer text below the level text
+        const timerGeometry = new THREE.TextGeometry('0:00:00', {
+          font: font,
+          size: 0.02,
+          height: 0.005,
+        });
+        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+        timerGeometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+        timerMesh.position.set(timerCenterOffset, 1.65, -0.5); // Position timer below the level text
+        scene.add(timerMesh);
       });
 
       // Add spheres as controllers
@@ -197,10 +217,12 @@
         grabbed = true;
         grabbingController = controller1;
         grabOffset.copy(ring.position).sub(controller1.position);
+        startTime = Date.now();
       } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
         grabOffset.copy(ring.position).sub(controller2.position);
+        startTime = Date.now();
       }
     }
 
@@ -228,11 +250,28 @@
       if (grabbed && grabbingController) {
         ring.position.copy(grabbingController.position).add(grabOffset);
         // Keep the text above the ring and billboarded to face the player
-        textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+        textMesh.position.set(ring.position.x, ring.position.y + 0.1, ring.position.z);
         textMesh.geometry.computeBoundingBox();
         const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
         textMesh.position.x += centerOffset;
         textMesh.lookAt(camera.position);
+
+        // Update timer
+        const elapsedTime = Date.now() - startTime;
+        const seconds = Math.floor((elapsedTime / 1000) % 60);
+        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
+        const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
+        const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        timerMesh.geometry.dispose();
+        timerMesh.geometry = new THREE.TextGeometry(timerText, {
+          font: textMesh.geometry.parameters.font,
+          size: 0.02,
+          height: 0.005,
+        });
+        timerMesh.geometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.05, ring.position.z);
+        timerMesh.lookAt(camera.position);
       }
 
       renderer.render(scene, camera);
