@@ -77,9 +77,7 @@
       // Add 3D ring to the scene
       const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
       const ringMaterial = new THREE.MeshStandardMaterial({
-        color: 0x800080, // Pure purple
-        emissive: 0xff69b4, // Hot pink emissive
-        emissiveIntensity: 1.0,
+        color: 0x00ff00, // Green
         metalness: 1.0,
         roughness: 0.0
       });
@@ -262,12 +260,13 @@
         const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
         const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
         const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        timerMesh.geometry.dispose();
-        timerMesh.geometry = new THREE.TextGeometry(timerText, {
+        const timerGeometry = new THREE.TextGeometry(timerText, {
           font: textMesh.geometry.parameters.font,
           size: 0.02,
           height: 0.005,
         });
+        timerMesh.geometry.dispose();
+        timerMesh.geometry = timerGeometry;
         timerMesh.geometry.computeBoundingBox();
         const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
         timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.05, ring.position.z);
