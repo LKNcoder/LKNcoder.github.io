@@ -96,7 +96,7 @@
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
         const textGeometry = new THREE.TextGeometry('LEVEL 1', {
           font: font,
-          size: 0.025,
+          size: 0.02,
           height: 0.005,
         });
         const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
@@ -116,7 +116,7 @@
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
         timerGeometry.computeBoundingBox();
         const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.6, -0.5); // Adjust timer position to be beneath the text
+        timerMesh.position.set(timerCenterOffset, 1.62, -0.5); // Adjust timer position to be beneath the text
         scene.add(timerMesh);
       });
 
