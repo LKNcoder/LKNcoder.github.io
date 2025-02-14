@@ -73,8 +73,8 @@
       light.position.set(0.5, 1, 0.25);
       scene.add(light);
 
-      // Add ring to the scene
-      const ringGeometry = new THREE.RingGeometry(0.1, 0.2, 32);
+      // Add 3D ring to the scene
+      const ringGeometry = new THREE.TorusGeometry(0.15, 0.05, 16, 100);
       const ringMaterial = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
       ring = new THREE.Mesh(ringGeometry, ringMaterial);
       ring.position.set(0, 1.5, -0.5); // Move the ring closer to the player
@@ -88,12 +88,14 @@
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
         const textGeometry = new THREE.TextGeometry('Level 1', {
           font: font,
-          size: 0.1,
+          size: 0.05,
           height: 0.01,
         });
         const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textMesh.position.set(0, 1.7, -0.5); // Position text above the ring
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        textMesh.position.set(centerOffset, 1.7, -0.5); // Position text above the ring
         scene.add(textMesh);
       });
 
