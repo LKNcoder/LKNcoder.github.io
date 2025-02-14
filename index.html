@@ -74,10 +74,11 @@
       scene.add(light);
 
       // Add 3D ring to the scene
-      const ringGeometry = new THREE.TorusGeometry(0.15, 0.05, 16, 100);
+      const ringGeometry = new THREE.TorusGeometry(0.15, 0.0125, 16, 100);
       const ringMaterial = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
       ring = new THREE.Mesh(ringGeometry, ringMaterial);
       ring.position.set(0, 1.5, -0.5); // Move the ring closer to the player
+      ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
       scene.add(ring);
 
       // Initialize bounding boxes
@@ -228,6 +229,9 @@
         ring.position.copy(grabbingController.position).add(grabOffset);
         // Keep the text above the ring and billboarded to face the player
         textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+        textMesh.geometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+        textMesh.position.x += centerOffset;
         textMesh.lookAt(camera.position);
       }
 
