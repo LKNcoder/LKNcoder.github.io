@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <!doctype html>
 <html>
 <head>
@@ -78,11 +77,13 @@
       const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
       const material = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
       cube = new THREE.Mesh(geometry, material);
-      cube.position.set(0, 1.5, -0.5);
+      cube.position.set(0, 1.5, -0.5); // Move the cube closer to the player
       scene.add(cube);
 
+      // Initialize bounding boxes
       cubeBox = new THREE.Box3().setFromObject(cube);
 
+      // Add spheres as controllers
       const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
       const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
 
@@ -92,9 +93,11 @@
       sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
       scene.add(sphere2);
 
+      // Initialize bounding spheres for spheres
       sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
       sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
+      // Add controllers
       controller1 = renderer.xr.getController(0);
       controller1.addEventListener('selectstart', onSelectStart);
       controller1.addEventListener('selectend', onSelectEnd);
@@ -111,6 +114,7 @@
 
       window.addEventListener('resize', onWindowResize, false);
 
+      // VR Button
       const vrButton = document.getElementById('vrButton');
       vrButton.addEventListener('click', async () => {
         try {
@@ -119,6 +123,7 @@
           });
           renderer.xr.setSession(session);
           vrButton.style.display = 'none';
+          console.log('VR Button clicked');
         } catch (error) {
           console.error('Failed to enter VR:', error);
         }
@@ -167,12 +172,15 @@
     }
 
     function render() {
+      // Update sphere positions to match controller positions
       sphere1.position.copy(controller1.position);
       sphere2.position.copy(controller2.position);
 
+      // Update bounding boxes and check for collisions
       updateBoundingBoxes();
       checkCollision();
 
+      // Move cube with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
         cube.position.copy(grabbingController.position).add(grabOffset);
       }
@@ -182,49 +190,3 @@
   </script>
 </body>
 </html>
-=======
-<!doctype html>
-<html>
-<head>
-  <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-  <meta name='mobile-web-app-capable' content='yes'>
-  <meta name='apple-mobile-web-app-capable' content='yes'>
-  <title>VR Wire Game</title>
-  <style>
-    body { margin: 0; }
-    #renderDiv { width: 100vw; height: 100vh; }
-    #loadingScreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.8);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 24px;
-      z-index: 1000;
-    }
-  </style>
-</head>
-<body>
-  <div id="renderDiv"></div>
-  <div id="loadingScreen">Loading... 0%</div>
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
-      }
-    }
-  </script>
-  <script type="module">
-    // Your entire JavaScript code goes here
-    [Your complete JavaScript code from line 1 to 857]
-  </script>
-</body>
-</html>
->>>>>>> updated
