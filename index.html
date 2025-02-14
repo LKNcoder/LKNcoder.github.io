@@ -48,7 +48,7 @@
     let camera, scene, renderer;
     let controller1, controller2;
     let sphere1, sphere2;
-    let cube;
+    let ring, textMesh;
     let colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
     let colorIndex = 0;
     let cubeBox, sphereBox1, sphereBox2;
@@ -73,15 +73,29 @@
       light.position.set(0.5, 1, 0.25);
       scene.add(light);
 
-      // Add objects to the scene
-      const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-      const material = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
-      cube = new THREE.Mesh(geometry, material);
-      cube.position.set(0, 1.5, -0.5); // Move the cube closer to the player
-      scene.add(cube);
+      // Add ring to the scene
+      const ringGeometry = new THREE.RingGeometry(0.1, 0.2, 32);
+      const ringMaterial = new THREE.MeshStandardMaterial({ color: colors[colorIndex] });
+      ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.position.set(0, 1.5, -0.5); // Move the ring closer to the player
+      scene.add(ring);
 
       // Initialize bounding boxes
-      cubeBox = new THREE.Box3().setFromObject(cube);
+      cubeBox = new THREE.Box3().setFromObject(ring);
+
+      // Add text above the ring
+      const loader = new THREE.FontLoader();
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+        const textGeometry = new THREE.TextGeometry('Level 1', {
+          font: font,
+          size: 0.1,
+          height: 0.01,
+        });
+        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textMesh.position.set(0, 1.7, -0.5); // Position text above the ring
+        scene.add(textMesh);
+      });
 
       // Add spheres as controllers
       const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
@@ -128,6 +142,33 @@
           console.error('Failed to enter VR:', error);
         }
       });
+
+      // Add some floating particles for ambiance
+      const particlesGeometry = new THREE.BufferGeometry();
+      const particlesCount = 3000;
+      const posArray = new Float32Array(particlesCount * 3);
+      for (let i = 0; i < particlesCount * 3; i += 3) {
+        // Generate position
+        let x = (Math.random() - 0.5) * 100;
+        let y = (Math.random() - 0.5) * 100;
+        let z = (Math.random() - 0.5) * 100;
+
+        posArray[i] = x;
+        posArray[i + 1] = y;
+        posArray[i + 2] = z;
+      }
+
+      particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      const particlesMaterial = new THREE.PointsMaterial({
+        size: 0.2,
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+      });
+
+      const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+      scene.add(particlesMesh);
     }
 
     function onWindowResize() {
@@ -137,7 +178,7 @@
     }
 
     function updateBoundingBoxes() {
-      cubeBox.setFromObject(cube);
+      cubeBox.setFromObject(ring);
       sphereBox1.set(sphere1.position, 0.05);
       sphereBox2.set(sphere2.position, 0.05);
     }
@@ -152,11 +193,11 @@
       if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
         grabbed = true;
         grabbingController = controller1;
-        grabOffset.copy(cube.position).sub(controller1.position);
+        grabOffset.copy(ring.position).sub(controller1.position);
       } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
-        grabOffset.copy(cube.position).sub(controller2.position);
+        grabOffset.copy(ring.position).sub(controller2.position);
       }
     }
 
@@ -180,9 +221,12 @@
       updateBoundingBoxes();
       checkCollision();
 
-      // Move cube with the grabbing controller while maintaining the offset
+      // Move ring with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
-        cube.position.copy(grabbingController.position).add(grabOffset);
+        ring.position.copy(grabbingController.position).add(grabOffset);
+        // Keep the text above the ring and billboarded to face the player
+        textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+        textMesh.lookAt(camera.position);
       }
 
       renderer.render(scene, camera);
