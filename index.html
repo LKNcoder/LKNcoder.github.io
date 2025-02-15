@@ -55,6 +55,7 @@
     let grabOffset = new THREE.Vector3();
     let grabRotationOffset = new THREE.Quaternion();
     let startTime = null;
+    let elapsedTime = 0;
     let font;
 
     init();
@@ -108,7 +109,7 @@
         scene.add(textMesh);
 
         // Add timer text below the level text
-        const timerGeometry = new THREE.TextGeometry('0:00:00', {
+        const timerGeometry = new THREE.TextGeometry('00:000', {
           font: font,
           size: 0.02,
           height: 0.005,
@@ -219,13 +220,17 @@
         grabbingController = controller1;
         grabOffset.copy(ring.position).sub(controller1.position);
         grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
-        startTime = Date.now();
+        if (startTime === null) {
+          startTime = Date.now() - elapsedTime;
+        }
       } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
         grabOffset.copy(ring.position).sub(controller2.position);
         grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
-        startTime = Date.now();
+        if (startTime === null) {
+          startTime = Date.now() - elapsedTime;
+        }
       }
     }
 
@@ -272,11 +277,10 @@
 
       // Update timer
       if (startTime !== null) {
-        const elapsedTime = Date.now() - startTime;
+        elapsedTime = Date.now() - startTime;
+        const milliseconds = Math.floor(elapsedTime % 1000);
         const seconds = Math.floor((elapsedTime / 1000) % 60);
-        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
-        const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
-        const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
         // Update timer text
         const timerGeometry = new THREE.TextGeometry(timerText, {
