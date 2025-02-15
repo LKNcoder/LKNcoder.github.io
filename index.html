@@ -249,6 +249,15 @@
       // Move ring with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
         ring.position.copy(grabbingController.position).add(grabOffset);
+        ring.rotation.copy(grabbingController.rotation); // Update ring rotation to match controller rotation
+
+        // Hide the spheres when the ring is grabbed
+        sphere1.visible = false;
+        sphere2.visible = false;
+      } else {
+        // Show the spheres when the ring is not grabbed
+        sphere1.visible = true;
+        sphere2.visible = true;
       }
 
       // Keep the text and timer above the ring and billboarded to face the player
