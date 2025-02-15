@@ -54,7 +54,6 @@
     let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
-    let grabOffset = new THREE.Vector3();
     let startTime = null;
 
     init();
@@ -216,12 +215,10 @@
       if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
         grabbed = true;
         grabbingController = controller1;
-        grabOffset.copy(ring.position).sub(controller1.position);
         startTime = Date.now();
       } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
-        grabOffset.copy(ring.position).sub(controller2.position);
         startTime = Date.now();
       }
     }
@@ -248,7 +245,7 @@
 
       // Move ring with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
-        ring.position.copy(grabbingController.position).add(grabOffset);
+        ring.position.copy(grabbingController.position);
         ring.rotation.copy(grabbingController.rotation); // Update ring rotation to match controller rotation
 
         // Hide the spheres when the ring is grabbed
