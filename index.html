@@ -270,27 +270,33 @@
       textMesh.position.x += centerOffset;
       textMesh.lookAt(camera.position);
 
-       
-// Update timer
-if (startTime !== null) {
-  const elapsedTime = Date.now() - startTime;
-  const seconds = Math.floor((elapsedTime / 1000) % 60);
-  const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
-  const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
-  const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  timerMesh.geometry.dispose();
-  timerMesh.geometry = new THREE.TextGeometry(timerText, {
-    font: textMesh.geometry.parameters.font,
-    size: 0.02,
-    height: 0.005,
-  });
-  timerMesh.geometry.computeBoundingBox();
-  const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-  timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-  timerMesh.lookAt(camera.position);
-}
+      // Update timer
+      if (startTime !== null) {
+        const elapsedTime = Date.now() - startTime;
+        const seconds = Math.floor((elapsedTime / 1000) % 60);
+        const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
+        const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
+        const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        const timerGeometry = new THREE.TextBufferGeometry(timerText, {
+          font: textMesh.geometry.parameters.font,
+          size: 0.02,
+          height: 0.005,
+        });
+        timerMesh.geometry.dispose();
+        timerMesh.geometry = timerGeometry;
+        timerMesh.geometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+        timerMesh.lookAt(camera.position);
+      }
 
-renderer.render(scene, camera);
+      // Ensure timer text stays attached to the ring and faces the player
+      timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.x += timerCenterOffset;
+      timerMesh.lookAt(camera.position);
+
+      renderer.render(scene, camera);
     }
   </script>
 </body>
