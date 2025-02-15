@@ -277,13 +277,6 @@
         timerMesh.lookAt(camera.position);
       }
 
-      // Ensure timer text stays attached to the ring and faces the player
-      timerMesh.position.set(ring.position.x, ring.position.y + 0.03, ring.position.z);
-      timerMesh.geometry.computeBoundingBox();
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.x += timerCenterOffset;
-      timerMesh.lookAt(camera.position);
-
       renderer.render(scene, camera);
     }
   </script>
