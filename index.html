@@ -48,13 +48,14 @@
     let camera, scene, renderer;
     let controller1, controller2;
     let sphere1, sphere2;
-    let ring, textMesh, timerSprite;
+    let ring, textMesh, timerMesh;
     let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
     let grabRotationOffset = new THREE.Quaternion();
     let startTime = null;
+    let font;
 
     init();
     animate();
@@ -92,7 +93,8 @@
 
       // Add text above the ring
       const loader = new THREE.FontLoader();
-      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+        font = loadedFont;
         const textGeometry = new THREE.TextGeometry('LEVEL 1', {
           font: font,
           size: 0.02,
@@ -105,21 +107,18 @@
         textMesh.position.set(centerOffset, 2.0, -0.5); // Position text above the ring
         scene.add(textMesh);
 
-        // Add timer sprite below the level text
-        const timerCanvas = document.createElement('canvas');
-        const timerContext = timerCanvas.getContext('2d');
-        timerCanvas.width = 256;
-        timerCanvas.height = 64;
-        timerContext.font = '48px Arial';
-        timerContext.fillStyle = 'white';
-        timerContext.fillText('0:00:00', 10, 50);
-
-        const timerTexture = new THREE.CanvasTexture(timerCanvas);
-        const timerMaterial = new THREE.SpriteMaterial({ map: timerTexture });
-        timerSprite = new THREE.Sprite(timerMaterial);
-        timerSprite.scale.set(0.5, 0.125, 1);
-        timerSprite.position.set(0, 1.8, -0.5); // Position timer below the level text
-        scene.add(timerSprite);
+        // Add timer text below the level text
+        const timerGeometry = new THREE.TextGeometry('0:00:00', {
+          font: font,
+          size: 0.02,
+          height: 0.005,
+        });
+        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+        timerGeometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+        timerMesh.position.set(timerCenterOffset, 1.8, -0.5); // Position timer below the level text
+        scene.add(timerMesh);
       });
 
       // Add spheres as controllers
@@ -279,17 +278,25 @@
         const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
         const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
-        // Update timer sprite
-        const timerCanvas = timerSprite.material.map.image;
-        const timerContext = timerCanvas.getContext('2d');
-        timerContext.clearRect(0, 0, timerCanvas.width, timerCanvas.height);
-        timerContext.fillText(timerText, 10, 50);
-        timerSprite.material.map.needsUpdate = true;
+        // Update timer text
+        const timerGeometry = new THREE.TextGeometry(timerText, {
+          font: font,
+          size: 0.02,
+          height: 0.005,
+        });
+        timerMesh.geometry.dispose();
+        timerMesh.geometry = timerGeometry;
+        timerMesh.geometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+        timerMesh.lookAt(camera.position);
       }
 
-      // Ensure timer sprite stays attached to the ring and faces the player
-      timerSprite.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-      timerSprite.lookAt(camera.position);
+      // Ensure timer text stays attached to the ring and faces the player
+      timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.x += timerCenterOffset;
+      timerMesh.lookAt(camera.position);
 
       renderer.render(scene, camera);
     }
