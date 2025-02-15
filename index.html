@@ -55,6 +55,7 @@
     let grabOffset = new THREE.Vector3();
     let grabRotationOffset = new THREE.Quaternion();
     let startTime = null;
+    let timerText = '0:00:00';
 
     init();
     animate();
@@ -106,7 +107,7 @@
         scene.add(textMesh);
 
         // Add timer text below the level text
-        const timerGeometry = new THREE.TextGeometry('0:00:00', {
+        const timerGeometry = new THREE.TextGeometry(timerText, {
           font: font,
           size: 0.02,
           height: 0.005,
@@ -274,14 +275,12 @@
         const seconds = Math.floor((elapsedTime / 1000) % 60);
         const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
         const hours = Math.floor((elapsedTime / (1000 * 60 * 60)) % 24);
-        const timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        const timerGeometry = new THREE.TextGeometry(timerText, {
+        timerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        timerMesh.geometry = new THREE.TextGeometry(timerText, {
           font: textMesh.geometry.parameters.font,
           size: 0.02,
           height: 0.005,
         });
-        timerMesh.geometry.dispose();
-        timerMesh.geometry = timerGeometry;
         timerMesh.geometry.computeBoundingBox();
         const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
         timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
