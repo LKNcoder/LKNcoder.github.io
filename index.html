@@ -1,309 +1,233 @@
-<!doctype html>
-<html>
+<<<<<<< HEAD
+// Your existing React code
+=======
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-  <meta name='mobile-web-app-capable' content='yes'>
-  <meta name='apple-mobile-web-app-capable' content='yes'>
-  <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
-  <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-  <title>Simple VR App</title>
-  <style>
-    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
-    canvas { display: block; }
-    #vrButton {
-      padding: 20px 40px;
-      font-size: 24px;
-      background-color: #0078d7;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-    #vrButton:hover {
-      background-color: #005bb5;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Mirror Experience</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #renderDiv {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff;
+        }
+        #mountPoint {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body>
-  <button id="vrButton">Enter VR</button>
-  <script type="importmap">
+    <div id="renderDiv">
+        <div id="mountPoint"></div>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script type="importmap">
     {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
-      }
-    }
-  </script>
-  <script type="module">
-    import * as THREE from 'three';
-    import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-
-    let camera, scene, renderer;
-    let controller1, controller2;
-    let sphere1, sphere2;
-    let ring, textMesh, timerMesh;
-    let cubeBox, sphereBox1, sphereBox2;
-    let grabbed = false;
-    let grabbingController = null;
-    let grabOffset = new THREE.Vector3();
-    let grabRotationOffset = new THREE.Quaternion();
-    let startTime = null;
-    let elapsedTime = 0;
-    let font;
-
-    init();
-    animate();
-
-    function init() {
-      // Basic Three.js setup
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.enabled = true;
-      document.body.appendChild(renderer.domElement);
-
-      // Add light
-      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-      light.position.set(0.5, 1, 0.25);
-      scene.add(light);
-
-      // Add 3D ring to the scene
-      const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
-      const ringMaterial = new THREE.MeshStandardMaterial({
-        color: 0x00ff00, // Green
-        emissive: 0x00ff00, // Green emissive
-        emissiveIntensity: 1.0,
-        metalness: 1.0,
-        roughness: 0.0
-      });
-      ring = new THREE.Mesh(ringGeometry, ringMaterial);
-      ring.position.set(0, 1.5, -0.5); // Move the ring closer to the player
-      ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
-      scene.add(ring);
-
-      // Initialize bounding boxes
-      cubeBox = new THREE.Box3().setFromObject(ring);
-
-      // Add text above the ring
-      const loader = new THREE.FontLoader();
-      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
-        font = loadedFont;
-        const textGeometry = new THREE.TextGeometry('LEVEL 1', {
-          font: font,
-          size: 0.02,
-          height: 0.005,
-        });
-        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.5); // Position text above the ring
-        scene.add(textMesh);
-
-        // Add timer text below the level text
-        const timerGeometry = new THREE.TextGeometry('00:000', {
-          font: font,
-          size: 0.02,
-          height: 0.005,
-        });
-        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-        timerGeometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.5); // Position timer below the level text
-        scene.add(timerMesh);
-      });
-
-      // Add spheres as controllers
-      const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-      const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
-
-      sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      scene.add(sphere1);
-
-      sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      scene.add(sphere2);
-
-      // Initialize bounding spheres for spheres
-      sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
-      sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
-
-      // Add controllers
-      controller1 = renderer.xr.getController(0);
-      controller1.addEventListener('selectstart', onSelectStart);
-      controller1.addEventListener('selectend', onSelectEnd);
-      controller1.addEventListener('squeezestart', onSelectStart);
-      controller1.addEventListener('squeezeend', onSelectEnd);
-      scene.add(controller1);
-
-      controller2 = renderer.xr.getController(1);
-      controller2.addEventListener('selectstart', onSelectStart);
-      controller2.addEventListener('selectend', onSelectEnd);
-      controller2.addEventListener('squeezestart', onSelectStart);
-      controller2.addEventListener('squeezeend', onSelectEnd);
-      scene.add(controller2);
-
-      window.addEventListener('resize', onWindowResize, false);
-
-      // VR Button
-      const vrButton = document.getElementById('vrButton');
-      vrButton.addEventListener('click', async () => {
-        try {
-          const session = await navigator.xr.requestSession('immersive-vr', {
-            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
-          });
-          renderer.xr.setSession(session);
-          vrButton.style.display = 'none';
-          console.log('VR Button clicked');
-        } catch (error) {
-          console.error('Failed to enter VR:', error);
+        "imports": {
+            "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
         }
-      });
-
-      // Add some floating particles for ambiance
-      const particlesGeometry = new THREE.BufferGeometry();
-      const particlesCount = 3000;
-      const posArray = new Float32Array(particlesCount * 3);
-      for (let i = 0; i < particlesCount * 3; i += 3) {
-        // Generate position
-        let x = (Math.random() - 0.5) * 100;
-        let y = (Math.random() - 0.5) * 100;
-        let z = (Math.random() - 0.5) * 100;
-
-        posArray[i] = x;
-        posArray[i + 1] = y;
-        posArray[i + 2] = z;
-      }
-
-      particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-      const particlesMaterial = new THREE.PointsMaterial({
-        size: 0.2,
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-      });
-
-      const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-      scene.add(particlesMesh);
     }
+    </script>
 
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+    <script type="module">
+        import * as THREE from 'three';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+        import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 
-    function updateBoundingBoxes() {
-      cubeBox.setFromObject(ring);
-      sphereBox1.set(sphere1.position, 0.05);
-      sphereBox2.set(sphere2.position, 0.05);
-    }
-
-    function checkCollision() {
-      if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
-        console.log('Collision detected');
-      }
-    }
-
-    function onSelectStart(event) {
-      if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
-        grabbed = true;
-        grabbingController = controller1;
-        grabOffset.copy(ring.position).sub(controller1.position);
-        grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
-        if (startTime === null) {
-          startTime = Date.now() - elapsedTime;
-        }
-      } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
-        grabbed = true;
-        grabbingController = controller2;
-        grabOffset.copy(ring.position).sub(controller2.position);
-        grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
-        if (startTime === null) {
-          startTime = Date.now() - elapsedTime;
-        }
-      }
-    }
-
-    function onSelectEnd(event) {
-      if (event.target === grabbingController) {
-        grabbed = false;
-        grabbingController = null;
-      }
-    }
-
-    function animate() {
-      renderer.setAnimationLoop(render);
-    }
-
-    function render() {
-      // Update sphere positions to match controller positions
-      sphere1.position.copy(controller1.position);
-      sphere2.position.copy(controller2.position);
-
-      // Update bounding boxes and check for collisions
-      updateBoundingBoxes();
-      checkCollision();
-
-      // Move ring with the grabbing controller while maintaining the offset
-      if (grabbed && grabbingController) {
-        ring.position.copy(grabbingController.position).add(grabOffset);
-        ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
-
-        // Hide the spheres when the ring is grabbed
-        sphere1.visible = false;
-        sphere2.visible = false;
-      } else {
-        // Show the spheres when the ring is not grabbed
-        sphere1.visible = true;
-        sphere2.visible = true;
-      }
-
-      // Keep the text and timer above the ring and billboarded to face the player
-      textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-      textMesh.geometry.computeBoundingBox();
-      const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-      textMesh.position.x += centerOffset;
-      textMesh.lookAt(camera.position);
-
-      // Update timer
-      if (startTime !== null) {
-        elapsedTime = Date.now() - startTime;
-        const milliseconds = Math.floor(elapsedTime % 1000);
-        const seconds = Math.floor((elapsedTime / 1000) % 60);
-        const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
-
-        // Update timer text
-        const timerGeometry = new THREE.TextGeometry(timerText, {
-          font: font,
-          size: 0.02,
-          height: 0.005,
+        // Scene setup
+        const mountPoint = document.getElementById('mountPoint');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ 
+            alpha: true, 
+            antialias: true,
+            xr: {
+                enabled: true
+            }
         });
-        timerMesh.geometry.dispose();
-        timerMesh.geometry = timerGeometry;
-        timerMesh.geometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-        timerMesh.lookAt(camera.position);
-      }
 
-      // Ensure timer text stays attached to the ring and faces the player
-      timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.x += timerCenterOffset;
-      timerMesh.lookAt(camera.position);
+        // Check VR availability and create button
+        let vrSupported = false;
+        navigator.xr?.isSessionSupported('immersive-vr').then((supported) => {
+            vrSupported = supported;
+            updateButtonText();
+        });
 
-      renderer.render(scene, camera);
-    }
-  </script>
+        const vrButton = VRButton.createButton(renderer);
+        vrButton.style.background = 'linear-gradient(145deg, #1E88E5, #1976D2)';
+        vrButton.style.color = 'white';
+        vrButton.style.position = 'absolute';
+        vrButton.style.left = '50%';
+        vrButton.style.top = '50%';
+        vrButton.style.transform = 'translate(-50%, -50%)';
+        vrButton.style.padding = '12px 40px';
+        vrButton.style.border = '2px solid rgba(255, 255, 255, 0.1)';
+        vrButton.style.borderRadius = '12px';
+        vrButton.style.fontSize = '20px';
+        vrButton.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        vrButton.style.fontWeight = '600';
+        vrButton.style.letterSpacing = '0.5px';
+        vrButton.style.cursor = 'pointer';
+        vrButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)';
+        vrButton.style.transition = 'all 0.2s ease';
+        vrButton.style.textTransform = 'none';
+        vrButton.style.width = 'auto';
+        vrButton.style.minWidth = '200px';
+        vrButton.style.textAlign = 'center';
+        vrButton.style.backdropFilter = 'blur(5px)';
+        vrButton.style.WebkitBackdropFilter = 'blur(5px)';
+        vrButton.style.zIndex = '2';
+
+        // Button event listeners
+        vrButton.addEventListener('mouseover', () => {
+            vrButton.style.background = 'linear-gradient(145deg, #1976D2, #1565C0)';
+            vrButton.style.transform = 'translate(-50%, -50%) scale(1.02)';
+            vrButton.style.boxShadow = '0 6px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12)';
+        });
+
+        vrButton.addEventListener('mouseout', () => {
+            vrButton.style.background = 'linear-gradient(145deg, #1E88E5, #1976D2)';
+            vrButton.style.transform = 'translate(-50%, -50%) scale(1)';
+            vrButton.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)';
+        });
+
+        vrButton.addEventListener('mousedown', () => {
+            vrButton.style.transform = 'translate(-50%, -50%) scale(0.98)';
+        });
+
+        vrButton.addEventListener('mouseup', () => {
+            vrButton.style.transform = 'translate(-50%, -50%) scale(1.02)';
+        });
+
+        // Update button text based on VR support
+        function updateButtonText() {
+            if (!vrSupported) {
+                vrButton.textContent = 'VR Not Available';
+                vrButton.style.background = 'linear-gradient(145deg, #9E9E9E, #757575)';
+                vrButton.style.cursor = 'not-allowed';
+            } else if (renderer.xr.isPresenting) {
+                vrButton.textContent = 'Exit VR';
+            } else {
+                vrButton.textContent = 'Enter VR';
+            }
+        }
+
+        renderer.xr.addEventListener('sessionstart', updateButtonText);
+        renderer.xr.addEventListener('sessionend', updateButtonText);
+
+        document.body.appendChild(vrButton);
+
+        // Create particle system
+        const particleCount = 5000;
+        const particles = new Float32Array(particleCount * 3);
+        const particleGeometry = new THREE.BufferGeometry();
+
+        for (let i = 0; i < particleCount; i++) {
+            const i3 = i * 3;
+            const theta = Math.random() * Math.PI * 2;
+            const radius = Math.random() * 0.2;
+            const height = Math.random() * 1.8 - 0.9;
+
+            particles[i3] = Math.cos(theta) * radius;
+            particles[i3 + 1] = height;
+            particles[i3 + 2] = Math.sin(theta) * radius;
+        }
+
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particles, 3));
+
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0x00ffff,
+            size: 0.01,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+        scene.add(particleSystem);
+
+        // Create mirror
+        const mirrorGeometry = new THREE.PlaneGeometry(2, 4);
+        const mirrorMaterial = new THREE.MeshPhongMaterial({
+            color: 0xffffff,
+            reflectivity: 1,
+            specular: 0xffffff,
+            shininess: 100
+        });
+        const mirror = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
+        mirror.position.z = -2;
+        scene.add(mirror);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(0, 1, 1);
+        scene.add(directionalLight);
+
+        // Handle window resizing
+        function handleResize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const pixelRatio = window.devicePixelRatio;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(pixelRatio);
+
+            camera.position.z = 5;
+        }
+
+        renderer.setPixelRatio(window.devicePixelRatio);
+        mountPoint.appendChild(renderer.domElement);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+
+        camera.position.z = 5;
+
+        // Animation loop
+        renderer.setAnimationLoop((time) => {
+            particleSystem.position.copy(camera.position);
+            particleSystem.position.y -= 0.8;
+
+            const positions = particleSystem.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i] += Math.sin(time * 0.001 + i) * 0.0001;
+                positions[i + 1] += Math.cos(time * 0.001 + i) * 0.0001;
+                positions[i + 2] += Math.sin(time * 0.001 + i) * 0.0001;
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        });
+
+        // Cleanup on window unload
+        window.addEventListener('unload', () => {
+            window.removeEventListener('resize', handleResize);
+            particleGeometry.dispose();
+            particleMaterial.dispose();
+            mirrorGeometry.dispose();
+            mirrorMaterial.dispose();
+            renderer.dispose();
+        });
+    </script>
 </body>
 </html>
+>>>>>>> updated
