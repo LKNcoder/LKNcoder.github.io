@@ -103,7 +103,7 @@
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textGeometry.computeBoundingBox();
         const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 1.9, -0.5); // Position text above the ring
+        textMesh.position.set(centerOffset, 2.0, -0.5); // Position text above the ring
         scene.add(textMesh);
 
         // Add timer text below the level text
@@ -116,7 +116,7 @@
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
         timerGeometry.computeBoundingBox();
         const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.7, -0.5); // Position timer below the level text
+        timerMesh.position.set(timerCenterOffset, 1.8, -0.5); // Position timer below the level text
         scene.add(timerMesh);
       });
 
@@ -252,7 +252,7 @@
       }
 
       // Keep the text and timer above the ring and billboarded to face the player
-      textMesh.position.set(ring.position.x, ring.position.y + 0.1, ring.position.z);
+      textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
       textMesh.geometry.computeBoundingBox();
       const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
       textMesh.position.x += centerOffset;
@@ -273,15 +273,9 @@
         });
         timerMesh.geometry.computeBoundingBox();
         const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.03, ring.position.z);
+        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
         timerMesh.lookAt(camera.position);
       }
-
-      // Ensure timer text stays attached to the ring and faces the player
-      timerMesh.position.set(ring.position.x, ring.position.y + 0.07, ring.position.z);
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.x += timerCenterOffset;
-      timerMesh.lookAt(camera.position);
 
       renderer.render(scene, camera);
     }
