@@ -48,8 +48,8 @@
     let camera, scene, renderer;
     let controller1, controller2;
     let sphere1, sphere2;
-    let ring, textMesh, timerMesh, wireMesh;
-    let cubeBox, sphereBox1, sphereBox2, wireBox;
+    let ring, textMesh, timerMesh;
+    let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
@@ -94,7 +94,7 @@
 
       // Add text above the ring
       const loader = new THREE.FontLoader();
-      loader.load('https://threejs.org/examples/fonts/moderna_regular.typeface.json', function (loadedFont) {
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
         font = loadedFont;
         const textGeometry = new THREE.TextGeometry('LEVEL 1', {
           font: font,
@@ -194,9 +194,6 @@
 
       const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
       scene.add(particlesMesh);
-
-      // Create the wire
-      createWire();
     }
 
     function onWindowResize() {
@@ -209,13 +206,11 @@
       cubeBox.setFromObject(ring);
       sphereBox1.set(sphere1.position, 0.05);
       sphereBox2.set(sphere2.position, 0.05);
-      wireBox.setFromObject(wireMesh);
     }
 
     function checkCollision() {
-      if (cubeBox.intersectsBox(wireBox)) {
+      if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
         console.log('Collision detected');
-        // Handle collision (e.g., reset the game or show a message)
       }
     }
 
@@ -308,37 +303,6 @@
       timerMesh.lookAt(camera.position);
 
       renderer.render(scene, camera);
-    }
-
-    function createWire() {
-      const points = [];
-      const segments = 200;
-      const radius = 0.75;
-
-      for (let i = 0; i <= segments; i++) {
-        const t = i / segments;
-        const angle = t * Math.PI * 2;
-
-        // Add wave variations
-        const waveX = Math.sin(angle * 8) * 0.05;
-        const waveY = Math.cos(angle * 6) * 0.05;
-
-        // Calculate position with waves
-        const x = (Math.cos(angle) * radius) + waveX;
-        const y = 1.4 + waveY;
-        const z = (Math.sin(angle) * radius) + waveX;
-
-        points.push(new THREE.Vector3(x, y, z));
-      }
-
-      const curve = new THREE.CatmullRomCurve3(points);
-      const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
-      const wireMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, wireframe: true });
-      wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
-      scene.add(wireMesh);
-
-      // Initialize bounding box for the wire
-      wireBox = new THREE.Box3().setFromObject(wireMesh);
     }
   </script>
 </body>
