@@ -16,7 +16,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
   let scene, camera, renderer;
-  let ring, ringStartPosition, wirePoints, wireMaterial, textMesh, timerMesh;
+  let ring, ringStartPosition, wirePoints, wireMaterial, textMesh, timerMesh, font;
   let sphere1, sphere2, controller1, controller2;
   let grabbed = false, grabbingController = null, grabOffset, grabRotationOffset;
   let startTime = null, elapsedTime = 0;
@@ -75,7 +75,9 @@
     scene.add(ringCollider);
 
     const fontLoader = new THREE.FontLoader();
-    fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+    fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+      font = loadedFont;
+
       const textGeometry = new THREE.TextGeometry('Ring Game', {
         font: font,
         size: 0.1,
