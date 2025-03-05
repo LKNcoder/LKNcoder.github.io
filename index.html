@@ -164,7 +164,7 @@
       vrButton.addEventListener('click', async () => {
         try {
           const session = await navigator.xr.requestSession('immersive-vr', {
-            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+            optionalFeatures: ['local-floor', 'hand-tracking']
           });
           renderer.xr.setSession(session);
           vrButton.style.display = 'none';
@@ -383,7 +383,7 @@
 
       const progress = closestPointIndex / wirePoints.length;
       for (let i = 0; i <= closestPointIndex; i++) {
-        wirePoints[i].color.set(0xff00ff); // Change passed wire to pink
+        wireMaterial.color.set(0xff00ff); // Change passed wire to pink
       }
 
       if (progress >= 1.0) {
