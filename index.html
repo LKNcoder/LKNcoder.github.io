@@ -1,302 +1,413 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ring Game</title>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+  <meta name='mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+  <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+  <title>Simple VR App</title>
   <style>
-    body { margin: 0; }
+    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
     canvas { display: block; }
+    #vrButton {
+      padding: 20px 40px;
+      font-size: 24px;
+      background-color: #0078d7;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #vrButton:hover {
+      background-color: #005bb5;
+    }
   </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/dat.gui.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/vr/WebXR.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/vr/VRButton.js"></script>
-<script>
-  let scene, camera, renderer;
-  let ring, ringStartPosition, wirePoints, wireMaterial, textMesh, timerMesh, font;
-  let sphere1, sphere2, controller1, controller2;
-  let grabbed = false, grabbingController = null, grabOffset, grabRotationOffset;
-  let startTime = null, elapsedTime = 0;
-  const contactSound = new Audio('contact.mp3');
-
-  init();
-  animate();
-
-  function init() {
-    scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 1.6, 3);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    // Ensure VRButton is correctly referenced
-    if (typeof VRButton !== 'undefined') {
-      document.body.appendChild(VRButton.createButton(renderer));
-    } else {
-      console.error('VRButton is not defined');
+  <button id="vrButton">Enter VR</button>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
+      }
     }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(1, 1, 1).normalize();
-    scene.add(light);
+    let camera, scene, renderer;
+    let controller1, controller2;
+    let sphere1, sphere2;
+    let ring, textMesh, timerMesh;
+    let cubeBox, sphereBox1, sphereBox2;
+    let grabbed = false;
+    let grabbingController = null;
+    let grabOffset = new THREE.Vector3();
+    let grabRotationOffset = new THREE.Quaternion();
+    let startTime = null;
+    let elapsedTime = 0;
+    let font;
+    let wire;
+    let wirePoints = [];
+    let wireMaterial;
+    let victorySound;
+    let contactSound;
+    const ringStartPosition = new THREE.Vector3(0, 1.4, -0.75);
 
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
+    init();
+    animate();
 
-    // Define wirePoints with some example points
-    wirePoints = [
-      new THREE.Vector3(-0.5, 1.6, 0),
-      new THREE.Vector3(0, 1.6, 0),
-      new THREE.Vector3(0.5, 1.6, 0)
-    ];
+    function init() {
+      // Basic Three.js setup
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
 
-    const wireGeometry = new THREE.BufferGeometry().setFromPoints(wirePoints);
-    wireMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-    const wire = new THREE.Line(wireGeometry, wireMaterial);
-    scene.add(wire);
+      // Add light
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      light.position.set(0.5, 1, 0.25);
+      scene.add(light);
 
-    const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
-    const ringMaterial = new THREE.MeshStandardMaterial({
-      color: 0x00ff00,
-      emissive: 0x00ff00,
-      emissiveIntensity: 1.0,
-      metalness: 1.0,
-      roughness: 0.0
-    });
-    ring = new THREE.Mesh(ringGeometry, ringMaterial);
-    ringStartPosition = new THREE.Vector3(0, 1.6, 0);
-    ring.position.copy(ringStartPosition);
-    ring.rotation.y = Math.PI / 2;
-    scene.add(ring);
-
-    const ringColliderGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
-    const ringColliderMaterial = new THREE.MeshBasicMaterial({ visible: false });
-    const ringCollider = new THREE.Mesh(ringColliderGeometry, ringColliderMaterial);
-    ringCollider.position.copy(ringStartPosition);
-    ringCollider.rotation.y = Math.PI / 2;
-    scene.add(ringCollider);
-
-    const fontLoader = new THREE.FontLoader();
-    fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
-      font = loadedFont;
-
-      const textGeometry = new THREE.TextGeometry('Ring Game', {
-        font: font,
-        size: 0.1,
-        height: 0.02,
+      // Add 3D ring to the scene
+      const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00ff00, // Green
+        emissive: 0x00ff00, // Green emissive
+        emissiveIntensity: 1.0,
+        metalness: 1.0,
+        roughness: 0.0
       });
-      const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.set(-0.5, 2, 0);
-      scene.add(textMesh);
+      ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.position.copy(ringStartPosition); // Move the ring to the start position
+      ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
+      scene.add(ring);
 
-      const timerGeometry = new THREE.TextGeometry('00:000', {
-        font: font,
-        size: 0.02,
-        height: 0.005,
+      // Initialize bounding boxes
+      cubeBox = new THREE.Box3().setFromObject(ring);
+
+      // Add text above the ring
+      const loader = new THREE.FontLoader();
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+        font = loadedFont;
+        const textGeometry = new THREE.TextGeometry('LEVEL 1', {
+          font: font,
+          size: 0.02,
+          height: 0.005,
+        });
+        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        textMesh.position.set(centerOffset, 2.0, -0.75); // Position text above the ring
+        scene.add(textMesh);
+
+        // Add timer text below the level text
+        const timerGeometry = new THREE.TextGeometry('00:000', {
+          font: font,
+          size: 0.02,
+          height: 0.005,
+        });
+        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+        timerGeometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+        timerMesh.position.set(timerCenterOffset, 1.8, -0.75); // Position timer below the level text
+        scene.add(timerMesh);
       });
-      const timerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-      timerMesh.position.set(-0.5, 1.8, 0);
-      scene.add(timerMesh);
-    });
 
-    const sphereGeometry = new THREE.SphereGeometry(0.02, 32, 32);
-    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    scene.add(sphere1);
-    scene.add(sphere2);
+      // Add spheres as controllers
+      const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+      const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
 
-    controller1 = new THREE.Group();
-    controller2 = new THREE.Group();
-    scene.add(controller1);
-    scene.add(controller2);
+      sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      scene.add(sphere1);
 
-    window.addEventListener('resize', onWindowResize, false);
-  }
+      sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      scene.add(sphere2);
 
-  function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
+      // Initialize bounding spheres for spheres
+      sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+      sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
-  function createShatterEffect(position) {
-    const shatterPieces = 50;
-    const shatterGeometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
-    const shatterMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+      // Add controllers
+      controller1 = renderer.xr.getController(0);
+      controller1.addEventListener('selectstart', onSelectStart);
+      controller1.addEventListener('selectend', onSelectEnd);
+      controller1.addEventListener('squeezestart', onSelectStart);
+      controller1.addEventListener('squeezeend', onSelectEnd);
+      scene.add(controller1);
 
-    const shatterMesh = new THREE.InstancedMesh(shatterGeometry, shatterMaterial, shatterPieces);
-    const dummy = new THREE.Object3D();
+      controller2 = renderer.xr.getController(1);
+      controller2.addEventListener('selectstart', onSelectStart);
+      controller2.addEventListener('selectend', onSelectEnd);
+      controller2.addEventListener('squeezestart', onSelectStart);
+      controller2.addEventListener('squeezeend', onSelectEnd);
+      scene.add(controller2);
 
-    for (let i = 0; i < shatterPieces; i++) {
-      dummy.position.set(
-        position.x + (Math.random() - 0.5) * 0.1,
-        position.y + (Math.random() - 0.5) * 0.1,
-        position.z + (Math.random() - 0.5) * 0.1
-      );
-      dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      dummy.updateMatrix();
-      shatterMesh.setMatrixAt(i, dummy.matrix);
-    }
+      window.addEventListener('resize', onWindowResize, false);
 
-    scene.add(shatterMesh);
+      // VR Button
+      const vrButton = document.getElementById('vrButton');
+      vrButton.addEventListener('click', async () => {
+        try {
+          const session = await navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures: ['local-floor', 'hand-tracking']
+          });
+          renderer.xr.setSession(session);
+          vrButton.style.display = 'none';
+          console.log('VR Button clicked');
+        } catch (error) {
+          console.error('Failed to enter VR:', error);
+        }
+      });
 
-    const shatterDuration = 500;
-    const startTime = Date.now();
+      // Add some floating particles for ambiance
+      const particlesGeometry = new THREE.BufferGeometry();
+      const particlesCount = 3000;
+      const posArray = new Float32Array(particlesCount * 3);
+      for (let i = 0; i < particlesCount * 3; i += 3) {
+        // Generate position
+        let x = (Math.random() - 0.5) * 100;
+        let y = (Math.random() - 0.5) * 100;
+        let z = (Math.random() - 0.5) * 100;
 
-    function animateShatter() {
-      const elapsedTime = Date.now() - startTime;
-      const progress = elapsedTime / shatterDuration;
-
-      for (let i = 0; i < shatterPieces; i++) {
-        shatterMesh.getMatrixAt(i, dummy.matrix);
-        dummy.position.multiplyScalar(1 + progress);
-        dummy.updateMatrix();
-        shatterMesh.setMatrixAt(i, dummy.matrix);
+        posArray[i] = x;
+        posArray[i + 1] = y;
+        posArray[i + 2] = z;
       }
 
-      shatterMesh.instanceMatrix.needsUpdate = true;
+      particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      const particlesMaterial = new THREE.PointsMaterial({
+        size: 0.2,
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+      });
 
-      if (progress < 1) {
-        requestAnimationFrame(animateShatter);
-      } else {
-        scene.remove(shatterMesh);
+      const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+      scene.add(particlesMesh);
+
+      // Create the wire
+      wire = createWire();
+
+      // Load sounds
+      victorySound = new Audio('short_horns.mp3');
+      contactSound = new Audio('contact.mp3');
+    }
+
+    function createWire() {
+      const points = [];
+      const segments = 200;
+      const radius = 0.75;
+
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = t * Math.PI * 2;
+
+        // Add wave variations (matching green particle path)
+        const waveX = Math.sin(angle * 8) * 0.05;
+        const waveY = Math.cos(angle * 6) * 0.05;
+
+        // Calculate position with waves
+        const x = (Math.cos(angle) * radius) + waveX;
+        const y = 1.4 + waveY;
+        const z = (Math.sin(angle) * radius) + waveX;
+
+        points.push(new THREE.Vector3(x, y, z));
+      }
+
+      wirePoints = points;
+      const curve = new THREE.CatmullRomCurve3(points);
+      const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
+      wireMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Green wire
+      const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
+      scene.add(wireMesh);
+
+      return wireMesh;
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function updateBoundingBoxes() {
+      cubeBox.setFromObject(ring);
+      sphereBox1.set(sphere1.position, 0.05);
+      sphereBox2.set(sphere2.position, 0.05);
+    }
+
+    function checkCollision() {
+      const ringPosition = ring.position;
+      let closestPointIndex = 0;
+      let closestDistance = Infinity;
+
+      for (let i = 0; i < wirePoints.length; i++) {
+        const distance = ringPosition.distanceTo(wirePoints[i]);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPointIndex = i;
+        }
+      }
+
+      if (closestDistance < 0.05) { // Adjust the threshold as needed
+        console.log('Collision detected');
+        return true;
+      }
+      return false;
+    }
+
+    function onSelectStart(event) {
+      if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+        grabbed = true;
+        grabbingController = controller1;
+        grabOffset.copy(ring.position).sub(controller1.position);
+        grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
+        if (startTime === null) {
+          startTime = Date.now() - elapsedTime;
+        }
+      } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+        grabbed = true;
+        grabbingController = controller2;
+        grabOffset.copy(ring.position).sub(controller2.position);
+        grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
+        if (startTime === null) {
+          startTime = Date.now() - elapsedTime;
+        }
       }
     }
 
-    animateShatter();
-  }
-
-  function resetWireColor() {
-    wireMaterial.color.set(0x00ff00);
-  }
-
-  function updateWireColor() {
-    const ringPosition = ring.position;
-    let closestPointIndex = 0;
-    let closestDistance = Infinity;
-
-    for (let i = 0; i < wirePoints.length; i++) {
-      const distance = ringPosition.distanceTo(wirePoints[i]);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestPointIndex = i;
+    function onSelectEnd(event) {
+      if (event.target === grabbingController) {
+        grabbed = false;
+        grabbingController = null;
       }
     }
 
-    const progress = closestPointIndex / wirePoints.length;
-    for (let i = 0; i <= closestPointIndex; i++) {
-      wireMaterial.color.set(0xff00ff);
+    function animate() {
+      renderer.setAnimationLoop(render);
     }
 
-    if (progress >= 1.0) {
-      victory();
-    }
-  }
-
-  function handleCollision() {
-    createShatterEffect(ring.position);
-    ring.position.copy(ringStartPosition);
-    ring.rotation.set(0, Math.PI / 2, 0);
-    contactSound.play();
-    resetWireColor();
-  }
-
-  function updateBoundingBoxes() {
-    // Define the bounding boxes for collision detection
-    sphere1.updateMatrixWorld();
-    sphere2.updateMatrixWorld();
-    ring.updateMatrixWorld();
-  }
-
-  function checkCollision() {
-    // Implement collision detection logic here
-    // Return true if a collision is detected, otherwise return false
-    return false;
-  }
-
-  function render() {
-    if (controller1 && controller2) {
+    function render() {
+      // Update sphere positions to match controller positions
       sphere1.position.copy(controller1.position);
       sphere2.position.copy(controller2.position);
-    }
 
-    updateBoundingBoxes();
-    if (checkCollision()) {
-      handleCollision();
-    }
+      // Update bounding boxes and check for collisions
+      updateBoundingBoxes();
+      if (checkCollision()) {
+        handleCollision();
+      }
 
-    if (grabbed && grabbingController) {
-      ring.position.copy(grabbingController.position).add(grabOffset);
-      ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset);
+      // Move ring with the grabbing controller while maintaining the offset
+      if (grabbed && grabbingController) {
+        ring.position.copy(grabbingController.position).add(grabOffset);
+        ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
 
-      sphere1.visible = false;
-      sphere2.visible = false;
-    } else {
-      sphere1.visible = true;
-      sphere2.visible = true;
-    }
+        // Hide the spheres when the ring is grabbed
+        sphere1.visible = false;
+        sphere2.visible = false;
+      } else {
+        // Show the spheres when the ring is not grabbed
+        sphere1.visible = true;
+        sphere2.visible = true;
+      }
 
-    if (textMesh) {
+      // Keep the text and timer above the ring and billboarded to face the player
       textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
       textMesh.geometry.computeBoundingBox();
-      if (textMesh.geometry.boundingBox) {
-        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-        textMesh.position.x += centerOffset;
-      }
+      const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+      textMesh.position.x += centerOffset;
       textMesh.lookAt(camera.position);
-    }
 
-    if (startTime !== null) {
-      elapsedTime = Date.now() - startTime;
-      const milliseconds = Math.floor(elapsedTime % 1000);
-      const seconds = Math.floor((elapsedTime / 1000) % 60);
-      const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+      // Update timer
+      if (startTime !== null) {
+        elapsedTime = Date.now() - startTime;
+        const milliseconds = Math.floor(elapsedTime % 1000);
+        const seconds = Math.floor((elapsedTime / 1000) % 60);
+        const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
-      const timerGeometry = new THREE.TextGeometry(timerText, {
-        font: font,
-        size: 0.02,
-        height: 0.005,
-      });
-      if (timerMesh) {
+        // Update timer text
+        const timerGeometry = new THREE.TextGeometry(timerText, {
+          font: font,
+          size: 0.02,
+          height: 0.005,
+        });
         timerMesh.geometry.dispose();
         timerMesh.geometry = timerGeometry;
         timerMesh.geometry.computeBoundingBox();
-        if (timerMesh.geometry.boundingBox) {
-          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-          timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-        }
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
         timerMesh.lookAt(camera.position);
       }
-    }
 
-    if (timerMesh) {
+      // Ensure timer text stays attached to the ring and faces the player
       timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-      if (timerMesh.geometry.boundingBox) {
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-        timerMesh.position.x += timerCenterOffset;
-      }
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.x += timerCenterOffset;
       timerMesh.lookAt(camera.position);
+
+      // Check for wire collision and update wire color
+      updateWireColor();
+
+      renderer.render(scene, camera);
     }
 
-    updateWireColor();
+    function updateWireColor() {
+      const ringPosition = ring.position;
+      let closestPointIndex = 0;
+      let closestDistance = Infinity;
 
-    renderer.render(scene, camera);
-  }
+      for (let i = 0; i < wirePoints.length; i++) {
+        const distance = ringPosition.distanceTo(wirePoints[i]);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPointIndex = i;
+        }
+      }
 
-  function animate() {
-    renderer.setAnimationLoop(render);
-  }
-</script>
+      const progress = closestPointIndex / wirePoints.length;
+      for (let i = 0; i <= closestPointIndex; i++) {
+        wireMaterial.color.set(0xff00ff); // Change passed wire to pink
+      }
+
+      if (progress >= 1.0) {
+        victory();
+      }
+    }
+
+    function handleCollision() {
+      ring.position.copy(ringStartPosition); // Reset ring to start position
+      contactSound.play(); // Play contact sound
+      resetWireColor(); // Reset wire color to green
+    }
+
+    function resetWireColor() {
+      wireMaterial.color.set(0x00ff00); // Reset wire color to green
+    }
+
+    function victory() {
+      if (startTime !== null) {
+        startTime = null;
+        victorySound.play();
+        console.log('Victory!');
+      }
+    }
+  </script>
 </body>
 </html>
