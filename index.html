@@ -226,8 +226,10 @@
   }
 
   function render() {
-    sphere1.position.copy(controller1.position);
-    sphere2.position.copy(controller2.position);
+    if (controller1 && controller2) {
+      sphere1.position.copy(controller1.position);
+      sphere2.position.copy(controller2.position);
+    }
 
     updateBoundingBoxes();
     if (checkCollision()) {
@@ -245,11 +247,13 @@
       sphere2.visible = true;
     }
 
-    textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-    textMesh.geometry.computeBoundingBox();
-    const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-    textMesh.position.x += centerOffset;
-    textMesh.lookAt(camera.position);
+    if (textMesh) {
+      textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+      textMesh.geometry.computeBoundingBox();
+      const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+      textMesh.position.x += centerOffset;
+      textMesh.lookAt(camera.position);
+    }
 
     if (startTime !== null) {
       elapsedTime = Date.now() - startTime;
@@ -262,18 +266,22 @@
         size: 0.02,
         height: 0.005,
       });
-      timerMesh.geometry.dispose();
-      timerMesh.geometry = timerGeometry;
-      timerMesh.geometry.computeBoundingBox();
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-      timerMesh.lookAt(camera.position);
+      if (timerMesh) {
+        timerMesh.geometry.dispose();
+        timerMesh.geometry = timerGeometry;
+        timerMesh.geometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+        timerMesh.lookAt(camera.position);
+      }
     }
 
-    timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-    const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-    timerMesh.position.x += timerCenterOffset;
-    timerMesh.lookAt(camera.position);
+    if (timerMesh) {
+      timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.x += timerCenterOffset;
+      timerMesh.lookAt(camera.position);
+    }
 
     updateWireColor();
 
