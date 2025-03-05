@@ -61,6 +61,8 @@
     let wirePoints = [];
     let wireMaterial;
     let victorySound;
+    let contactSound;
+    const ringStartPosition = new THREE.Vector3(0, 1.4, -0.75);
 
     init();
     animate();
@@ -89,7 +91,7 @@
         roughness: 0.0
       });
       ring = new THREE.Mesh(ringGeometry, ringMaterial);
-      ring.position.set(0, 1.5, -0.5); // Move the ring closer to the player
+      ring.position.copy(ringStartPosition); // Move the ring to the start position
       ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
       scene.add(ring);
 
@@ -109,7 +111,7 @@
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textGeometry.computeBoundingBox();
         const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.5); // Position text above the ring
+        textMesh.position.set(centerOffset, 2.0, -0.75); // Position text above the ring
         scene.add(textMesh);
 
         // Add timer text below the level text
@@ -122,7 +124,7 @@
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
         timerGeometry.computeBoundingBox();
         const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.5); // Position timer below the level text
+        timerMesh.position.set(timerCenterOffset, 1.8, -0.75); // Position timer below the level text
         scene.add(timerMesh);
       });
 
@@ -202,8 +204,9 @@
       // Create the wire
       wire = createWire();
 
-      // Load victory sound
+      // Load sounds
       victorySound = new Audio('short_horns.mp3');
+      contactSound = new Audio('contact.mp3');
     }
 
     function createWire() {
@@ -230,7 +233,7 @@
       wirePoints = points;
       const curve = new THREE.CatmullRomCurve3(points);
       const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
-      wireMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Red wire
+      wireMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Green wire
       const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
       scene.add(wireMesh);
 
@@ -250,9 +253,23 @@
     }
 
     function checkCollision() {
-      if (cubeBox.intersectsSphere(sphereBox1) || cubeBox.intersectsSphere(sphereBox2)) {
-        console.log('Collision detected');
+      const ringPosition = ring.position;
+      let closestPointIndex = 0;
+      let closestDistance = Infinity;
+
+      for (let i = 0; i < wirePoints.length; i++) {
+        const distance = ringPosition.distanceTo(wirePoints[i]);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPointIndex = i;
+        }
       }
+
+      if (closestDistance < 0.05) { // Adjust the threshold as needed
+        console.log('Collision detected');
+        return true;
+      }
+      return false;
     }
 
     function onSelectStart(event) {
@@ -293,7 +310,9 @@
 
       // Update bounding boxes and check for collisions
       updateBoundingBoxes();
-      checkCollision();
+      if (checkCollision()) {
+        handleCollision();
+      }
 
       // Move ring with the grabbing controller while maintaining the offset
       if (grabbed && grabbingController) {
@@ -363,11 +382,23 @@
       }
 
       const progress = closestPointIndex / wirePoints.length;
-      wireMaterial.color.setHSL(progress, 1.0, 0.5);
+      for (let i = 0; i <= closestPointIndex; i++) {
+        wirePoints[i].color.set(0xff00ff); // Change passed wire to pink
+      }
 
       if (progress >= 1.0) {
         victory();
       }
+    }
+
+    function handleCollision() {
+      ring.position.copy(ringStartPosition); // Reset ring to start position
+      contactSound.play(); // Play contact sound
+      resetWireColor(); // Reset wire color to green
+    }
+
+    function resetWireColor() {
+      wireMaterial.color.set(0x00ff00); // Reset wire color to green
     }
 
     function victory() {
