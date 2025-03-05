@@ -57,6 +57,10 @@
     let startTime = null;
     let elapsedTime = 0;
     let font;
+    let wire;
+    let wirePoints = [];
+    let wireMaterial;
+    let victorySound;
 
     init();
     animate();
@@ -194,6 +198,43 @@
 
       const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
       scene.add(particlesMesh);
+
+      // Create the wire
+      wire = createWire();
+
+      // Load victory sound
+      victorySound = new Audio('short_horns.mp3');
+    }
+
+    function createWire() {
+      const points = [];
+      const segments = 200;
+      const radius = 0.75;
+
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = t * Math.PI * 2;
+
+        // Add wave variations (matching green particle path)
+        const waveX = Math.sin(angle * 8) * 0.05;
+        const waveY = Math.cos(angle * 6) * 0.05;
+
+        // Calculate position with waves
+        const x = (Math.cos(angle) * radius) + waveX;
+        const y = 1.4 + waveY;
+        const z = (Math.sin(angle) * radius) + waveX;
+
+        points.push(new THREE.Vector3(x, y, z));
+      }
+
+      wirePoints = points;
+      const curve = new THREE.CatmullRomCurve3(points);
+      const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
+      wireMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Red wire
+      const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
+      scene.add(wireMesh);
+
+      return wireMesh;
     }
 
     function onWindowResize() {
@@ -302,7 +343,39 @@
       timerMesh.position.x += timerCenterOffset;
       timerMesh.lookAt(camera.position);
 
+      // Check for wire collision and update wire color
+      updateWireColor();
+
       renderer.render(scene, camera);
+    }
+
+    function updateWireColor() {
+      const ringPosition = ring.position;
+      let closestPointIndex = 0;
+      let closestDistance = Infinity;
+
+      for (let i = 0; i < wirePoints.length; i++) {
+        const distance = ringPosition.distanceTo(wirePoints[i]);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPointIndex = i;
+        }
+      }
+
+      const progress = closestPointIndex / wirePoints.length;
+      wireMaterial.color.setHSL(progress, 1.0, 0.5);
+
+      if (progress >= 1.0) {
+        victory();
+      }
+    }
+
+    function victory() {
+      if (startTime !== null) {
+        startTime = null;
+        victorySound.play();
+        console.log('Victory!');
+      }
     }
   </script>
 </body>
