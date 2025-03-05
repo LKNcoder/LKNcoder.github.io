@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/dat.gui.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/vr/WebXR.js"></script>
 <script>
   let scene, camera, renderer;
   let ring, ringStartPosition, wirePoints, wireMaterial, textMesh, timerMesh, font;
@@ -32,7 +33,10 @@
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
+
+    document.body.appendChild(VRButton.createButton(renderer));
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1).normalize();
@@ -202,6 +206,19 @@
     resetWireColor();
   }
 
+  function updateBoundingBoxes() {
+    // Define the bounding boxes for collision detection
+    sphere1.updateMatrixWorld();
+    sphere2.updateMatrixWorld();
+    ring.updateMatrixWorld();
+  }
+
+  function checkCollision() {
+    // Implement collision detection logic here
+    // Return true if a collision is detected, otherwise return false
+    return false;
+  }
+
   function render() {
     sphere1.position.copy(controller1.position);
     sphere2.position.copy(controller2.position);
@@ -258,8 +275,7 @@
   }
 
   function animate() {
-    requestAnimationFrame(animate);
-    render();
+    renderer.setAnimationLoop(render);
   }
 </script>
 </body>
