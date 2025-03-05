@@ -38,7 +38,11 @@
     document.body.appendChild(renderer.domElement);
 
     // Ensure VRButton is correctly referenced
-    document.body.appendChild(THREE.VRButton.createButton(renderer));
+    if (typeof VRButton !== 'undefined') {
+      document.body.appendChild(VRButton.createButton(renderer));
+    } else {
+      console.error('VRButton is not defined');
+    }
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1).normalize();
