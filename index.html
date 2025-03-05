@@ -37,7 +37,7 @@
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    document.body.appendChild(THREE.VRButton.createButton(renderer));
+    document.body.appendChild(VRButton.createButton(renderer));
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(1, 1, 1).normalize();
