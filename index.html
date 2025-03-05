@@ -250,8 +250,10 @@
     if (textMesh) {
       textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
       textMesh.geometry.computeBoundingBox();
-      const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-      textMesh.position.x += centerOffset;
+      if (textMesh.geometry.boundingBox) {
+        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+        textMesh.position.x += centerOffset;
+      }
       textMesh.lookAt(camera.position);
     }
 
@@ -270,16 +272,20 @@
         timerMesh.geometry.dispose();
         timerMesh.geometry = timerGeometry;
         timerMesh.geometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+        if (timerMesh.geometry.boundingBox) {
+          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+          timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+        }
         timerMesh.lookAt(camera.position);
       }
     }
 
     if (timerMesh) {
       timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.x += timerCenterOffset;
+      if (timerMesh.geometry.boundingBox) {
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.x += timerCenterOffset;
+      }
       timerMesh.lookAt(camera.position);
     }
 
