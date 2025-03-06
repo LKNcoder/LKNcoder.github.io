@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html>
 <head>
@@ -239,6 +238,8 @@
       wire = new THREE.Line(geometry, material);
       scene.add(wire);
 
+      console.log("Wire created with initial colors:", colors);
+
       return wire;
     }
 
@@ -402,6 +403,8 @@
       }
       wire.geometry.attributes.color.needsUpdate = true;
 
+      console.log("Wire colors updated:", colors);
+
       if (progress >= 1.0) {
         victory();
       }
@@ -424,6 +427,8 @@
         colors[i + 2] = 1; // B
       }
       wire.geometry.attributes.color.needsUpdate = true;
+
+      console.log("Wire colors reset to pink:", colors);
     }
 
     function victory() {
