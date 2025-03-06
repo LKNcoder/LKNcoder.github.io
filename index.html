@@ -62,7 +62,7 @@
     let wireMaterial;
     let victorySound;
     let contactSound;
-    const ringStartPosition = new THREE.Vector3(0, 1.4, -0.75);
+    const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75); // Move the ring down by 0.05 meters
 
     init();
     animate();
@@ -119,6 +119,7 @@
           font: font,
           size: 0.02,
           height: 0.005,
+          font: 'monospace' // Change to monospaced font
         });
         const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
@@ -254,21 +255,16 @@
 
     function checkCollision() {
       const ringPosition = ring.position;
-      let closestPointIndex = 0;
-      let closestDistance = Infinity;
+      const ringRadius = 0.075; // Radius of the ring
 
       for (let i = 0; i < wirePoints.length; i++) {
         const distance = ringPosition.distanceTo(wirePoints[i]);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPointIndex = i;
+        if (distance < ringRadius) {
+          console.log('Collision detected');
+          return true;
         }
       }
 
-      if (closestDistance < 0.05) { // Adjust the threshold as needed
-        console.log('Collision detected');
-        return true;
-      }
       return false;
     }
 
@@ -347,6 +343,7 @@
           font: font,
           size: 0.02,
           height: 0.005,
+          font: 'monospace' // Change to monospaced font
         });
         timerMesh.geometry.dispose();
         timerMesh.geometry = timerGeometry;
