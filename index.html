@@ -119,6 +119,7 @@
           font: font,
           size: 0.02,
           height: 0.005,
+          font: 'monospace' // Change to monospaced font
         });
         const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
@@ -346,6 +347,7 @@
           font: font,
           size: 0.02,
           height: 0.005,
+          font: 'monospace' // Change to monospaced font
         });
         timerMesh.geometry.dispose();
         timerMesh.geometry = timerGeometry;
