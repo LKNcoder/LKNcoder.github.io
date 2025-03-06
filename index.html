@@ -234,7 +234,7 @@
       }
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-      const material = new THREE.LineBasicMaterial({ vertexColors: true });
+      const material = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 5 }); // Set linewidth to 5
       wire = new THREE.Line(geometry, material);
       scene.add(wire);
 
