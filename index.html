@@ -49,7 +49,6 @@
     let controller1, controller2;
     let sphere1, sphere2;
     let ring, textMesh, timerMesh;
-    let cubeBox, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
@@ -95,9 +94,6 @@
       ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
       scene.add(ring);
 
-      // Initialize bounding boxes
-      cubeBox = new THREE.Box3().setFromObject(ring);
-
       // Add text above the ring
       const loader = new THREE.FontLoader();
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
@@ -138,10 +134,6 @@
 
       sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
       scene.add(sphere2);
-
-      // Initialize bounding spheres for spheres
-      sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
-      sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
       // Add controllers
       controller1 = renderer.xr.getController(0);
@@ -247,29 +239,24 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    function updateBoundingBoxes() {
-      cubeBox.setFromObject(ring);
-      sphereBox1.set(sphere1.position, 0.05);
-      sphereBox2.set(sphere2.position, 0.05);
-    }
-
     function checkCollision() {
-      const ringPosition = ring.position;
-      const ringRadius = 0.075; // Radius of the ring
+      const ringBox = new THREE.Box3().setFromObject(ring);
+      const wireBox = new THREE.Box3().setFromObject(wire);
 
-      for (let i = 0; i < wirePoints.length; i++) {
-        const distance = ringPosition.distanceTo(wirePoints[i]);
-        if (distance < ringRadius) {
-          console.log('Collision detected');
-          return true;
-        }
+      if (ringBox.intersectsBox(wireBox)) {
+        console.log('Collision detected');
+        return true;
       }
 
       return false;
     }
 
     function onSelectStart(event) {
-      if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+      const ringBox = new THREE.Box3().setFromObject(ring);
+      const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+      const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
+
+      if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
         grabbed = true;
         grabbingController = controller1;
         grabOffset.copy(ring.position).sub(controller1.position);
@@ -277,7 +264,7 @@
         if (startTime === null) {
           startTime = Date.now() - elapsedTime;
         }
-      } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+      } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
         grabOffset.copy(ring.position).sub(controller2.position);
@@ -306,8 +293,7 @@
         sphere2.position.copy(controller2.position);
       }
 
-      // Update bounding boxes and check for collisions
-      updateBoundingBoxes();
+      // Check for collisions
       if (checkCollision()) {
         handleCollision();
       }
