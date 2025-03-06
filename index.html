@@ -49,7 +49,7 @@
     let controller1, controller2;
     let sphere1, sphere2;
     let ring, textMesh, timerMesh;
-    let ringCollider, sphereBox1, sphereBox2;
+    let ringCollider, wireCollider;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
@@ -62,7 +62,7 @@
     let wireMaterial;
     let victorySound;
     let contactSound;
-    const ringStartPosition = new THREE.Vector3(0, 1.3, -0.75); // Adjusted position
+    const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75); // Adjusted position
 
     init();
     animate();
@@ -141,10 +141,6 @@
 
       sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
       scene.add(sphere2);
-
-      // Initialize bounding spheres for spheres
-      sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
-      sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
       // Add controllers
       controller1 = renderer.xr.getController(0);
@@ -241,6 +237,10 @@
       const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
       scene.add(wireMesh);
 
+      // Initialize mesh collider for the wire
+      wireCollider = new THREE.Mesh(tubeGeometry, new THREE.MeshBasicMaterial({ visible: false }));
+      scene.add(wireCollider);
+
       return wireMesh;
     }
 
@@ -254,24 +254,16 @@
       ringCollider.position.copy(ring.position);
       ringCollider.rotation.copy(ring.rotation);
       ringCollider.geometry.computeBoundingBox();
-      sphereBox1.set(sphere1.position, 0.05);
-      sphereBox2.set(sphere2.position, 0.05);
     }
 
     function checkCollision() {
-      const ringPosition = ring.position;
-      let closestPointIndex = 0;
-      let closestDistance = Infinity;
+      ringCollider.geometry.computeBoundingBox();
+      wireCollider.geometry.computeBoundingBox();
 
-      for (let i = 0; i < wirePoints.length; i++) {
-        const distance = ringPosition.distanceTo(wirePoints[i]);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPointIndex = i;
-        }
-      }
+      const ringBox = new THREE.Box3().setFromObject(ringCollider);
+      const wireBox = new THREE.Box3().setFromObject(wireCollider);
 
-      if (closestDistance < 0.05) { // Adjust the threshold as needed
+      if (ringBox.intersectsBox(wireBox)) {
         console.log('Collision detected');
         return true;
       }
@@ -280,19 +272,12 @@
 
     function onSelectStart(event) {
       ringCollider.geometry.computeBoundingBox(); // Ensure bounding box is up-to-date
-      if (ringCollider.geometry.boundingBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+      const sphereBox = new THREE.Sphere(event.target.position, 0.05);
+      if (ringCollider.geometry.boundingBox.intersectsSphere(sphereBox)) {
         grabbed = true;
-        grabbingController = controller1;
-        grabOffset.copy(ring.position).sub(controller1.position);
-        grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
-        if (startTime === null) {
-          startTime = Date.now() - elapsedTime;
-        }
-      } else if (ringCollider.geometry.boundingBox.intersectsSphere(sphereBox2) && event.target === controller2) {
-        grabbed = true;
-        grabbingController = controller2;
-        grabOffset.copy(ring.position).sub(controller2.position);
-        grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
+        grabbingController = event.target;
+        grabOffset.copy(ring.position).sub(event.target.position);
+        grabRotationOffset.copy(event.target.quaternion).invert().multiply(ring.quaternion);
         if (startTime === null) {
           startTime = Date.now() - elapsedTime;
         }
