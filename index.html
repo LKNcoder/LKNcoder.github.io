@@ -303,23 +303,23 @@
     }
 
     function updateWireColor() {
-      const ringPosition = ring.position;
-      let closestPointIndex = 0;
-      let closestDistance = Infinity;
+      const ringBox = new THREE.Box3().setFromObject(ring);
+      const colors = wire.geometry.attributes.color.array;
 
       for (let i = 0; i < wirePoints.length; i++) {
-        const distance = ringPosition.distanceTo(wirePoints[i]);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPointIndex = i;
+        const point = wirePoints[i];
+        const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(0.05, 0.05, 0.05));
+
+        if (ringBox.intersectsBox(pointBox)) {
+          const progress = i / wirePoints.length;
+          for (let j = 0; j <= i; j++) {
+            colors[j * 3] = 0; // R
+            colors[j * 3 + 1] = 0; // G
+            colors[j * 3 + 2] = 1; // B
+          }
+          wire.geometry.attributes.color.needsUpdate = true;
+          break;
         }
-      }
-
-      const progress = closestPointIndex / wirePoints.length;
-      wireMaterial.color.setHSL(progress * 0.66, 1, 0.5); // Change color from pink to blue based on progress
-
-      if (progress >= 1.0) {
-        victory();
       }
     }
 
@@ -327,9 +327,19 @@
       ring.position.copy(ringStartPosition); // Reset ring to start position
       ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
       contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
-      wireMaterial.color.set(0xff00ff); // Reset wire color to pink
+      resetWireColor(); // Reset wire color to pink
       grabbed = false; // Override the grab
       grabbingController = null; // Clear the grabbing controller
+    }
+
+    function resetWireColor() {
+      const colors = wire.geometry.attributes.color.array;
+      for (let i = 0; i < colors.length; i += 3) {
+        colors[i] = 1; // R
+        colors[i + 1] = 0; // G
+        colors[i + 2] = 1; // B
+      }
+      wire.geometry.attributes.color.needsUpdate = true;
     }
 
     function victory() {
