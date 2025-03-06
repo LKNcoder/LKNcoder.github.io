@@ -225,7 +225,14 @@
       wirePoints = points;
       const curve = new THREE.CatmullRomCurve3(points);
       const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
-      wireMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Green wire
+      const colors = new Float32Array(segments * 3);
+      for (let i = 0; i < segments; i++) {
+        colors[i * 3] = 0; // R
+        colors[i * 3 + 1] = 1; // G
+        colors[i * 3 + 2] = 0; // B
+      }
+      tubeGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      wireMaterial = new THREE.MeshStandardMaterial({ vertexColors: true }); // Enable vertex colors
       const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
       scene.add(wireMesh);
 
@@ -378,9 +385,14 @@
       }
 
       const progress = closestPointIndex / wirePoints.length;
-      for (let i = 0; i <= closestPointIndex; i++) {
-        wireMaterial.color.set(0xff00ff); // Change passed wire to pink
+      for (let i = 0; i < wirePoints.length; i++) {
+        if (i <= closestPointIndex) {
+          wire.geometry.attributes.color.setXYZ(i, 0, 0, 1); // Set color to blue
+        } else {
+          wire.geometry.attributes.color.setXYZ(i, 0, 1, 0); // Set color to green
+        }
       }
+      wire.geometry.attributes.color.needsUpdate = true;
 
       if (progress >= 1.0) {
         victory();
@@ -397,7 +409,10 @@
     }
 
     function resetWireColor() {
-      wireMaterial.color.set(0x00ff00); // Reset wire color to green
+      for (let i = 0; i < wirePoints.length; i++) {
+        wire.geometry.attributes.color.setXYZ(i, 0, 1, 0); // Set color to green
+      }
+      wire.geometry.attributes.color.needsUpdate = true;
     }
 
     function victory() {
