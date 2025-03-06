@@ -379,7 +379,7 @@
 
       const progress = closestPointIndex / wirePoints.length;
       for (let i = 0; i <= closestPointIndex; i++) {
-        wireMaterial.color.set(0xff00ff); // Change passed wire to pink
+        wireMaterial.color.set(0x0000ff); // Change passed wire to blue
       }
 
       if (progress >= 1.0) {
@@ -407,29 +407,6 @@
         console.log('Victory!');
       }
     }
-
-    function updateWireColor() {
-  const ringPosition = ring.position;
-  let closestPointIndex = 0;
-  let closestDistance = Infinity;
-
-  for (let i = 0; i < wirePoints.length; i++) {
-    const distance = ringPosition.distanceTo(wirePoints[i]);
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestPointIndex = i;
-    }
-  }
-
-  const progress = closestPointIndex / wirePoints.length;
-  for (let i = 0; i <= closestPointIndex; i++) {
-    wireMaterial.color.set(0x0000ff); // Change passed wire to blue
-  }
-
-  if (progress >= 1.0) {
-    victory();
-  }
-}
   </script>
 </body>
 </html>
