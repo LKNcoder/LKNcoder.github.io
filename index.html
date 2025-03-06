@@ -49,7 +49,7 @@
     let controller1, controller2;
     let sphere1, sphere2;
     let ring, textMesh, timerMesh;
-    let cubeBox, sphereBox1, sphereBox2;
+    let ringCollider, sphereBox1, sphereBox2;
     let grabbed = false;
     let grabbingController = null;
     let grabOffset = new THREE.Vector3();
@@ -95,8 +95,11 @@
       ring.rotation.y = Math.PI / 2; // Rotate the ring 90 degrees on the vertical axis
       scene.add(ring);
 
-      // Initialize bounding boxes
-      cubeBox = new THREE.Box3().setFromObject(ring);
+      // Initialize mesh collider for the ring
+      ringCollider = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ visible: false }));
+      ringCollider.position.copy(ring.position);
+      ringCollider.rotation.copy(ring.rotation);
+      scene.add(ringCollider);
 
       // Add text above the ring
       const loader = new THREE.FontLoader();
@@ -247,7 +250,8 @@
     }
 
     function updateBoundingBoxes() {
-      cubeBox.setFromObject(ring);
+      ringCollider.position.copy(ring.position);
+      ringCollider.rotation.copy(ring.rotation);
       sphereBox1.set(sphere1.position, 0.05);
       sphereBox2.set(sphere2.position, 0.05);
     }
@@ -273,7 +277,7 @@
     }
 
     function onSelectStart(event) {
-      if (cubeBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+      if (ringCollider.geometry.boundingBox.intersectsSphere(sphereBox1) && event.target === controller1) {
         grabbed = true;
         grabbingController = controller1;
         grabOffset.copy(ring.position).sub(controller1.position);
@@ -281,7 +285,7 @@
         if (startTime === null) {
           startTime = Date.now() - elapsedTime;
         }
-      } else if (cubeBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+      } else if (ringCollider.geometry.boundingBox.intersectsSphere(sphereBox2) && event.target === controller2) {
         grabbed = true;
         grabbingController = controller2;
         grabOffset.copy(ring.position).sub(controller2.position);
@@ -305,8 +309,12 @@
 
     function render() {
       // Update sphere positions to match controller positions
-      sphere1.position.copy(controller1.position);
-      sphere2.position.copy(controller2.position);
+      if (controller1) {
+        sphere1.position.copy(controller1.position);
+      }
+      if (controller2) {
+        sphere2.position.copy(controller2.position);
+      }
 
       // Update bounding boxes and check for collisions
       updateBoundingBoxes();
