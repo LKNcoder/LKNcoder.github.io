@@ -367,64 +367,16 @@
         timerMesh.lookAt(camera.position);
       }
 
-      // Check for wire collision and update wire color
-      updateWireColor();
-
       renderer.render(scene, camera);
-    }
-
-    function updateWireColor() {
-      const ringPosition = ring.position;
-      let closestPointIndex = 0;
-      let closestDistance = Infinity;
-
-      for (let i = 0; i < wirePoints.length; i++) {
-        const distance = ringPosition.distanceTo(wirePoints[i]);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPointIndex = i;
-        }
-      }
-
-      const progress = closestPointIndex / wirePoints.length;
-      for (let i = 0; i <= closestPointIndex; i++) {
-        wire.geometry.attributes.color.array[i * 3] = 0; // Set R to 0
-        wire.geometry.attributes.color.array[i * 3 + 1] = 0; // Set G to 0
-        wire.geometry.attributes.color.array[i * 3 + 2] = 1; // Set B to 1 (blue)
-      }
-      wire.geometry.attributes.color.needsUpdate = true;
-
-      if (progress >= 1.0) {
-        victory();
-      }
     }
 
     function handleCollision() {
       ring.position.copy(ringStartPosition); // Reset ring to start position
       ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
       contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
-      resetWireColor(); // Reset wire color to pink
       grabbed = false; // Override the grab
       grabbingController = null; // Clear the grabbing controller
-    }
-
-    function resetWireColor() {
-      for (let i = 0; i < wire.geometry.attributes.color.array.length; i += 3) {
-        wire.geometry.attributes.color.array[i] = 1; // Set R to 1 (pink)
-        wire.geometry.attributes.color.array[i + 1] = 0; // Set G to 0
-        wire.geometry.attributes.color.array[i + 2] = 1; // Set B to 1 (pink)
-      }
-      wire.geometry.attributes.color.needsUpdate = true;
-    }
-
-    function victory() {
-      if (startTime !== null) {
-        startTime = null;
-        victorySound.play().catch(error => console.log('Sound play error:', error));
-        console.log('Victory!');
-      }
     }
   </script>
 </body>
 </html>
-
