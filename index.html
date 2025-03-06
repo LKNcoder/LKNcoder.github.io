@@ -119,7 +119,6 @@
           font: font,
           size: 0.02,
           height: 0.005,
-          font: 'monospace' // Change to monospaced font
         });
         const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
@@ -301,8 +300,10 @@
 
     function render() {
       // Update sphere positions to match controller positions
-      sphere1.position.copy(controller1.position);
-      sphere2.position.copy(controller2.position);
+      if (controller1 && controller2) {
+        sphere1.position.copy(controller1.position);
+        sphere2.position.copy(controller2.position);
+      }
 
       // Update bounding boxes and check for collisions
       updateBoundingBoxes();
@@ -325,11 +326,13 @@
       }
 
       // Keep the text and timer above the ring and billboarded to face the player
-      textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-      textMesh.geometry.computeBoundingBox();
-      const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-      textMesh.position.x += centerOffset;
-      textMesh.lookAt(camera.position);
+      if (textMesh) {
+        textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+        textMesh.geometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+        textMesh.position.x += centerOffset;
+        textMesh.lookAt(camera.position);
+      }
 
       // Update timer
       if (startTime !== null) {
@@ -343,7 +346,6 @@
           font: font,
           size: 0.02,
           height: 0.005,
-          font: 'monospace' // Change to monospaced font
         });
         timerMesh.geometry.dispose();
         timerMesh.geometry = timerGeometry;
@@ -354,10 +356,12 @@
       }
 
       // Ensure timer text stays attached to the ring and faces the player
-      timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.x += timerCenterOffset;
-      timerMesh.lookAt(camera.position);
+      if (timerMesh) {
+        timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        timerMesh.position.x += timerCenterOffset;
+        timerMesh.lookAt(camera.position);
+      }
 
       // Check for wire collision and update wire color
       updateWireColor();
@@ -390,7 +394,7 @@
 
     function handleCollision() {
       ring.position.copy(ringStartPosition); // Reset ring to start position
-      contactSound.play(); // Play contact sound
+      contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
       resetWireColor(); // Reset wire color to green
     }
 
@@ -401,7 +405,7 @@
     function victory() {
       if (startTime !== null) {
         startTime = null;
-        victorySound.play();
+        victorySound.play().catch(error => console.log('Sound play error:', error));
         console.log('Victory!');
       }
     }
