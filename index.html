@@ -115,7 +115,6 @@
           font: font,
           size: 0.02,
           height: 0.005,
-          font: 'monospace' // Change to monospaced font
         });
         const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
@@ -342,7 +341,6 @@
           font: font,
           size: 0.02,
           height: 0.005,
-          font: 'monospace' // Change to monospaced font
         });
         timerMesh.geometry.dispose();
         timerMesh.geometry = timerGeometry;
@@ -391,8 +389,11 @@
 
     function handleCollision() {
       ring.position.copy(ringStartPosition); // Reset ring to start position
+      ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
       contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
       resetWireColor(); // Reset wire color to green
+      grabbed = false; // Override the grab
+      grabbingController = null; // Clear the grabbing controller
     }
 
     function resetWireColor() {
