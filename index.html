@@ -1,3 +1,4 @@
+05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -69,17 +70,17 @@
     let startTime = null,
       elapsedTime = 0,
       font, timerFont, wire, wirePoints = [],
-      wireMaterial, victorySound, contactSound;
+      wireMaterial, victorySound, contactSound, applauseSound; // Added applauseSound
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
     let level = 1;
     let fadeOverlay, fadeDuration = 1; // Duration in seconds
     let fading = false;
+    let wireBlinkInterval; // Added wireBlinkInterval
 
     init();
     animate();
 
     function init() {
-      level = 2; // Start on level 2 for testing
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
       renderer = new THREE.WebGLRenderer({
@@ -141,14 +142,6 @@
           const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
           timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
           scene.add(timerMesh);
-
-          // Create the initial wire *after* the fonts have loaded
-          if (level === 1) {
-            wire = createWire();
-          } else if (level === 2) {
-            wire = createLevel2Wire();
-            resetWireColor(); // Ensure the wire starts entirely pink
-          }
         });
       });
 
@@ -214,8 +207,11 @@
       const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
       scene.add(particlesMesh);
 
+      wire = createWire();
+
       victorySound = new Audio('short_horns.mp3');
       contactSound = new Audio('contact.mp3');
+      applauseSound = new Audio('short_applause.mp3'); // Load applause sound
 
       // Create the fade overlay
       fadeOverlay = document.createElement('div');
@@ -311,7 +307,6 @@
       const ringVertices = ring.geometry.attributes.position.array;
       const ringMatrixWorld = ring.matrixWorld;
       const thresholdDistance = 0.01; // Adjust this value as needed
-      let collisionDetected = false;
 
       for (let i = 0; i < ringVertices.length; i += 3) {
         const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
@@ -320,14 +315,13 @@
         for (let j = 0; j < wirePoints.length; j++) {
           const distance = vertex.distanceTo(wirePoints[j]);
           if (distance < thresholdDistance) {
-            collisionDetected = true;
-            break; // Exit inner loop if collision is detected
+            console.log('Collision detected');
+            return true;
           }
         }
-        if (collisionDetected) break; // Exit outer loop if collision is detected
       }
 
-      return collisionDetected;
+      return false;
     }
 
     function onSelectStart(event) {
@@ -482,9 +476,6 @@
     }
 
     function resetWireColor() {
-      if (!wire || !wire.geometry || !wire.geometry.attributes || !wire.geometry.attributes.color) {
-        return; // Exit if wire or its geometry is not properly initialized
-      }
       const colors = wire.geometry.attributes.color.array;
       for (let i = 0; i < colors.length; i += 3) {
         colors[i] = 1; // R
@@ -497,13 +488,32 @@
     function victory() {
       if (startTime !== null) {
         startTime = null;
-        victorySound.play().catch(error => console.log('Sound play error:', error));
+        victorySound.play().catch(error => console.log('Victory sound play error:', error));
+        applauseSound.play().catch(error => console.log('Applause sound play error:', error)); // Play applause sound
         console.log('Victory!');
         fading = true;
+        blinkWire(); // Start blinking the wire
         setTimeout(() => {
+          clearInterval(wireBlinkInterval); // Stop blinking
+          resetWireColor(); // Ensure wire is back to original color
           startLevelTransition();
-        }, 1000); // 1 second delay before fade
+        }, 2000); // 2 second delay before fade
       }
+    }
+
+    function blinkWire() {
+      let isWhite = false;
+      wireBlinkInterval = setInterval(() => {
+        const color = isWhite ? new THREE.Color(1, 0, 1) : new THREE.Color(1, 1, 1); // Pink : White
+        const colors = wire.geometry.attributes.color.array;
+        for (let i = 0; i < wirePoints.length; i++) {
+          colors[i * 3] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
+        }
+        wire.geometry.attributes.color.needsUpdate = true;
+        isWhite = !isWhite;
+      }, 250); // Blink every 250ms
     }
 
     async function startLevelTransition() {
@@ -585,9 +595,7 @@
       }
 
       // Create new wire
-      if (wire) {
-        scene.remove(wire);
-      }
+      scene.remove(wire);
       if (level === 1) {
         wire = createWire();
       } else if (level === 2) {
