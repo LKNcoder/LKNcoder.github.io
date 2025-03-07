@@ -169,9 +169,9 @@
 
       // Create progress markers
       const markerGeometry = new THREE.SphereGeometry(0.01, 16, 16);
-      const markerMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff });
       for (let i = 0; i < points.length; i++) {
-        const marker = new THREE.Mesh(markerGeometry, markerMaterial.clone());
+        const markerMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
         marker.position.copy(points[i]);
         scene.add(marker);
         progressMarkers.push(marker);
@@ -343,6 +343,7 @@
       for (let i = 0; i < progressMarkers.length; i++) {
         progressMarkers[i].material.color.set(0xff00ff); // Reset marker color to pink
       }
+      console.log('Progress markers reset to pink');
     }
 
     function victory() {
