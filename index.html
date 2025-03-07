@@ -1,4 +1,4 @@
-
+/Documents/github/ringring04_w_gemini.html -->
 <!doctype html>
 <html>
 <head>
@@ -46,7 +46,7 @@
 
     let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
     let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
-    let startTime = null, elapsedTime = 0, font, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
+    let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
 
     init();
@@ -84,7 +84,8 @@
 
         // Load a monospaced font for the timer
         const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
-        loader.load(timerFontURL, function (timerFont) {
+        loader.load(timerFontURL, function (loadedTimerFont) {
+          timerFont = loadedTimerFont;
           // Use the loaded font for the timer
           const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
           const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
@@ -175,8 +176,8 @@
         colors[i * 3 + 2] = 1; // B
       }
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      const material = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 5 });
-      wire = new THREE.Line(geometry, material);
+      wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 }); // Increased linewidth
+      wire = new THREE.Line(geometry, wireMaterial);
       scene.add(wire);
 
       console.log('Wire created:', wire);
@@ -281,7 +282,7 @@
       }
 
       // Update timer
-      if (startTime !== null) {
+      if (startTime !== null && timerFont) {
         elapsedTime = Date.now() - startTime;
         const milliseconds = Math.floor(elapsedTime % 1000);
         const seconds = Math.floor((elapsedTime / 1000) % 60);
@@ -291,7 +292,7 @@
         if (timerMesh && timerMesh.geometry) {
           timerMesh.geometry.dispose();
           timerMesh.geometry = new THREE.TextGeometry(timerText, {
-            font: font,
+            font: timerFont,
             size: 0.02,
             height: 0.005,
           });
@@ -320,9 +321,13 @@
       const ringBox = new THREE.Box3().setFromObject(ring);
       const colors = wire.geometry.attributes.color.array;
 
+      // Calculate a dynamic pointBox size based on the ring's scale
+      const ringScale = ring.scale.x; // Assuming uniform scale
+      const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+
       for (let i = 0; i < wirePoints.length; i++) {
         const point = wirePoints[i];
-        const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(0.01, 0.01, 0.01)); // Reduced pointBox size
+        const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
 
         if (ringBox.intersectsBox(pointBox)) {
           // Color this segment blue
@@ -377,4 +382,3 @@
   </script>
 </body>
 </html>
-
