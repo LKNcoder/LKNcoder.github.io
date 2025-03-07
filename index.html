@@ -265,7 +265,7 @@
       return wire;
     }
 
-    function createLevel2Wire() {
+  function createLevel2Wire() {
       const points = [];
       const segments = 200;
       const radius = 0.75; // Match level 1 radius
@@ -273,8 +273,8 @@
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const angle = t * Math.PI * 2; // Complete loop
-        const waveX = Math.sin(angle * 8) * 0.05;
-        const waveY = Math.cos(angle * 6) * 0.05;
+        const waveX = Math.sin(angle * 8 + t * Math.PI * 4) * 0.1; // Varying wave frequency
+        const waveY = Math.cos(angle * 6 + t * Math.PI * 2) * 0.1; // Varying wave frequency
         const x = (Math.cos(angle) * radius) + waveX;
         const y = height + waveY; // Keep the height consistent
         const z = (Math.sin(angle) * radius) + waveX;
