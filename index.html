@@ -308,10 +308,11 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    function checkCollision() {
+   function checkCollision() {
       const ringVertices = ring.geometry.attributes.position.array;
       const ringMatrixWorld = ring.matrixWorld;
       const thresholdDistance = 0.01; // Adjust this value as needed
+      let collisionDetected = false;
 
       for (let i = 0; i < ringVertices.length; i += 3) {
         const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
@@ -320,13 +321,14 @@
         for (let j = 0; j < wirePoints.length; j++) {
           const distance = vertex.distanceTo(wirePoints[j]);
           if (distance < thresholdDistance) {
-            console.log('Collision detected');
-            return true;
+            collisionDetected = true;
+            break; // Exit inner loop if collision is detected
           }
         }
+        if (collisionDetected) break; // Exit outer loop if collision is detected
       }
 
-      return false;
+      return collisionDetected;
     }
 
     function onSelectStart(event) {
