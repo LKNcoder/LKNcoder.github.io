@@ -483,6 +483,9 @@
     }
 
     function resetWireColor() {
+      if (!wire || !wire.geometry || !wire.geometry.attributes || !wire.geometry.attributes.color) {
+        return; // Exit if wire or its geometry is not properly initialized
+      }
       const colors = wire.geometry.attributes.color.array;
       for (let i = 0; i < colors.length; i += 3) {
         colors[i] = 1; // R
