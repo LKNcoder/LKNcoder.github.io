@@ -266,11 +266,11 @@
       return wire;
     }
 
-    function createLevel2Wire() {
+ function createLevel2Wire() {
       const points = [];
       const segments = 200;
       const radius = 0.75; // Match level 1 radius
-      const height = 1.6; // Match level 1 height + slight adjustment
+      const height = 1.2; // Match level 1 height + slight adjustment
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const angle = t * Math.PI * 2; // Complete loop
