@@ -1,4 +1,4 @@
-04_w_gemini.html -->
+ring04_w_gemini.html -->
 <!doctype html>
 <html>
 <head>
@@ -82,13 +82,18 @@
         textMesh.position.set(centerOffset, 2.0, -0.75);
         scene.add(textMesh);
 
-        const timerGeometry = new THREE.TextGeometry('00:000', { font: font, size: 0.02, height: 0.005 });
-        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-        timerGeometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-        scene.add(timerMesh);
+        // Load a monospaced font for the timer
+        const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
+        loader.load(timerFontURL, function (timerFont) {
+          // Use the loaded font for the timer
+          const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
+          const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+          timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+          timerGeometry.computeBoundingBox();
+          const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+          timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
+          scene.add(timerMesh);
+        });
       });
 
       const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
@@ -283,17 +288,18 @@
         const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
         // Update timer text
-        const timerGeometry = new THREE.TextGeometry(timerText, {
-          font: font,
-          size: 0.02,
-          height: 0.005,
-        });
-        timerMesh.geometry.dispose();
-        timerMesh.geometry = timerGeometry;
-        timerMesh.geometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-        timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-        timerMesh.lookAt(camera.position);
+        if (timerMesh && timerMesh.geometry) {
+          timerMesh.geometry.dispose();
+          timerMesh.geometry = new THREE.TextGeometry(timerText, {
+            font: font,
+            size: 0.02,
+            height: 0.005,
+          });
+          timerMesh.geometry.computeBoundingBox();
+          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+          timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+          timerMesh.lookAt(camera.position);
+        }
       }
 
       // Ensure timer text stays attached to the ring and faces the player
@@ -316,7 +322,7 @@
 
       for (let i = 0; i < wirePoints.length; i++) {
         const point = wirePoints[i];
-        const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(0.05, 0.05, 0.05));
+        const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(0.01, 0.01, 0.01)); // Reduced pointBox size
 
         if (ringBox.intersectsBox(pointBox)) {
           // Color this segment blue
