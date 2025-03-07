@@ -77,6 +77,7 @@
     let fading = false;
     let wireBlinkInterval; // Added wireBlinkInterval
 
+    level = 2; // Start at level 2 for testing
     init();
     animate();
 
@@ -265,7 +266,7 @@
       const points = [];
       const segments = 200;
       const radius = 0.75; // Match level 1 radius
-      const height = 1.4; // Match level 1 height + slight adjustment
+      const height = 1.5; // Match level 1 height + slight adjustment
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const angle = t * Math.PI * 2; // Complete loop
@@ -601,6 +602,7 @@
       } else if (level === 2) {
         wire = createLevel2Wire();
       }
+      resetWireColor(); // Reset wire color after creating the wire
     }
   </script>
 </body>
