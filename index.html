@@ -294,6 +294,7 @@
         linewidth: 7
       }); // Increased linewidth
       wire = new THREE.Line(geometry, wireMaterial);
+      wire.rotation.y = Math.PI / 4; // Rotate the wire by 45 degrees
       scene.add(wire);
 
       console.log('Wire created:', wire);
