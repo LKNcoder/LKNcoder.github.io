@@ -1,4 +1,4 @@
-04_w_gemini.html -->
+
 <!doctype html>
 <html>
 
@@ -80,6 +80,7 @@
     animate();
 
     function init() {
+      level = 2; // Start on level 2 for testing
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
       renderer = new THREE.WebGLRenderer({
@@ -206,7 +207,11 @@
       const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
       scene.add(particlesMesh);
 
-      wire = createWire();
+      if (level === 1) {
+        wire = createWire();
+      } else if (level === 2) {
+        wire = createLevel2Wire();
+      }
 
       victorySound = new Audio('short_horns.mp3');
       contactSound = new Audio('contact.mp3');
@@ -571,7 +576,9 @@
       }
 
       // Create new wire
-      scene.remove(wire);
+      if (wire) {
+        scene.remove(wire);
+      }
       if (level === 1) {
         wire = createWire();
       } else if (level === 2) {
