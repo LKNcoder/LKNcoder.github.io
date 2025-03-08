@@ -310,15 +310,16 @@
     function checkCollision() {
       const ringVertices = ring.geometry.attributes.position.array;
       const ringMatrixWorld = ring.matrixWorld;
-      const thresholdDistance = 0.01; // Adjust this value as needed
-      const wirePoints = wire.geometry.attributes.position.array; // Get the wirepoints here
+      const thresholdDistance = 0.01;
+      const wirePoints = wire.geometry.attributes.position.array;
 
       for (let i = 0; i < ringVertices.length; i += 3) {
         const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
         vertex.applyMatrix4(ringMatrixWorld);
 
-        for (let j = 0; j < wirePoints.length; j++) {
-          const distance = vertex.distanceTo(wirePoints[j]);
+        for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
+          const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
+          const distance = vertex.distanceTo(wirePoint);
           if (distance < thresholdDistance) {
             console.log('Collision detected');
             return true;
@@ -444,25 +445,29 @@
       const ringScale = ring.scale.x; // Assuming uniform scale
       const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
 
-      for (let i = 0; i < wirePoints.length; i++) {
-        const point = new THREE.Vector3(wirePoints[i * 3], wirePoints[i * 3 + 1], wirePoints[i * 3 + 2]);
+      for (let i = 0; i < wirePoints.length; i+=3) {
+        const point = new THREE.Vector3(wirePoints[i], wirePoints[i + 1], wirePoints[i + 2]);
         const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
 
         if (ringBox.intersectsBox(pointBox)) {
           // Color this segment blue
-          colors[i * 3] = 0; // R
-          colors[i * 3 + 1] = 0; // G
-          colors[i * 3 + 2] = 1; // B
+          colors[i] = 0; // R
+          colors[i + 1] = 0; // G
+          colors[i + 2] = 1; // B
+        } else {
+          // Color this segment pink
+          colors[i] = 1; // R
+          colors[i + 1] = 0; // G
+          colors[i + 2] = 1; // B
         }
-        //No ELSE, so color will remain unless reset
       }
 
       wire.geometry.attributes.color.needsUpdate = true;
 
       // Check if the entire wire is blue (victory condition)
       let allBlue = true;
-      for (let i = 0; i < wirePoints.length; i++) {
-        if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
+      for (let i = 0; i < wirePoints.length; i+=3) {
+        if (colors[i] !== 0 || colors[i + 1] !== 0 || colors[i + 2] !== 1) {
           allBlue = false;
           break;
         }
