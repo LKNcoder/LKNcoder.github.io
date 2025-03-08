@@ -75,6 +75,10 @@
     let fadeOverlay, fadeDuration = 1; // Duration in seconds
     let fading = false;
     let wireBlinkInterval; // Added wireBlinkInterval
+    const defaultThresholdDistance = 0.01; // Store the default threshold
+    let thresholdDistance = defaultThresholdDistance; // Current threshold distance
+    let levelStartDelay = 1; // Delay in seconds before collision detection starts
+    let collisionEnabled = false; // Flag to control collision detection
 
     level = 2; // Start at level 2 for testing
     init();
@@ -308,9 +312,10 @@
     }
 
     function checkCollision() {
+      if (!collisionEnabled) return false; // Skip collision check if not enabled
+
       const ringVertices = ring.geometry.attributes.position.array;
       const ringMatrixWorld = ring.matrixWorld;
-      const thresholdDistance = 0.01;
       const wirePoints = wire.geometry.attributes.position.array;
 
       for (let i = 0; i < ringVertices.length; i += 3) {
@@ -373,7 +378,7 @@
       }
 
       // Check for collisions
-      if (checkCollision()) {
+      if (collisionEnabled && checkCollision()) { // Only check if collision is enabled
         handleCollision();
       }
 
@@ -395,7 +400,7 @@
       if (textMesh) {
         textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
         textMesh.geometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.min.x);
         textMesh.position.x += centerOffset;
         textMesh.lookAt(camera.position);
       }
@@ -416,7 +421,7 @@
             height: 0.005,
           });
           timerMesh.geometry.computeBoundingBox();
-          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
           timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
           timerMesh.lookAt(camera.position);
         }
@@ -425,7 +430,7 @@
       // Ensure timer text stays attached to the ring and faces the player
       if (timerMesh) {
         timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
         timerMesh.position.x += timerCenterOffset;
         timerMesh.lookAt(camera.position);
       }
@@ -445,7 +450,7 @@
       const ringScale = ring.scale.x; // Assuming uniform scale
       const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
 
-      for (let i = 0; i < wirePoints.length; i+=3) {
+      for (let i = 0; i < wirePoints.length; i += 3) {
         const point = new THREE.Vector3(wirePoints[i], wirePoints[i + 1], wirePoints[i + 2]);
         const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
 
@@ -466,7 +471,7 @@
 
       // Check if the entire wire is blue (victory condition)
       let allBlue = true;
-      for (let i = 0; i < wirePoints.length; i+=3) {
+      for (let i = 0; i < wirePoints.length; i += 3) {
         if (colors[i] !== 0 || colors[i + 1] !== 0 || colors[i + 2] !== 1) {
           allBlue = false;
           break;
@@ -586,6 +591,14 @@
       ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
       grabbed = false; // Override the grab
       grabbingController = null; // Clear the grabbing controller
+      thresholdDistance = defaultThresholdDistance; // Reset threshold distance
+
+      // Log reset values
+      console.log("Level reset to:", level);
+      console.log("Ring position reset to:", ring.position);
+      console.log("Grabbed:", grabbed);
+      console.log("Grabbing Controller:", grabbingController);
+      console.log("Threshold Distance:", thresholdDistance);
 
       // Update Level Text
       if (textMesh) {
@@ -600,7 +613,7 @@
         });
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.min.x);
         textMesh.position.set(centerOffset, 2.0, -0.75);
         scene.add(textMesh);
       }
@@ -613,6 +626,13 @@
         wire = createLevel2Wire();
       }
       resetWireColor(); // Reset wire color after creating the wire
+
+      // Delay collision detection
+      collisionEnabled = false;
+      setTimeout(() => {
+        collisionEnabled = true;
+        console.log("Collision detection enabled for level", level);
+      }, levelStartDelay * 1000);
     }
   </script>
 </body>
