@@ -1,4 +1,4 @@
-Gaming PC/Documents/github/ringring05_w_gemini.html -->
+C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -82,7 +82,10 @@ Gaming PC/Documents/github/ringring05_w_gemini.html -->
 
     level = 2; // Start at level 2 for testing
     init();
-    animate();
+    // Add a small delay:
+    setTimeout(() => {
+      animate();
+    }, 100); // 100 milliseconds
 
     function init() {
       scene = new THREE.Scene();
@@ -397,12 +400,24 @@ Gaming PC/Documents/github/ringring05_w_gemini.html -->
       }
 
       // Keep the text and timer above the ring and billboarded to face the player
-      if (textMesh && ring && ring.position) {
-        textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-        textMesh.geometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.min.x);
-        textMesh.position.x += centerOffset;
-        textMesh.lookAt(camera.position);
+      if (textMesh) {
+        console.log("textMesh is defined");
+        console.log("Ring:", ring);
+        if (ring) {
+          console.log("Ring.position:", ring.position);
+        }
+        if (ring && ring.position) {
+          // Add these lines:
+          console.log("About to access ring.position.x:", ring.position.x);
+          console.log("About to access ring.position.y:", ring.position.y);
+          console.log("About to access ring.position.z:", ring.position.z);
+
+          textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+          textMesh.geometry.computeBoundingBox();
+          const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textMesh.geometry.min.x);
+          textMesh.position.x += centerOffset;
+          textMesh.lookAt(camera.position);
+        }
       }
 
       // Update timer
