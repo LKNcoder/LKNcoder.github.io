@@ -1,4 +1,4 @@
-05_w_gemini.html -->
+Gaming PC/Documents/github/ringring05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -397,7 +397,7 @@
       }
 
       // Keep the text and timer above the ring and billboarded to face the player
-      if (textMesh) {
+      if (textMesh && ring && ring.position) {
         textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
         textMesh.geometry.computeBoundingBox();
         const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.min.x);
