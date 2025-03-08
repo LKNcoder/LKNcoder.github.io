@@ -1,4 +1,4 @@
-/ringring05_w_gemini.html -->
+05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -69,8 +69,7 @@
       grabRotationOffset = new THREE.Quaternion();
     let startTime = null,
       elapsedTime = 0,
-      font, timerFont, wire, wirePoints = [],
-      wireMaterial, victorySound, contactSound, applauseSound; // Added applauseSound
+      font, timerFont, wire, wireMaterial, victorySound, contactSound, applauseSound; // Added applauseSound
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
     let level = 1;
     let fadeOverlay, fadeDuration = 1; // Duration in seconds
@@ -246,7 +245,6 @@
         const z = (Math.sin(angle) * radius) + waveX;
         points.push(new THREE.Vector3(x, y, z));
       }
-      wirePoints = points;
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
       const colors = new Float32Array(points.length * 3);
       for (let i = 0; i < points.length; i++) {
@@ -262,6 +260,7 @@
       wire = new THREE.Line(geometry, wireMaterial);
       scene.add(wire);
 
+      const wirePoints = wire.geometry.attributes.position.array; // Moved here
       console.log('Wire created:', wire);
       return wire;
     }
@@ -281,7 +280,6 @@
         const z = (Math.sin(angle) * radius) + waveX;
         points.push(new THREE.Vector3(x, y, z));
       }
-      wirePoints = points;
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
       const colors = new Float32Array(points.length * 3);
       for (let i = 0; i < points.length; i++) {
@@ -298,6 +296,7 @@
       wire.rotation.y = Math.PI / 4; // Rotate the wire by 45 degrees
       scene.add(wire);
 
+      const wirePoints = wire.geometry.attributes.position.array; // Moved here
       console.log('Wire created:', wire);
       return wire;
     }
@@ -312,6 +311,7 @@
       const ringVertices = ring.geometry.attributes.position.array;
       const ringMatrixWorld = ring.matrixWorld;
       const thresholdDistance = 0.01; // Adjust this value as needed
+      const wirePoints = wire.geometry.attributes.position.array; // Get the wirepoints here
 
       for (let i = 0; i < ringVertices.length; i += 3) {
         const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
@@ -438,13 +438,14 @@
     function updateWireColor() {
       const ringBox = new THREE.Box3().setFromObject(ring);
       const colors = wire.geometry.attributes.color.array;
+      const wirePoints = wire.geometry.attributes.position.array; // Get the wirepoints here
 
       // Calculate a dynamic pointBox size based on the ring's scale
       const ringScale = ring.scale.x; // Assuming uniform scale
       const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
 
       for (let i = 0; i < wirePoints.length; i++) {
-        const point = wirePoints[i];
+        const point = new THREE.Vector3(wirePoints[i * 3], wirePoints[i * 3 + 1], wirePoints[i * 3 + 2]);
         const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
 
         if (ringBox.intersectsBox(pointBox)) {
@@ -606,11 +607,9 @@
       } else if (level === 2) {
         wire = createLevel2Wire();
       }
-      wirePoints = wire.geometry.attributes.position.array;
       resetWireColor(); // Reset wire color after creating the wire
     }
   </script>
 </body>
 
 </html>
-
