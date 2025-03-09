@@ -415,7 +415,7 @@ C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
           textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
           textMesh.geometry.computeBoundingBox();
           // Access textGeometry from the outer scope
-          const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textMesh.geometry.min.x);
+          let centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
           textMesh.position.x += centerOffset;
           textMesh.lookAt(camera.position);
         }
