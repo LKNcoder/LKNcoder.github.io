@@ -1,4 +1,4 @@
-
+C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -399,8 +399,8 @@
         sphere2.visible = true;
       }
 
-      // Keep the text and timer above the ring and billboarded to face the player
-      if (textMesh) {
+        // Keep the text and timer above the ring and billboarded to face the player
+        if (textMesh) {
         console.log("textMesh is defined");
         console.log("Ring:", ring);
         if (ring) {
@@ -414,6 +414,7 @@
 
           textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
           textMesh.geometry.computeBoundingBox();
+          // Access textGeometry from the outer scope
           const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textMesh.geometry.min.x);
           textMesh.position.x += centerOffset;
           textMesh.lookAt(camera.position);
