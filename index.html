@@ -443,16 +443,17 @@ C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
         }
       }
 
-      // Ensure timer text stays attached to the ring and faces the player
-      if (timerMesh) {
-        timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
-        timerMesh.position.x += timerCenterOffset;
-        timerMesh.lookAt(camera.position);
-      }
+// Ensure timer text stays attached to the ring and faces the player
+if (timerMesh && timerMesh.geometry && ring && ring.position) {
+  timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+  timerMesh.geometry.computeBoundingBox();
+  const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
+  timerMesh.position.x += timerCenterOffset;
+  timerMesh.lookAt(camera.position);
+}
 
-      // Check for wire collision and update wire color
-      updateWireColor();
+// Check for wire collision and update wire color
+updateWireColor();
 
       renderer.render(scene, camera);
     }
