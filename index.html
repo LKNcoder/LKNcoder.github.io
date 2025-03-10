@@ -432,18 +432,19 @@ ringring05_w_gemini.html -->
 
         // Update timer text
         if (timerMesh && timerMesh.geometry) {
-          timerMesh.geometry.dispose();
-          timerMesh.geometry = new THREE.TextGeometry(timerText, {
-            font: timerFont,
-            size: 0.02,
-            height: 0.005,
-          });
-          timerMesh.geometry.computeBoundingBox();
-          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
-          timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-          timerMesh.lookAt(camera.position);
-        }
-      }
+  timerMesh.geometry.dispose();
+  timerMesh.geometry = new THREE.TextGeometry(timerText, {
+    font: timerFont,
+    size: 0.02,
+    height: 0.005,
+  });
+  timerMesh.geometry.computeBoundingBox();
+    if (ring && ring.position) {
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+      timerMesh.lookAt(camera.position);
+    }
+}
 
       // Ensure timer text stays attached to the ring and faces the player
       if (timerMesh && timerMesh.geometry && ring && ring.position) {
