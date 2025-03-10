@@ -1,4 +1,4 @@
-C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
+ringring05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -399,8 +399,8 @@ C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
         sphere2.visible = true;
       }
 
-        // Keep the text and timer above the ring and billboarded to face the player
-        if (textMesh) {
+      // Keep the text and timer above the ring and billboarded to face the player
+      if (textMesh) {
         console.log("textMesh is defined");
         console.log("Ring:", ring);
         if (ring) {
@@ -418,6 +418,8 @@ C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
           let centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
           textMesh.position.x += centerOffset;
           textMesh.lookAt(camera.position);
+        } else {
+          console.warn("Ring or ring.position is undefined, skipping textMesh update.");
         }
       }
 
@@ -443,17 +445,19 @@ C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
         }
       }
 
-// Ensure timer text stays attached to the ring and faces the player
-if (timerMesh && timerMesh.geometry && ring && ring.position) {
-  timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-  timerMesh.geometry.computeBoundingBox();
-  const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
-  timerMesh.position.x += timerCenterOffset;
-  timerMesh.lookAt(camera.position);
-}
+      // Ensure timer text stays attached to the ring and faces the player
+      if (timerMesh && timerMesh.geometry && ring && ring.position) {
+        timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+        timerMesh.geometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
+        timerMesh.position.x += timerCenterOffset;
+        timerMesh.lookAt(camera.position);
+      } else {
+        console.warn("timerMesh, timerMesh.geometry, ring, or ring.position is undefined, skipping timerMesh update.");
+      }
 
-// Check for wire collision and update wire color
-updateWireColor();
+      // Check for wire collision and update wire color
+      updateWireColor();
 
       renderer.render(scene, camera);
     }
