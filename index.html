@@ -1,4 +1,4 @@
-.html -->
+Gaming PC/Documents/github/ringring06_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -50,7 +50,7 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three": "https://cdn.jsdelivr.net/npm/three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
         "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
         "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
       }
@@ -294,7 +294,7 @@
       const ringBox = new THREE.Box3().setFromObject(ring);
       const wirePoints = wire.geometry.attributes.position.array;
       const ringScale = ring.scale.x; // Assuming uniform scale
-      const pointBoxSize = 0.05 * ringScale; // Adjust the multiplier as needed
+      const pointBoxSize = 0.1 * ringScale; // Adjust the multiplier as needed
 
       for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
         const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
@@ -437,7 +437,7 @@
 
       // Calculate a dynamic pointBox size based on the ring's scale
       const ringScale = ring.scale.x; // Assuming uniform scale
-      const pointBoxSize = 0.05 * ringScale; // Adjust the multiplier as needed
+      const pointBoxSize = 0.1 * ringScale; // Adjust the multiplier as needed
 
       for (let i = 0; i < wirePoints.length; i += 3) {
         const point = new THREE.Vector3(wirePoints[i], wirePoints[i + 1], wirePoints[i + 2]);
@@ -608,8 +608,10 @@
     } // Closing brace for resetLevel function
 
     function updateLevelText() {
-      if (font && textMesh) {
-        scene.remove(textMesh);
+      if (font) {
+        if (textMesh) {
+          scene.remove(textMesh);
+        }
         const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
           font: font,
           size: 0.02,
@@ -623,13 +625,17 @@
         const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
         textMesh.position.set(centerOffset, 2.0, -0.75);
         scene.add(textMesh);
+      } else {
+        console.warn("Font not loaded yet, cannot update level text.");
       }
       updateTimerText(); // Keep timer position consistent with level text
     }
 
     function updateTimerText() {
-      if (timerFont && timerMesh) {
-        scene.remove(timerMesh);
+      if (timerFont) {
+        if (timerMesh) {
+          scene.remove(timerMesh);
+        }
         const timerGeometry = new THREE.TextGeometry('00:000', {
           font: timerFont,
           size: 0.02,
@@ -643,6 +649,8 @@
         const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
         timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
         scene.add(timerMesh);
+      } else {
+        console.warn("Timer font not loaded yet, cannot update timer text.");
       }
     }
   </script>
