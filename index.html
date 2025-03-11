@@ -1,4 +1,4 @@
- -->
+.html -->
 <!doctype html>
 <html>
 
@@ -620,11 +620,11 @@
         });
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.min.x);
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
         textMesh.position.set(centerOffset, 2.0, -0.75);
         scene.add(textMesh);
       }
-      // REMOVE THIS LINE: updateTimerText(); // Keep timer position consistent with level text
+      updateTimerText(); // Keep timer position consistent with level text
     }
 
     function updateTimerText() {
