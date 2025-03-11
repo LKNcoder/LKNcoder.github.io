@@ -1,4 +1,4 @@
-Gaming PC/Documents/github/ringring06_w_gemini.html -->
+C:/Users/Gaming PC/Documents/github/ringring05_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -50,7 +50,7 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
         "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
         "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
       }
@@ -117,12 +117,38 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
       const loader = new THREE.FontLoader();
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function(loadedFont) {
         font = loadedFont;
-        updateLevelText(); // Initial level text update
+        const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
+          font: font,
+          size: 0.02,
+          height: 0.005
+        });
+        const textMaterial = new THREE.MeshStandardMaterial({
+          color: 0xffffff
+        });
+        textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        textMesh.position.set(centerOffset, 2.0, -0.75);
+        scene.add(textMesh);
+
         // Load a monospaced font for the timer
         const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
         loader.load(timerFontURL, function(loadedTimerFont) {
           timerFont = loadedTimerFont;
-          updateTimerText(); // Initial timer text update
+          // Use the loaded font for the timer
+          const timerGeometry = new THREE.TextGeometry('00:000', {
+            font: timerFont,
+            size: 0.02,
+            height: 0.005
+          });
+          const timerMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff
+          });
+          timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+          timerGeometry.computeBoundingBox();
+          const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+          timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
+          scene.add(timerMesh);
         });
       });
 
@@ -151,7 +177,7 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
       controller2.addEventListener('squeezeend', onSelectEnd);
       scene.add(controller2);
 
-      //window.addEventListener('resize', onWindowResize, false); // COMMENTED OUT
+      window.addEventListener('resize', onWindowResize, false);
 
       const vrButton = document.getElementById('vrButton');
       vrButton.addEventListener('click', async () => {
@@ -291,18 +317,21 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
     function checkCollision() {
       if (!collisionEnabled) return false; // Skip collision check if not enabled
 
-      const ringBox = new THREE.Box3().setFromObject(ring);
+      const ringVertices = ring.geometry.attributes.position.array;
+      const ringMatrixWorld = ring.matrixWorld;
       const wirePoints = wire.geometry.attributes.position.array;
-      const ringScale = ring.scale.x; // Assuming uniform scale
-      const pointBoxSize = 0.1 * ringScale; // Adjust the multiplier as needed
 
-      for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
-        const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
-        const pointBox = new THREE.Box3().setFromCenterAndSize(wirePoint, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
+      for (let i = 0; i < ringVertices.length; i += 3) {
+        const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
+        vertex.applyMatrix4(ringMatrixWorld);
 
-        if (ringBox.intersectsBox(pointBox)) {
-          console.log('Collision detected');
-          return true;
+        for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
+          const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
+          const distance = vertex.distanceTo(wirePoint);
+          if (distance < thresholdDistance) {
+            console.log('Collision detected');
+            return true;
+          }
         }
       }
 
@@ -371,57 +400,54 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
       }
 
       // Keep the text and timer above the ring and billboarded to face the player
-      if (textMesh && ring && ring.position) {
-        // Add these lines:
-        if (typeof ring.position.x === 'number' && !isNaN(ring.position.x) &&
-          typeof ring.position.y === 'number' && !isNaN(ring.position.y) &&
-          typeof ring.position.z === 'number' && !isNaN(ring.position.z)) {
+      if (textMesh) {
+        console.log("textMesh is defined");
+        console.log("Ring:", ring);
+        if (ring) {
+          console.log("Ring.position:", ring.position);
+        }
+        if (ring && ring.position) {
+          // Add these lines:
+          console.log("About to access ring.position.x:", ring.position.x);
+          console.log("About to access ring.position.y:", ring.position.y);
+          console.log("About to access ring.position.z:", ring.position.z);
+
           textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
           textMesh.geometry.computeBoundingBox();
-          // Access textGeometry from the outer scope
-          let centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+          const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textMesh.geometry.min.x);
           textMesh.position.x += centerOffset;
           textMesh.lookAt(camera.position);
-        } else {
-          console.warn("Ring position contains NaN values, skipping textMesh update.");
         }
-      } else {
-        console.warn("Ring or textMesh is undefined, skipping textMesh update.");
       }
 
       // Update timer
-      if (startTime !== null && timerFont && timerMesh && ring && ring.position) {
+      if (startTime !== null && timerFont) {
         elapsedTime = Date.now() - startTime;
         const milliseconds = Math.floor(elapsedTime % 1000);
         const seconds = Math.floor((elapsedTime / 1000) % 60);
         const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
         // Update timer text
-        if (timerMesh.geometry) {
-          try {
-            timerMesh.geometry.dispose();
-            timerMesh.geometry = new THREE.TextGeometry(timerText, {
-              font: timerFont,
-              size: 0.02,
-              height: 0.005,
-            });
-            timerMesh.geometry.computeBoundingBox();
-
-            if (typeof ring.position.x === 'number' && !isNaN(ring.position.x) &&
-              typeof ring.position.y === 'number' && !isNaN(ring.position.y) &&
-              typeof ring.position.z === 'number' && !isNaN(ring.position.z)) {
-              const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
-              timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-              timerMesh.lookAt(camera.position);
-            } else {
-              console.warn("Ring position contains NaN values, skipping timerMesh update.");
-            }
-          } catch (error) {
-            console.error("Error updating timerMesh:", error);
-          }
-        } else {
-          console.warn("timerMesh.geometry is undefined, skipping timer update.");
+        if (timerMesh && timerMesh.geometry) {
+          timerMesh.geometry.dispose();
+          timerMesh.geometry = new THREE.TextGeometry(timerText, {
+            font: timerFont,
+            size: 0.02,
+            height: 0.005,
+          });
+          timerMesh.geometry.computeBoundingBox();
+          const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
+          timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+          timerMesh.lookAt(camera.position);
         }
+      }
+
+      // Ensure timer text stays attached to the ring and faces the player
+      if (timerMesh) {
+        timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+        const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
+        timerMesh.position.x += timerCenterOffset;
+        timerMesh.lookAt(camera.position);
       }
 
       // Check for wire collision and update wire color
@@ -433,11 +459,11 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
     function updateWireColor() {
       const ringBox = new THREE.Box3().setFromObject(ring);
       const colors = wire.geometry.attributes.color.array;
-      const wirePoints = wire.geometry.attributes.position.array;
+      const wirePoints = wire.geometry.attributes.position.array; // Get the wirepoints here
 
       // Calculate a dynamic pointBox size based on the ring's scale
       const ringScale = ring.scale.x; // Assuming uniform scale
-      const pointBoxSize = 0.1 * ringScale; // Adjust the multiplier as needed
+      const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
 
       for (let i = 0; i < wirePoints.length; i += 3) {
         const point = new THREE.Vector3(wirePoints[i], wirePoints[i + 1], wirePoints[i + 2]);
@@ -589,7 +615,24 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
       console.log("Grabbing Controller:", grabbingController);
       console.log("Threshold Distance:", thresholdDistance);
 
-      updateLevelText();
+      // Update Level Text
+      if (textMesh) {
+        scene.remove(textMesh);
+        const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
+          font: font,
+          size: 0.02,
+          height: 0.005
+        });
+        const textMaterial = new THREE.MeshStandardMaterial({
+          color: 0xffffff
+        });
+        textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.min.x);
+        textMesh.position.set(centerOffset, 2.0, -0.75);
+        scene.add(textMesh);
+      }
+
       // Create new wire
       scene.remove(wire);
       if (level === 1) {
@@ -605,53 +648,6 @@ Gaming PC/Documents/github/ringring06_w_gemini.html -->
         collisionEnabled = true;
         console.log("Collision detection enabled for level", level);
       }, levelStartDelay * 1000);
-    } // Closing brace for resetLevel function
-
-    function updateLevelText() {
-      if (font) {
-        if (textMesh) {
-          scene.remove(textMesh);
-        }
-        const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
-          font: font,
-          size: 0.02,
-          height: 0.005
-        });
-        const textMaterial = new THREE.MeshStandardMaterial({
-          color: 0xffffff
-        });
-        textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.75);
-        scene.add(textMesh);
-      } else {
-        console.warn("Font not loaded yet, cannot update level text.");
-      }
-      updateTimerText(); // Keep timer position consistent with level text
-    }
-
-    function updateTimerText() {
-      if (timerFont) {
-        if (timerMesh) {
-          scene.remove(timerMesh);
-        }
-        const timerGeometry = new THREE.TextGeometry('00:000', {
-          font: timerFont,
-          size: 0.02,
-          height: 0.005
-        });
-        const timerMaterial = new THREE.MeshStandardMaterial({
-          color: 0xffffff
-        });
-        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-        timerGeometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-        scene.add(timerMesh);
-      } else {
-        console.warn("Timer font not loaded yet, cannot update timer text.");
-      }
     }
   </script>
 </body>
