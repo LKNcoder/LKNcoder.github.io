@@ -1,4 +1,4 @@
-06_w_gemini.html -->
+/Documents/github/ringring06_w_gemini.html -->
 <!doctype html>
 <html>
 
@@ -117,38 +117,12 @@
       const loader = new THREE.FontLoader();
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function(loadedFont) {
         font = loadedFont;
-        const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
-          font: font,
-          size: 0.02,
-          height: 0.005
-        });
-        const textMaterial = new THREE.MeshStandardMaterial({
-          color: 0xffffff
-        });
-        textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.75);
-        scene.add(textMesh);
-
+        updateLevelText(); // Initial level text update
         // Load a monospaced font for the timer
         const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
         loader.load(timerFontURL, function(loadedTimerFont) {
           timerFont = loadedTimerFont;
-          // Use the loaded font for the timer
-          const timerGeometry = new THREE.TextGeometry('00:000', {
-            font: timerFont,
-            size: 0.02,
-            height: 0.005
-          });
-          const timerMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffffff
-          });
-          timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-          timerGeometry.computeBoundingBox();
-          const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-          timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-          scene.add(timerMesh);
+          updateTimerText(); // Initial timer text update
         });
       });
 
@@ -317,21 +291,18 @@
     function checkCollision() {
       if (!collisionEnabled) return false; // Skip collision check if not enabled
 
-      const ringVertices = ring.geometry.attributes.position.array;
-      const ringMatrixWorld = ring.matrixWorld;
+      const ringBox = new THREE.Box3().setFromObject(ring);
       const wirePoints = wire.geometry.attributes.position.array;
+      const ringScale = ring.scale.x; // Assuming uniform scale
+      const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
 
-      for (let i = 0; i < ringVertices.length; i += 3) {
-        const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
-        vertex.applyMatrix4(ringMatrixWorld);
+      for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
+        const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
+        const pointBox = new THREE.Box3().setFromCenterAndSize(wirePoint, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
 
-        for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
-          const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
-          const distance = vertex.distanceTo(wirePoint);
-          if (distance < thresholdDistance) {
-            console.log('Collision detected');
-            return true;
-          }
+        if (ringBox.intersectsBox(pointBox)) {
+          console.log('Collision detected');
+          return true;
         }
       }
 
@@ -462,7 +433,7 @@
     function updateWireColor() {
       const ringBox = new THREE.Box3().setFromObject(ring);
       const colors = wire.geometry.attributes.color.array;
-      const wirePoints = wire.geometry.attributes.position.array; // Get the wirepoints here
+      const wirePoints = wire.geometry.attributes.position.array;
 
       // Calculate a dynamic pointBox size based on the ring's scale
       const ringScale = ring.scale.x; // Assuming uniform scale
@@ -618,24 +589,7 @@
       console.log("Grabbing Controller:", grabbingController);
       console.log("Threshold Distance:", thresholdDistance);
 
-      // Update Level Text
-      if (textMesh) {
-        scene.remove(textMesh);
-        const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
-          font: font,
-          size: 0.02,
-          height: 0.005
-        });
-        const textMaterial = new THREE.MeshStandardMaterial({
-          color: 0xffffff
-        });
-        textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.75);
-        scene.add(textMesh);
-      }
-
+      updateLevelText();
       // Create new wire
       scene.remove(wire);
       if (level === 1) {
@@ -652,6 +606,45 @@
         console.log("Collision detection enabled for level", level);
       }, levelStartDelay * 1000);
     } // Closing brace for resetLevel function
+
+    function updateLevelText() {
+      if (font && textMesh) {
+        scene.remove(textMesh);
+        const textGeometry = new THREE.TextGeometry('LEVEL ' + level, {
+          font: font,
+          size: 0.02,
+          height: 0.005
+        });
+        const textMaterial = new THREE.MeshStandardMaterial({
+          color: 0xffffff
+        });
+        textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.min.x);
+        textMesh.position.set(centerOffset, 2.0, -0.75);
+        scene.add(textMesh);
+      }
+      updateTimerText(); // Keep timer position consistent with level text
+    }
+
+    function updateTimerText() {
+      if (timerFont && timerMesh) {
+        scene.remove(timerMesh);
+        const timerGeometry = new THREE.TextGeometry('00:000', {
+          font: timerFont,
+          size: 0.02,
+          height: 0.005
+        });
+        const timerMaterial = new THREE.MeshStandardMaterial({
+          color: 0xffffff
+        });
+        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+        timerGeometry.computeBoundingBox();
+        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+        timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
+        scene.add(timerMesh);
+      }
+    }
   </script>
 </body>
 
