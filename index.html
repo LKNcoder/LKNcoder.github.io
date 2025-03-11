@@ -427,23 +427,29 @@
 
         // Update timer text
         if (timerMesh.geometry) {
-          timerMesh.geometry.dispose();
-          timerMesh.geometry = new THREE.TextGeometry(timerText, {
-            font: timerFont,
-            size: 0.02,
-            height: 0.005,
-          });
-          timerMesh.geometry.computeBoundingBox();
+          try {
+            timerMesh.geometry.dispose();
+            timerMesh.geometry = new THREE.TextGeometry(timerText, {
+              font: timerFont,
+              size: 0.02,
+              height: 0.005,
+            });
+            timerMesh.geometry.computeBoundingBox();
 
-          if (typeof ring.position.x === 'number' && !isNaN(ring.position.x) &&
-            typeof ring.position.y === 'number' && !isNaN(ring.position.y) &&
-            typeof ring.position.z === 'number' && !isNaN(ring.position.z)) {
-            const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
-            timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-            timerMesh.lookAt(camera.position);
-          } else {
-            console.warn("Ring position contains NaN values, skipping timerMesh update.");
+            if (typeof ring.position.x === 'number' && !isNaN(ring.position.x) &&
+              typeof ring.position.y === 'number' && !isNaN(ring.position.y) &&
+              typeof ring.position.z === 'number' && !isNaN(ring.position.z)) {
+              const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
+              timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+              timerMesh.lookAt(camera.position);
+            } else {
+              console.warn("Ring position contains NaN values, skipping timerMesh update.");
+            }
+          } catch (error) {
+            console.error("Error updating timerMesh:", error);
           }
+        } else {
+          console.warn("timerMesh.geometry is undefined, skipping timer update.");
         }
       }
 
