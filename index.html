@@ -177,7 +177,7 @@ _w_gemini.html -->
       controller2.addEventListener('squeezeend', onSelectEnd);
       scene.add(controller2);
 
-      window.addEventListener('resize', onWindowResize, false);
+      //window.addEventListener('resize', onWindowResize, false); // COMMENTED OUT
 
       const vrButton = document.getElementById('vrButton');
       vrButton.addEventListener('click', async () => {
@@ -403,10 +403,10 @@ _w_gemini.html -->
       if (textMesh) {
         console.log("textMesh is defined");
         console.log("Ring:", ring);
-        if (ring) {
-          console.log("Ring.position:", ring.position);
-        }
-        if (ring && ring.position) {
+        if (ring && ring.position &&
+          typeof ring.position.x === 'number' && !isNaN(ring.position.x) &&
+          typeof ring.position.y === 'number' && !isNaN(ring.position.y) &&
+          typeof ring.position.z === 'number' && !isNaN(ring.position.z)) {
           // Add these lines:
           console.log("About to access ring.position.x:", ring.position.x);
           console.log("About to access ring.position.y:", ring.position.y);
@@ -419,7 +419,7 @@ _w_gemini.html -->
           textMesh.position.x += centerOffset;
           textMesh.lookAt(camera.position);
         } else {
-          console.warn("Ring or ring.position is undefined, skipping textMesh update.");
+          console.warn("Ring or ring.position is undefined or invalid, skipping textMesh update.");
         }
       }
 
@@ -439,7 +439,10 @@ _w_gemini.html -->
             height: 0.005,
           });
           timerMesh.geometry.computeBoundingBox();
-          if (ring && ring.position) {
+          if (ring && ring.position &&
+            typeof ring.position.x === 'number' && !isNaN(ring.position.x) &&
+            typeof ring.position.y === 'number' && !isNaN(ring.position.y) &&
+            typeof ring.position.z === 'number' && !isNaN(ring.position.z)) {
             const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.min.x);
             timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
             timerMesh.lookAt(camera.position);
