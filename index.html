@@ -1,4 +1,4 @@
-/Documents/github/ringring06_w_gemini.html -->
+ -->
 <!doctype html>
 <html>
 
@@ -294,7 +294,7 @@
       const ringBox = new THREE.Box3().setFromObject(ring);
       const wirePoints = wire.geometry.attributes.position.array;
       const ringScale = ring.scale.x; // Assuming uniform scale
-      const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+      const pointBoxSize = 0.05 * ringScale; // Adjust the multiplier as needed
 
       for (let j = 0; j < wirePoints.length; j += 3) { // Increment by 3 to get x, y, z
         const wirePoint = new THREE.Vector3(wirePoints[j], wirePoints[j + 1], wirePoints[j + 2]);
@@ -437,7 +437,7 @@
 
       // Calculate a dynamic pointBox size based on the ring's scale
       const ringScale = ring.scale.x; // Assuming uniform scale
-      const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+      const pointBoxSize = 0.05 * ringScale; // Adjust the multiplier as needed
 
       for (let i = 0; i < wirePoints.length; i += 3) {
         const point = new THREE.Vector3(wirePoints[i], wirePoints[i + 1], wirePoints[i + 2]);
@@ -624,7 +624,7 @@
         textMesh.position.set(centerOffset, 2.0, -0.75);
         scene.add(textMesh);
       }
-      updateTimerText(); // Keep timer position consistent with level text
+      // REMOVE THIS LINE: updateTimerText(); // Keep timer position consistent with level text
     }
 
     function updateTimerText() {
