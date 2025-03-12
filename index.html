@@ -188,7 +188,7 @@
           
           // Apply rotation offset to level 2 wire
           const rotatedAngle = angle + rotationOffset;
-          x = (Math.PI/4(rotatedAngle) * radius) + waveX;
+          x = (Math.sin(rotatedAngle) * radius) + waveX;
           y = 1.4 + waveY;
           z = (Math.sin(rotatedAngle) * radius) + waveZ;
         }
