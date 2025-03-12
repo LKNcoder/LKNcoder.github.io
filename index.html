@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html>
 <head>
@@ -51,12 +50,9 @@ const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
 let currentLevel = 4; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
-// Sound effects and flashing state
+// New sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound;
 let isFlashing = false;
-
-// Celebration particles
-let celebrationParticles = []; // Array to store multiple particle systems
 
 init();
 animate();
@@ -166,351 +162,6 @@ function init() {
   longHornsSound = new Audio('long_horns.mp3');
 }
 
-// Function to create celebration particles with multiple colors and effects
-function createCelebrationParticles() {
-  // Define a palette of celebration colors
-  const colors = [
-    0xffff00, // Gold
-    0xff0000, // Red
-    0x00ff00, // Green
-    0x0000ff, // Blue
-    0xff00ff, // Magenta
-    0xffffff, // White
-    0xff8800, // Orange
-    0x00ffff  // Cyan
-  ];
-  
-  // Create several particle systems with different colors and properties
-  for (let c = 0; c < colors.length; c++) {
-    // Create different types of particle systems
-    const particleCount = 500;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities = new Float32Array(particleCount * 3);
-    const sizes = new Float32Array(particleCount);
-    const opacities = new Float32Array(particleCount);
-    
-    // Position particles around the completion message area
-    for (let i = 0; i < particleCount; i++) {
-      // Create a cloud of particles around the game completion area
-      positions[i * 3] = (Math.random() - 0.5) * 1.5; // x: spread horizontally
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 1.2 + 1.1; // y: centered on game complete text
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5 - 0.75; // z: shallow depth
-      
-      // Random initial velocities for movement
-      velocities[i * 3] = (Math.random() - 0.5) * 0.01;
-      velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.01 + 0.001; // slight upward drift
-      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.01;
-      
-      // Random sizes for twinkling effect
-      sizes[i] = Math.random() * 0.15 + 0.05;
-      
-      // Random starting opacities for fade in/out effect
-      opacities[i] = Math.random() * 0.7 + 0.3;
-    }
-    
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-    
-    // Create a material with additive blending for sparkle effect
-    const material = new THREE.PointsMaterial({
-      size: 0.10,
-      color: colors[c],
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      sizeAttenuation: true
-    });
-    
-    const particles = new THREE.Points(geometry, material);
-    
-    // Store animation properties in userData
-    particles.userData = {
-      velocities: velocities,
-      opacities: opacities,
-      originalSizes: sizes.slice(),
-      pulseFactor: Math.random(),
-      pulseSpeed: Math.random() * 0.03 + 0.01,
-      rotationSpeed: (Math.random() - 0.5) * 0.005,
-      rotationAxis: new THREE.Vector3(
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-        Math.random() - 0.5
-      ).normalize(),
-      spawnTime: Date.now(),
-      color: colors[c]
-    };
-    
-    scene.add(particles);
-    celebrationParticles.push(particles);
-  }
-  
-  // Add a special starburst particle system for dramatic effect
-  createStarburstParticles();
-  
-  // Add some slow-moving golden confetti particles
-  createConfettiParticles();
-}
-
-// Create a starburst effect with particles emanating from center
-function createStarburstParticles() {
-  const particleCount = 1000;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  const sizes = new Float32Array(particleCount);
-  
-  // Initial positions (all at center)
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = 0; 
-    positions[i * 3 + 1] = 1.1; // Center y of completion message
-    positions[i * 3 + 2] = -0.75; // Center z of completion message
-    
-    // Velocities radiating outward in all directions
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.random() * Math.PI;
-    const speed = Math.random() * 0.02 + 0.01;
-    
-    velocities[i * 3] = Math.sin(phi) * Math.cos(theta) * speed;
-    velocities[i * 3 + 1] = Math.cos(phi) * speed;
-    velocities[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * speed;
-    
-    // Rainbow colors
-    const hue = (i / particleCount) * 360;
-    const color = new THREE.Color().setHSL(hue/360, 1, 0.5);
-    colors[i * 3] = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-    
-    // Various sizes
-    sizes[i] = Math.random() * 0.08 + 0.02;
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  
-  const material = new THREE.PointsMaterial({
-    size: 0.05,
-    vertexColors: true,
-    transparent: true,
-    opacity: 1.0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  
-  // Store animation properties
-  particles.userData = {
-    velocities: velocities,
-    type: 'starburst',
-    creationTime: Date.now(),
-    maxLifetime: 5000 // milliseconds
-  };
-  
-  scene.add(particles);
-  celebrationParticles.push(particles);
-}
-
-// Create floating confetti-like particles
-function createConfettiParticles() {
-  const particleCount = 300;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
-  const rotations = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  
-  // Create confetti particles at top of view
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 2.0; // x: wide spread
-    positions[i * 3 + 1] = Math.random() * 0.5 + 1.4; // y: above completion message
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5 - 0.75; // z: shallow depth
-    
-    // Slow downward drift with some sideways motion
-    velocities[i * 3] = (Math.random() - 0.5) * 0.005;
-    velocities[i * 3 + 1] = -Math.random() * 0.003 - 0.001; // downward
-    velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.005;
-    
-    // Random rotation speeds
-    rotations[i * 3] = (Math.random() - 0.5) * 0.1;
-    rotations[i * 3 + 1] = (Math.random() - 0.5) * 0.1;
-    rotations[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
-    
-    // Gold and silver colors
-    if (Math.random() > 0.5) {
-      colors[i * 3] = 1.0; // Gold R
-      colors[i * 3 + 1] = 0.84; // Gold G
-      colors[i * 3 + 2] = 0.0; // Gold B
-    } else {
-      colors[i * 3] = 0.75; // Silver R
-      colors[i * 3 + 1] = 0.75; // Silver G
-      colors[i * 3 + 2] = 0.75; // Silver B
-    }
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  
-  const material = new THREE.PointsMaterial({
-    size: 0.03,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.9,
-    blending: THREE.NormalBlending
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  
-  particles.userData = {
-    velocities: velocities,
-    rotations: rotations,
-    type: 'confetti',
-    lastTime: Date.now()
-  };
-  
-  scene.add(particles);
-  celebrationParticles.push(particles);
-}
-
-// Update all celebration particle systems
-function updateCelebrationParticles() {
-  if (celebrationParticles.length === 0) return;
-  
-  const now = Date.now();
-  
-  celebrationParticles.forEach((particles, index) => {
-    const positions = particles.geometry.attributes.position.array;
-    const velocities = particles.userData.velocities;
-    const sizes = particles.geometry.attributes.size?.array;
-    
-    // Handle different particle system types
-    if (particles.userData.type === 'starburst') {
-      // Starburst particles expand outward and fade over time
-      const elapsed = now - particles.userData.creationTime;
-      const lifeFactor = 1 - Math.min(elapsed / particles.userData.maxLifetime, 1);
-      
-      // Update opacity based on lifetime
-      particles.material.opacity = lifeFactor;
-      
-      // Update positions and velocities
-      for (let i = 0; i < positions.length; i += 3) {
-        positions[i] += velocities[i];
-        positions[i + 1] += velocities[i + 1];
-        positions[i + 2] += velocities[i + 2];
-        
-        // Slow down over time
-        velocities[i] *= 0.99;
-        velocities[i + 1] *= 0.99;
-        velocities[i + 2] *= 0.99;
-      }
-      
-      // Remove starburst when its lifetime is over
-      if (elapsed > particles.userData.maxLifetime) {
-        scene.remove(particles);
-        celebrationParticles.splice(index, 1);
-        return;
-      }
-    } 
-    else if (particles.userData.type === 'confetti') {
-      // Update confetti particles with realistic flutter motion
-      const deltaTime = now - particles.userData.lastTime;
-      particles.userData.lastTime = now;
-      
-      const rotations = particles.userData.rotations;
-      
-      for (let i = 0; i < positions.length; i += 3) {
-        // Apply flutter effect - sine wave modulation of horizontal velocity
-        const flutterX = Math.sin(now * 0.001 + i * 0.1) * 0.0005;
-        const flutterZ = Math.cos(now * 0.0015 + i * 0.1) * 0.0005;
-        
-        positions[i] += velocities[i] + flutterX;
-        positions[i + 1] += velocities[i + 1];
-        positions[i + 2] += velocities[i + 2] + flutterZ;
-        
-        // Reset position if it falls below the view
-        if (positions[i + 1] < 0.5) {
-          positions[i] = (Math.random() - 0.5) * 2.0;
-          positions[i + 1] = Math.random() * 0.5 + 1.4;
-          positions[i + 2] = (Math.random() - 0.5) * 0.5 - 0.75;
-        }
-      }
-    }
-    else {
-      // Standard colorful particles with twinkling and movement
-      for (let i = 0; i < positions.length; i += 3) {
-        // Update position with velocity
-        positions[i] += velocities[i];
-        positions[i + 1] += velocities[i + 1];
-        positions[i + 2] += velocities[i + 2];
-        
-        // Add some subtle swirling motion
-        const angle = now * 0.0005;
-        const swirl = 0.0003 * Math.sin(angle + i * 0.01);
-        velocities[i] += swirl * (Math.random() - 0.5);
-        velocities[i + 2] += swirl * (Math.random() - 0.5);
-        
-        // Keep particles in a bounded area around the game complete message
-        if (Math.abs(positions[i]) > 1.5) velocities[i] *= -0.9;
-        if (Math.abs(positions[i + 1] - 1.1) > 1.0) velocities[i + 1] *= -0.9;
-        if (Math.abs(positions[i + 2] + 0.75) > 0.5) velocities[i + 2] *= -0.9;
-        
-        // Random chance to change velocity slightly for organic movement
-        if (Math.random() < 0.01) {
-          velocities[i] += (Math.random() - 0.5) * 0.001;
-          velocities[i + 1] += (Math.random() - 0.5) * 0.001;
-          velocities[i + 2] += (Math.random() - 0.5) * 0.001;
-        }
-        
-        // Cap max velocity
-        const maxVel = 0.01;
-        velocities[i] = Math.max(Math.min(velocities[i], maxVel), -maxVel);
-        velocities[i + 1] = Math.max(Math.min(velocities[i + 1], maxVel), -maxVel);
-        velocities[i + 2] = Math.max(Math.min(velocities[i + 2], maxVel), -maxVel);
-      }
-      
-      // Update twinkling effect by changing sizes
-      if (sizes) {
-        const originalSizes = particles.userData.originalSizes;
-        const timeFactor = Math.sin(now * 0.001 + particles.userData.pulseFactor * Math.PI * 2) * 0.5 + 0.5;
-        
-        for (let i = 0; i < sizes.length; i++) {
-          if (Math.random() < 0.03) {
-            // Random flicker effect
-            sizes[i] = originalSizes[i] * (Math.random() * 0.5 + 0.5);
-          } else {
-            // Smooth breathing effect
-            sizes[i] = originalSizes[i] * (0.7 + timeFactor * 0.6);
-          }
-        }
-        particles.geometry.attributes.size.needsUpdate = true;
-      }
-      
-      // Pulsing opacity effect
-      particles.userData.pulseFactor += particles.userData.pulseSpeed;
-      const opacityPulse = (Math.sin(particles.userData.pulseFactor) * 0.3) + 0.7;
-      particles.material.opacity = opacityPulse;
-      
-      // Color shifting effect
-      if (Math.random() < 0.01) {
-        const hue = (now * 0.0001) % 1.0;
-        const color = new THREE.Color().setHSL(hue, 1, 0.5);
-        particles.material.color.set(color);
-      }
-    }
-    
-    particles.geometry.attributes.position.needsUpdate = true;
-  });
-  
-  // Create new starburst particles occasionally for continuous celebration
-  if (celebrationParticles.length > 0 && Math.random() < 0.005) {
-    createStarburstParticles();
-  }
-}
-
 // Function to make the wire flash
 function flashWire(times = 3, isGameComplete = false) {
   if (isFlashing) return;
@@ -555,10 +206,8 @@ function createWire(level = 1) {
   const segments = 200;
   const radius = 0.75;
   
-  // Add rotation offset for different levels
-  const rotationOffset = level === 2 ? Math.PI / 3 : 
-                        level === 3 ? Math.PI / 6 : 
-                        level === 4 ? Math.PI / 5 : 0;
+  // Add rotation offset for level 2
+  const rotationOffset = level === 2 ? Math.PI / 3 : 0;
   
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
@@ -573,182 +222,244 @@ function createWire(level = 1) {
       x = (Math.cos(angle) * radius) + waveX;
       y = 1.4 + waveY;
       z = (Math.sin(angle) * radius) + waveX;
-    } 
-    else if (level === 2) {
-      // Level 2 wire pattern - more complex waves
-      waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
-      waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
-      waveZ = Math.sin(angle * 6) * 0.06;
+    } else {
+      // Level 2 wire pattern - more complex
+      waveX = Math.sin(angle * 10) * 0.08;
+      waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
+      waveZ = Math.sin(angle * 12) * 0.06;
       
-      x = (Math.cos(angle + rotationOffset) * radius) + waveX;
+      // Apply rotation offset to level 2 wire
+      const rotatedAngle = angle + rotationOffset;
+      x = (Math.cos(rotatedAngle) * radius) + waveX;
       y = 1.4 + waveY;
-      z = (Math.sin(angle + rotationOffset) * radius) + waveZ;
-    }
-    else if (level === 3) {
-      // Level 3 wire pattern - figure-eight with waves
-      const figureEight = Math.sin(angle * 2) * 0.2;
-      waveX = Math.sin(angle * 10) * 0.05 + Math.cos(angle * 4) * 0.03;
-      waveY = Math.cos(angle * 8) * 0.07 + Math.sin(angle * 12) * 0.04;
-      
-      x = (Math.cos(angle + rotationOffset) * (radius + figureEight)) + waveX;
-      y = 1.4 + waveY;
-      z = (Math.sin(angle + rotationOffset) * (radius - figureEight * 0.8)) + waveX;
-    }
-    else if (level === 4) {
-      // Level 4 wire pattern - spiral with multiple oscillations
-      const spiral = 0.1 * Math.sin(angle * 3);
-      const verticalWave = Math.sin(angle * 7) * 0.15;
-      waveX = Math.sin(angle * 13) * 0.05 + Math.cos(angle * 5) * 0.04;
-      waveY = Math.cos(angle * 9) * 0.06 + Math.sin(angle * 15) * 0.03;
-      
-      x = (Math.cos(angle + rotationOffset) * (radius + spiral)) + waveX;
-      y = 1.4 + waveY + verticalWave;
-      z = (Math.sin(angle + rotationOffset) * (radius + spiral)) + waveX;
+      z = (Math.sin(rotatedAngle) * radius) + waveZ;
     }
     
     points.push(new THREE.Vector3(x, y, z));
   }
   
-  // Create a path from the points
-  const path = new THREE.CatmullRomCurve3(points);
-  
-  // Create the tube geometry that follows the path
-  const tubeGeometry = new THREE.TubeGeometry(path, segments, 0.01, 8, false);
-  
-  // Create per-vertex colors for the tube
-  const colors = new Float32Array(tubeGeometry.attributes.position.count * 3);
-  for (let i = 0; i < colors.length; i += 3) {
-    // Blue color for the wire
-    colors[i] = 0;     // R
-    colors[i + 1] = 0; // G
-    colors[i + 2] = 1; // B
+  wirePoints = points;
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const colors = new Float32Array(points.length * 3);
+  for (let i = 0; i < points.length; i++) {
+    colors[i * 3] = 1; // R
+    colors[i * 3 + 1] = 0; // G
+    colors[i * 3 + 2] = 1; // B
   }
-  tubeGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
   
-  // Create a material with vertex colors
-  wireMaterial = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    emissive: 0x0000ff,
-    emissiveIntensity: 0.5,
-    metalness: 0.8,
-    roughness: 0.2
-  });
+  wire = new THREE.Line(geometry, wireMaterial);
+  scene.add(wire);
   
-  // Create and return the mesh
-  const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
-  scene.add(wireMesh);
-  
-  return wireMesh;
+  console.log(`Wire for level ${level} created:`, wire);
+  return wire;
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function checkCollision() {
+  const ringVertices = ring.geometry.attributes.position.array;
+  const ringMatrixWorld = ring.matrixWorld;
+  const thresholdDistance = 0.01; // Adjust this value as needed
+
+  for (let i = 0; i < ringVertices.length; i += 3) {
+    const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
+    vertex.applyMatrix4(ringMatrixWorld);
+
+    for (let j = 0; j < wirePoints.length; j++) {
+      const distance = vertex.distanceTo(wirePoints[j]);
+      if (distance < thresholdDistance) {
+        console.log('Collision detected');
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function onSelectStart(event) {
-  const controller = event.target;
-  const intersect = getIntersections(controller);
-  
-  if (intersect && !grabbed) {
-    // Start grabbing the ring
+  const ringBox = new THREE.Box3().setFromObject(ring);
+  const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+  const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
+
+  if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
     grabbed = true;
-    grabbingController = controller;
-    
-    // Calculate the offset between controller position and ring position
-    const controllerPosition = new THREE.Vector3();
-    controller.getWorldPosition(controllerPosition);
-    grabOffset.copy(ring.position).sub(controllerPosition);
-    
-    // Calculate rotation offset
-    const controllerRotation = new THREE.Quaternion();
-    controller.getWorldQuaternion(controllerRotation);
-    const ringRotation = new THREE.Quaternion();
-    ring.getWorldQuaternion(ringRotation);
-    grabRotationOffset.copy(ringRotation).premultiply(controllerRotation.invert());
-    
-    // Start the timer when ring is first grabbed
+    grabbingController = controller1;
+    grabOffset.copy(ring.position).sub(controller1.position);
+    grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
     if (startTime === null) {
-      startTime = Date.now();
-      console.log("Timer started");
+      startTime = Date.now() - elapsedTime;
+    }
+  } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+    grabbed = true;
+    grabbingController = controller2;
+    grabOffset.copy(ring.position).sub(controller2.position);
+    grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
+    if (startTime === null) {
+      startTime = Date.now() - elapsedTime;
     }
   }
 }
 
 function onSelectEnd(event) {
-  if (grabbed && event.target === grabbingController) {
+  if (event.target === grabbingController) {
     grabbed = false;
     grabbingController = null;
   }
 }
 
-function getIntersections(controller) {
-  // Simple distance-based intersection test with a larger capture radius
-  const tempMatrix = new THREE.Matrix4();
-  tempMatrix.identity().extractRotation(controller.matrixWorld);
-  
-  const controllerPosition = new THREE.Vector3();
-  controller.getWorldPosition(controllerPosition);
-  
-  // Calculate distance from controller to ring
-  const distance = controllerPosition.distanceTo(ring.position);
-  
-  // Return the ring if it's close enough to the controller
-  return distance < 0.15 ? ring : null;
+function animate() {
+  renderer.setAnimationLoop(render);
 }
 
-function checkWireCollision() {
-  // Create an array of points representing the wire
-  if (!wire || !wire.geometry) return false;
-  
-  // Get the ring position
-  const ringPosition = ring.position;
-  
-  // Get the curve geometry from the tube
-  const curve = wire.geometry.parameters?.path;
-  if (!curve) return false;
-  
-  // Check distance from ring to each point along the curve
-  const segments = 100;
-  const wireRadius = 0.01; // Radius of the wire tube
-  const ringRadius = 0.075; // Ring radius
-  
-  // Combined collision radius (wire + ring radii)
-  const collisionRadius = wireRadius + ringRadius * 0.85; // Slightly reduce ring radius for better gameplay feel
-  
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const wirePoint = curve.getPointAt(t);
+function render() {
+  // Update sphere positions to match controller positions
+  if (controller1 && controller2) {
+    sphere1.position.copy(controller1.position);
+    sphere2.position.copy(controller2.position);
+  }
+
+  // Check for collisions
+  if (checkCollision()) {
+    handleCollision();
+  }
+
+  // Move ring with the grabbing controller while maintaining the offset
+  if (grabbed && grabbingController) {
+    ring.position.copy(grabbingController.position).add(grabOffset);
+    ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
+
+    // Hide the spheres when the ring is grabbed
+    sphere1.visible = false;
+    sphere2.visible = false;
+  } else {
+    // Show the spheres when the ring is not grabbed
+    sphere1.visible = true;
+    sphere2.visible = true;
+  }
+
+  // Keep the text and timer above the ring and billboarded to face the player
+  if (textMesh) {
+    textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+    textMesh.geometry.computeBoundingBox();
+    const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+    textMesh.position.x += centerOffset;
+    textMesh.lookAt(camera.position);
+  }
+
+  // Update timer with seconds:milliseconds format and check time limit
+  if (startTime !== null && timerFont) {
+    elapsedTime = Date.now() - startTime;
     
-    // Calculate distance from ring center to this point on the wire
-    const distance = ringPosition.distanceTo(wirePoint);
+    // Check if time exceeds 100 seconds
+    if (elapsedTime > 100000) {
+      handleCollision(); // Treat as a collision if time exceeds limit
+      return;
+    }
     
-    // If the distance is less than the combined radius, there's a collision
-    if (distance < collisionRadius) {
-      return true;
+    const seconds = Math.floor((elapsedTime / 1000) % 60);
+    const milliseconds = Math.floor(elapsedTime % 1000);
+    const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+
+    // Update timer text
+    if (timerMesh && timerMesh.geometry) {
+      timerMesh.geometry.dispose();
+      timerMesh.geometry = new THREE.TextGeometry(timerText, {
+        font: timerFont,
+        size: 0.02,
+        height: 0.005,
+      });
+      timerMesh.geometry.computeBoundingBox();
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+      timerMesh.lookAt(camera.position);
     }
   }
-  
-  return false;
+
+  // Ensure timer text stays attached to the ring and faces the player
+  if (timerMesh) {
+    timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+    const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+    timerMesh.position.x += timerCenterOffset;
+    timerMesh.lookAt(camera.position);
+  }
+
+  // Check for wire collision and update wire color
+  updateWireColor();
+
+  renderer.render(scene, camera);
 }
 
-function updateTimer() {
-  if (startTime !== null && timerMesh && timerFont) {
-    const now = Date.now();
-    elapsedTime = now - startTime;
-    
-    // Convert to seconds and milliseconds
-    const seconds = Math.floor(elapsedTime / 1000);
-    const milliseconds = elapsedTime % 1000;
-    
-    // Create formatted string (e.g. "12:345")
-    const timeStr = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
-    
-    // Update the timer text
-    scene.remove(timerMesh);
-    const timerGeometry = new THREE.TextGeometry(timeStr, { font: timerFont, size: 0.02, height: 0.005 });
-    const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-    timerGeometry.computeBoundingBox();
-    const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-    timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-    scene.add(timerMesh);
+function updateWireColor() {
+  const ringBox = new THREE.Box3().setFromObject(ring);
+  const colors = wire.geometry.attributes.color.array;
+
+  // Calculate a dynamic pointBox size based on the ring's scale
+  const ringScale = ring.scale.x; // Assuming uniform scale
+  const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+
+  for (let i = 0; i < wirePoints.length; i++) {
+    const point = wirePoints[i];
+    const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
+
+    if (ringBox.intersectsBox(pointBox)) {
+      // Color this segment blue
+      colors[i * 3] = 0;     // R
+      colors[i * 3 + 1] = 0; // G
+      colors[i * 3 + 2] = 1; // B
+    }
+    //No ELSE, so color will remain unless reset
   }
+
+  wire.geometry.attributes.color.needsUpdate = true;
+
+  // Check if the entire wire is blue (victory condition)
+  let allBlue = true;
+  for (let i = 0; i < wirePoints.length; i++) {
+    if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
+      allBlue = false;
+      break;
+    }
+  }
+  if (allBlue) {
+    victory();
+  }
+}
+
+function handleCollision() {
+  ring.position.copy(ringStartPosition); // Reset ring to start position
+  ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
+  contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
+  resetWireColor(); // Reset wire color to pink
+  grabbed = false; // Override the grab
+  grabbingController = null; // Clear the grabbing controller
+  
+  // Reset timer but don't change level
+  elapsedTime = 0;
+  startTime = null;
+}
+
+function resetWireColor() {
+  const colors = wire.geometry.attributes.color.array;
+  for (let i = 0; i < colors.length; i += 3) {
+    colors[i] = 1; // R
+    colors[i + 1] = 0; // G
+    colors[i + 2] = 1; // B
+  }
+  wire.geometry.attributes.color.needsUpdate = true;
+}
+
+// Helper function to format time as SS:MMM
+function formatTime(ms) {
+  const seconds = Math.floor((ms / 1000) % 60);
+  const milliseconds = Math.floor(ms % 1000);
+  return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 }
 
 function victory() {
@@ -768,40 +479,43 @@ function victory() {
     
     console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
     
-    // Advance to the next level - CHANGED to support four levels
-    if (currentLevel < 4) {
-      currentLevel++;
-      
-      // Update level text
-      if (textMesh && font) {
-        scene.remove(textMesh);
-        const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
-        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.75);
-        scene.add(textMesh);
-      }
-      
-      // Create new wire
-      wire = createWire(currentLevel);
-      
-      // Reset ring to starting position
-      ring.position.copy(ringStartPosition);
-      ring.rotation.y = Math.PI / 2;
-      
-      // Ready the timer for next level
-      if (timerMesh && timerFont) {
-        scene.remove(timerMesh);
-        const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
-        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-        timerGeometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-        scene.add(timerMesh);
-      }
+    // Advance to the next level
+    if (currentLevel === 1) {
+      setTimeout(() => {
+        currentLevel = 2;
+        // Update the level text
+        if (textMesh && font) {
+          textMesh.geometry.dispose();
+          textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+          textMesh.geometry.computeBoundingBox();
+        }
+        
+        // Reset the ring position and create the new wire
+        ring.position.copy(ringStartPosition);
+        ring.rotation.set(0, Math.PI / 2, 0);
+        wire = createWire(currentLevel);
+        
+        // Reset timer for level 2
+        elapsedTime = 0;
+        grabbed = false;
+        grabbingController = null;
+        
+        // Reset the timer display to 00:000
+        if (timerMesh && timerFont) {
+            timerMesh.geometry.dispose();
+            timerMesh.geometry = new THREE.TextGeometry('00:000', {
+                font: timerFont,
+                size: 0.02,
+                height: 0.005,
+            });
+            timerMesh.geometry.computeBoundingBox();
+            const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+            timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+        }
+        
+        // No second victory sound here
+        
+      }, 2000); // Wait 2 seconds before starting level 2
     } else {
       // Game complete! Show summary of times
       const totalTime = levelTimes.reduce((total, time) => total + time, 0);
@@ -813,308 +527,61 @@ function victory() {
       // Flash the wire more dramatically
       flashWire(6, true);
       
-      // Create celebration particles for finale - ENHANCED
-      createCelebrationParticles(); // Original
-      
-      // Add new particle types for a more spectacular finale
-      createSpiralParticles();
-      createSpiralParticles(); // Create multiple for richness
-      createGlitteringParticles();
-      
-      // Schedule additional bursts for continuous celebration
-      setTimeout(() => createStarburstParticles(), 500);
-      setTimeout(() => createSpiralParticles(), 1200);
-      setTimeout(() => createGlitteringParticles(), 1800);
-      setTimeout(() => createStarburstParticles(), 2400);
-      setTimeout(() => createSpiralParticles(), 3000);
-      
-      // Show completion text
       if (textMesh && font) {
-        scene.remove(textMesh);
-        const textGeometry = new THREE.TextGeometry('GAME COMPLETE!', { font: font, size: 0.03, height: 0.005 });
-        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textGeometry.computeBoundingBox();
-        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textMesh.position.set(centerOffset, 2.0, -0.75);
-        scene.add(textMesh);
-      }
-      
-      // Display time summary
-      if (timerMesh && timerFont) {
-        scene.remove(timerMesh);
+        textMesh.geometry.dispose();
         
-        // Format times
-        let summaryText = '';
-        for (let i = 0; i < levelTimes.length; i++) {
-          const seconds = Math.floor(levelTimes[i] / 1000);
-          const millis = levelTimes[i] % 1000;
-          summaryText += `Lvl ${i+1}: ${seconds}:${millis.toString().padStart(3, '0')}\n`;
-        }
-        
-        const totalSeconds = Math.floor(totalTime / 1000);
-        const totalMillis = totalTime % 1000;
-        summaryText += `\nTotal: ${totalSeconds}:${totalMillis.toString().padStart(3, '0')}`;
-        
-        const timerGeometry = new THREE.TextGeometry(summaryText, { 
-          font: timerFont, 
-          size: 0.015, 
-          height: 0.005,
-          lineHeight: 0.02
+        // Create individual text meshes for each line of the summary
+        // Game complete text
+        const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
+          font: font, 
+          size: 0.03, 
+          height: 0.005 
         });
+        const gameCompleteMesh = new THREE.Mesh(
+          gameCompleteGeometry, 
+          new THREE.MeshStandardMaterial({ color: 0xffff00 })
+        );
+        gameCompleteGeometry.computeBoundingBox();
+        const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
+        gameCompleteMesh.position.set(completeOffset, 1.2, -0.75);
+        scene.add(gameCompleteMesh);
         
-        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-        timerGeometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-        scene.add(timerMesh);
+        // Level 1 time - closer to title
+        const level1Text = `Level 1: ${formatTime(levelTimes[0] || 0)}`;
+        const level1Geometry = new THREE.TextGeometry(level1Text, { font: font, size: 0.02, height: 0.005 });
+        const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        level1Geometry.computeBoundingBox();
+        const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
+        level1Mesh.position.set(level1Offset, 1.15, -0.75);
+        scene.add(level1Mesh);
+        
+        // Level 2 time - closer to level 1
+        const level2Text = `Level 2: ${formatTime(levelTimes[1] || 0)}`;
+        const level2Geometry = new THREE.TextGeometry(level2Text, { font: font, size: 0.02, height: 0.005 });
+        const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        level2Geometry.computeBoundingBox();
+        const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
+        level2Mesh.position.set(level2Offset, 1.1, -0.75);
+        scene.add(level2Mesh);
+        
+        // Total time - closer to level 2
+        const totalText = `Total: ${formatTime(totalTime)}`;
+        const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
+        const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+        totalGeometry.computeBoundingBox();
+        const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
+        totalMesh.position.set(totalOffset, 1.05, -0.75);
+        scene.add(totalMesh);
+        
+        // Remove the original text mesh since we're replacing it with multiple meshes
+        scene.remove(textMesh);
+        
+        // Hide the timer mesh
+        if (timerMesh) timerMesh.visible = false;
       }
     }
   }
 }
-
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-// Create spiral/helix particle effects that sweep around in patterns
-function createSpiralParticles() {
-  const particleCount = 800;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  const sizes = new Float32Array(particleCount);
-  
-  // Create particles arranged in spiral patterns
-  for (let i = 0; i < particleCount; i++) {
-    const spiralType = Math.floor(i / (particleCount / 3)); // 3 different spiral types
-    const t = (i % (particleCount / 3)) / (particleCount / 3);
-    const angle = t * Math.PI * 10; // Multiple full rotations
-    
-    // Different spiral patterns
-    let x, y, z;
-    const radius = 0.2 + t * 0.8; // Expanding radius
-    
-    if (spiralType === 0) {
-      // Horizontal expanding spiral
-      x = Math.cos(angle) * radius;
-      y = 1.1 + t * 0.2;
-      z = Math.sin(angle) * radius - 0.75;
-    } else if (spiralType === 1) {
-      // Vertical spiral
-      x = Math.cos(angle) * (radius * 0.7);
-      y = 1.1 + Math.sin(angle * 0.5) * 0.2;
-      z = Math.sin(angle) * (radius * 0.7) - 0.75;
-    } else {
-      // DNA-like double helix
-      const side = Math.floor(i % 2);
-      const helix = Math.sin(angle) * 0.15;
-      const offset = (side === 0) ? 0.05 : -0.05;
-      x = Math.cos(angle) * 0.3 + offset;
-      y = 0.8 + t * 0.6;
-      z = helix - 0.75;
-    }
-    
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
-    
-    // Create velocities that follow the spiral paths
-    const tangentialSpeed = 0.003;
-    velocities[i * 3] = Math.random() * 0.002 - 0.001;
-    velocities[i * 3 + 1] = Math.random() * 0.002 - 0.001;
-    velocities[i * 3 + 2] = Math.random() * 0.002 - 0.001;
-    
-    // Create rainbow gradient based on position in spiral
-    const hue = (t + spiralType * 0.33) % 1.0;
-    const color = new THREE.Color().setHSL(hue, 1, 0.5);
-    colors[i * 3] = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-    
-    // Varying sizes
-    sizes[i] = Math.random() * 0.04 + 0.02;
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  
-  const material = new THREE.PointsMaterial({
-    size: 0.04,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.8,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  
-  // Store animation properties
-  particles.userData = {
-    velocities: velocities,
-    type: 'spiral',
-    creationTime: Date.now(),
-    maxLifetime: 8000, // longer lifetime
-    angleOffset: 0
-  };
-  
-  scene.add(particles);
-  celebrationParticles.push(particles);
-}
-
-// Create glittering diamond-like particles
-function createGlitteringParticles() {
-  const particleCount = 200;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  const sizes = new Float32Array(particleCount);
-  const opacities = new Float32Array(particleCount);
-  
-  for (let i = 0; i < particleCount; i++) {
-    // Position in a sphere around the completion area
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.random() * Math.PI;
-    const radius = Math.random() * 0.8 + 0.2;
-    
-    positions[i * 3] = Math.sin(phi) * Math.cos(theta) * radius;
-    positions[i * 3 + 1] = Math.cos(phi) * radius + 1.1;
-    positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius - 0.75;
-    
-    // Very slow drift
-    velocities[i * 3] = (Math.random() - 0.5) * 0.001;
-    velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
-    velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
-    
-    // White/silver with slight color tints
-    const colorTint = Math.random() * 0.2;
-    colors[i * 3] = 0.8 + colorTint; // R
-    colors[i * 3 + 1] = 0.8 + colorTint; // G
-    colors[i * 3 + 2] = 0.8 + colorTint; // B
-    
-    // Random sizes for intense twinkling
-    sizes[i] = Math.random() * 0.05 + 0.01;
-    
-    // Random opacities
-    opacities[i] = Math.random();
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  
-  const material = new THREE.PointsMaterial({
-    size: 0.03,
-    vertexColors: true,
-    transparent: true,
-    opacity: 1.0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  
-  particles.userData = {
-    velocities: velocities,
-    originalSizes: sizes.slice(),
-    opacities: opacities.slice(),
-    type: 'glitter',
-    lastUpdate: Date.now()
-  };
-  
-  scene.add(particles);
-  celebrationParticles.push(particles);
-}
-
-function animate() {
-  renderer.setAnimationLoop(render);
-}
-
-function render() {
-  // Update controller spheres
-  sphere1.visible = false;
-  sphere2.visible = false;
-  
-  const controllerPosition1 = new THREE.Vector3();
-  controller1.getWorldPosition(controllerPosition1);
-  sphere1.position.copy(controllerPosition1);
-  sphere1.visible = true;
-  
-  const controllerPosition2 = new THREE.Vector3();
-  controller2.getWorldPosition(controllerPosition2);
-  sphere2.position.copy(controllerPosition2);
-  sphere2.visible = true;
-  
-  // Update ring position and rotation if grabbed
-  if (grabbed && grabbingController) {
-    const controllerPosition = new THREE.Vector3();
-    grabbingController.getWorldPosition(controllerPosition);
-    
-    // Apply the position offset to keep ring in same relative position to controller
-    ring.position.copy(controllerPosition).add(grabOffset);
-    
-    // Apply rotation
-    const controllerRotation = new THREE.Quaternion();
-    grabbingController.getWorldQuaternion(controllerRotation);
-    ring.quaternion.copy(controllerRotation).multiply(grabRotationOffset);
-    
-    // Check for wire collision
-    if (checkWireCollision()) {
-      // Game over! Reset the level
-      contactSound.play().catch(error => console.log('Sound play error:', error));
-      
-      console.log("Hit the wire! Resetting level.");
-      
-      // Reset ring to starting position
-      ring.position.copy(ringStartPosition);
-      ring.rotation.y = Math.PI / 2;
-      
-      // Reset timer
-      startTime = null;
-      
-      // Reset timer display to 00:000
-      if (timerMesh && timerFont) {
-        scene.remove(timerMesh);
-        const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
-        const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-        timerGeometry.computeBoundingBox();
-        const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-        timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-        scene.add(timerMesh);
-      }
-      
-      // Release the grabbed state
-      grabbed = false;
-      grabbingController = null;
-    }
-    
-    // Check for victory condition - reached the end of the wire path
-    const wireEnd = wire.geometry.parameters?.path.getPoint(1);
-    if (wireEnd) {
-      const distanceToEnd = ring.position.distanceTo(wireEnd);
-      if (distanceToEnd < 0.2) { // If ring is close enough to the end of wire
-        victory();
-      }
-    }
-  }
-  
-  // Update the timer display
-  updateTimer();
-  
-  // Update celebration particles animation
-  updateCelebrationParticles();
-
-  renderer.render(scene, camera);
-}
-</script>
+  </script>
 </body>
 </html>
-
