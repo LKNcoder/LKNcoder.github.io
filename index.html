@@ -52,9 +52,11 @@ let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
 let isExploding = false;
+let confettiParticles = [];
+let confettiStartTime = null;
 
 // Sound effects and flashing state
-let applauseSound, longApplauseSound, longHornsSound;
+let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
 let isFlashing = false;
 
 init();
@@ -131,6 +133,7 @@ window.addEventListener('resize', onWindowResize, false);
 const vrButton = document.getElementById('vrButton');
 vrButton.addEventListener('click', async () => {
 try {
+chimeSound.play().catch(error => console.log('Chime sound play error:', error));
 const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
 renderer.xr.setSession(session);
 vrButton.style.display = 'none';
@@ -163,6 +166,7 @@ contactSound = new Audio('contact.mp3');
 applauseSound = new Audio('short_applause.mp3');
 longApplauseSound = new Audio('long_applause.mp3');
 longHornsSound = new Audio('long_horns.mp3');
+chimeSound = new Audio('chime.mp3');
 }
 
 // Function to make the wire flash
@@ -498,6 +502,37 @@ timerMesh.lookAt(camera.position);
 // Check for wire collision and update wire color
 updateWireColor();
 
+if (confettiStartTime !== null) {
+  const elapsed = Date.now() - confettiStartTime;
+  
+  if (elapsed < 10000) { // 10 seconds of confetti
+    for (let i = 0; i < confettiParticles.length; i++) {
+      const confetti = confettiParticles[i];
+      
+      // Add gravity and update position
+      confetti.userData.velocity.y -= 0.0003;
+      confetti.position.add(confetti.userData.velocity);
+      
+      // Update rotation
+      confetti.rotation.x += confetti.userData.rotationSpeed.x;
+      confetti.rotation.y += confetti.userData.rotationSpeed.y;
+      confetti.rotation.z += confetti.userData.rotationSpeed.z;
+      
+      // Add fluttering effect
+      confetti.userData.velocity.x += Math.sin(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
+      confetti.userData.velocity.z += Math.cos(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
+    }
+  } else {
+    // Clean up confetti
+    for (let i = 0; i < confettiParticles.length; i++) {
+      scene.remove(confettiParticles[i]);
+      confettiParticles[i].material.dispose();
+    }
+    confettiParticles = [];
+    confettiStartTime = null;
+  }
+}
+
 if (isExploding) {
     const explosionElapsed = Date.now() - explosionStartTime;
     const explosionDuration = 2000; // 2 seconds
@@ -617,6 +652,48 @@ const milliseconds = Math.floor(ms % 1000);
 return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 }
 
+function createConfetti() {
+  confettiStartTime = Date.now();
+  const confettiGeometry = new THREE.PlaneGeometry(0.015, 0.015);
+  const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+  
+  // Create 3000 confetti particles
+  for (let i = 0; i < 3000; i++) {
+    const material = new THREE.MeshBasicMaterial({ 
+      color: colors[Math.floor(Math.random() * colors.length)], 
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9
+    });
+    
+    const confetti = new THREE.Mesh(confettiGeometry, material);
+    // Position around center with slight spread
+    confetti.position.set(
+      ring.position.x + (Math.random() - 0.5) * 2,
+      ring.position.y + Math.random() * 1.5,
+      ring.position.z + (Math.random() - 0.5) * 2
+    );
+    
+    confetti.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    
+    // Physics properties
+    confetti.userData.velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.03,
+      Math.random() * 0.03,
+      (Math.random() - 0.5) * 0.03
+    );
+    confetti.userData.rotationSpeed = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.15,
+      (Math.random() - 0.5) * 0.15,
+      (Math.random() - 0.5) * 0.15
+    );
+    confetti.userData.flutter = Math.random() * 10;
+    
+    scene.add(confetti);
+    confettiParticles.push(confetti);
+  }
+}
+
 function victory() {
 if (startTime !== null) {
 // Store the completion time for this level
@@ -675,6 +752,8 @@ const totalTime = levelTimes.reduce((total, time) => total + time, 0);
 // Play grand finale sounds
 longHornsSound.play().catch(error => console.log('Sound play error:', error));
 longApplauseSound.play().catch(error => console.log('Sound play error:', error));
+
+createConfetti(); // Add confetti effect
 
 // Flash the wire more dramatically
 flashWire(6, true);
