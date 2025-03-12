@@ -1,4 +1,4 @@
-05_w_gemini.html -->
+ini.html -->
 <!doctype html>
 <html>
 <head>
@@ -199,8 +199,8 @@
             const angle = t * Math.PI * 2;
 
             // Add wave variations (matching green particle path)
-            const waveX = Math.sin(angle * 8) * 0.05;
-            const waveY = Math.cos(angle * 6) * 0.05;
+            const waveX = Math.sin(angle * 8) * 0.1; // Increased waveX
+            const waveY = Math.cos(angle * 6) * 0.1; // Increased waveY
 
             // Calculate position with waves
             const x = (Math.cos(angle) * radius) + waveX;
@@ -211,8 +211,8 @@
         }
 
         const curve = new THREE.CatmullRomCurve3(points);
-        const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
-        const wireMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xff00ff }); // Pink color
+        const tubeGeometry = new THREE.TubeGeometry(curve, segments * 2, 0.0125, 16, false); // Increased segments
+        const wireMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, vertexColors: true }); // Pink color
 
         // Add vertex colors to level 2 wire
         const colors = new Float32Array(points.length * 3);
