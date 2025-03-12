@@ -224,7 +224,23 @@ function createWire(level = 1) {
       z = (Math.sin(angle) * radius) + waveX;
     } 
     else if (level === 2) {
-      // Level 2 wire pattern
+       // Level 3 wire 
+      waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
+      waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
+      waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 4) * 0.05;
+
+       // Create gentle undulations in height
+       const heightVar = Math.sin(angle * 3) * 0.06;
+      
+       const rotatedAngle = angle + rotationOffset;
+      // Create an elliptical path 
+      x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
+      y = 1.4 + waveY + heightVar;
+      z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
+    }
+      
+    else {
+       // Level 3 wire pattern
       waveX = Math.sin(angle * 10) * 0.08;
       waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
       waveZ = Math.sin(angle * 12) * 0.06;
@@ -233,20 +249,6 @@ function createWire(level = 1) {
       x = (Math.cos(rotatedAngle) * radius) + waveX;
       y = 1.4 + waveY;
       z = (Math.sin(rotatedAngle) * radius) + waveZ;
-    }
-    else {
-      // Level 3 wire pattern - most complex with true 3D movement
-      waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
-      waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
-      waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 4) * 0.05;
-
-  
-      
-       const rotatedAngle = angle + rotationOffset;
-      // Create an elliptical path instead of figure-eight
-      x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
-      y = 1.4 + waveY + heightVar;
-      z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
     }
     
     points.push(new THREE.Vector3(x, y, z));
