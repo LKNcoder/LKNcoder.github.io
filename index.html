@@ -1,3 +1,5 @@
+
+<!doctype html>
 <html>
 <head>
   <meta charset='utf-8'>
@@ -374,168 +376,13 @@ function createConfettiParticles() {
   celebrationParticles.push(particles);
 }
 
-// Create spiral/helix particle effects that sweep around in patterns
-function createSpiralParticles() {
-  const particleCount = 800;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  const sizes = new Float32Array(particleCount);
-  
-  // Create particles arranged in spiral patterns
-  for (let i = 0; i < particleCount; i++) {
-    const spiralType = Math.floor(i / (particleCount / 3)); // 3 different spiral types
-    const t = (i % (particleCount / 3)) / (particleCount / 3);
-    const angle = t * Math.PI * 10; // Multiple full rotations
-    
-    // Different spiral patterns
-    let x, y, z;
-    const radius = 0.2 + t * 0.8; // Expanding radius
-    
-    if (spiralType === 0) {
-      // Horizontal expanding spiral
-      x = Math.cos(angle) * radius;
-      y = 1.1 + t * 0.2;
-      z = Math.sin(angle) * radius - 0.75;
-    } else if (spiralType === 1) {
-      // Vertical spiral
-      x = Math.cos(angle) * (radius * 0.7);
-      y = 1.1 + Math.sin(angle * 0.5) * 0.2;
-      z = Math.sin(angle) * (radius * 0.7) - 0.75;
-    } else {
-      // DNA-like double helix
-      const side = Math.floor(i % 2);
-      const helix = Math.sin(angle) * 0.15;
-      const offset = (side === 0) ? 0.05 : -0.05;
-      x = Math.cos(angle) * 0.3 + offset;
-      y = 0.8 + t * 0.6;
-      z = helix - 0.75;
-    }
-    
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
-    
-    // Create velocities that follow the spiral paths
-    const tangentialSpeed = 0.003;
-    velocities[i * 3] = Math.random() * 0.002 - 0.001;
-    velocities[i * 3 + 1] = Math.random() * 0.002 - 0.001;
-    velocities[i * 3 + 2] = Math.random() * 0.002 - 0.001;
-    
-    // Create rainbow gradient based on position in spiral
-    const hue = (t + spiralType * 0.33) % 1.0;
-    const color = new THREE.Color().setHSL(hue, 1, 0.5);
-    colors[i * 3] = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-    
-    // Varying sizes
-    sizes[i] = Math.random() * 0.04 + 0.02;
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  
-  const material = new THREE.PointsMaterial({
-    size: 0.04,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.8,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  
-  // Store animation properties
-  particles.userData = {
-    velocities: velocities,
-    type: 'spiral',
-    creationTime: Date.now(),
-    maxLifetime: 8000, // longer lifetime
-    angleOffset: 0
-  };
-  
-  scene.add(particles);
-  celebrationParticles.push(particles);
-}
-
-// Create glittering diamond-like particles
-function createGlitteringParticles() {
-  const particleCount = 200;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  const sizes = new Float32Array(particleCount);
-  const opacities = new Float32Array(particleCount);
-  
-  for (let i = 0; i < particleCount; i++) {
-    // Position in a sphere around the completion area
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.random() * Math.PI;
-    const radius = Math.random() * 0.8 + 0.2;
-    
-    positions[i * 3] = Math.sin(phi) * Math.cos(theta) * radius;
-    positions[i * 3 + 1] = Math.cos(phi) * radius + 1.1;
-    positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius - 0.75;
-    
-    // Very slow drift
-    velocities[i * 3] = (Math.random() - 0.5) * 0.001;
-    velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
-    velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
-    
-    // White/silver with slight color tints
-    const colorTint = Math.random() * 0.2;
-    colors[i * 3] = 0.8 + colorTint; // R
-    colors[i * 3 + 1] = 0.8 + colorTint; // G
-    colors[i * 3 + 2] = 0.8 + colorTint; // B
-    
-    // Random sizes for intense twinkling
-    sizes[i] = Math.random() * 0.05 + 0.01;
-    
-    // Random opacities
-    opacities[i] = Math.random();
-  }
-  
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-  
-  const material = new THREE.PointsMaterial({
-    size: 0.03,
-    vertexColors: true,
-    transparent: true,
-    opacity: 1.0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-  
-  const particles = new THREE.Points(geometry, material);
-  
-  particles.userData = {
-    velocities: velocities,
-    originalSizes: sizes.slice(),
-    opacities: opacities.slice(),
-    type: 'glitter',
-    lastUpdate: Date.now()
-  };
-  
-  scene.add(particles);
-  celebrationParticles.push(particles);
-}
-
-// Update all celebration particle systems - FIXED to prevent array modification issues
+// Update all celebration particle systems
 function updateCelebrationParticles() {
   if (celebrationParticles.length === 0) return;
   
   const now = Date.now();
   
-  // Use a reverse loop to safely remove items during iteration
-  for (let index = celebrationParticles.length - 1; index >= 0; index--) {
-    const particles = celebrationParticles[index];
+  celebrationParticles.forEach((particles, index) => {
     const positions = particles.geometry.attributes.position.array;
     const velocities = particles.userData.velocities;
     const sizes = particles.geometry.attributes.size?.array;
@@ -565,7 +412,7 @@ function updateCelebrationParticles() {
       if (elapsed > particles.userData.maxLifetime) {
         scene.remove(particles);
         celebrationParticles.splice(index, 1);
-        continue;
+        return;
       }
     } 
     else if (particles.userData.type === 'confetti') {
@@ -589,75 +436,6 @@ function updateCelebrationParticles() {
           positions[i] = (Math.random() - 0.5) * 2.0;
           positions[i + 1] = Math.random() * 0.5 + 1.4;
           positions[i + 2] = (Math.random() - 0.5) * 0.5 - 0.75;
-        }
-      }
-    }
-    else if (particles.userData.type === 'spiral') {
-      // Animate spiral particles with rotation and color shifting
-      const elapsed = now - particles.userData.creationTime;
-      const lifeFactor = 1 - Math.min(elapsed / particles.userData.maxLifetime, 1);
-      
-      particles.material.opacity = lifeFactor * 0.8 + 0.2;
-      particles.userData.angleOffset += 0.01; // Rotate the entire spiral pattern
-      
-      // Update positions with a rotational component
-      for (let i = 0; i < positions.length / 3; i++) {
-        const idx = i * 3;
-        
-        // Get current position
-        const x = positions[idx];
-        const y = positions[idx + 1];
-        const z = positions[idx + 2];
-        
-        // Apply a slight rotational movement around center
-        const dist = Math.sqrt(x*x + z*z);
-        if (dist > 0.01) {
-          const angle = Math.atan2(z + 0.75, x) + 0.005;
-          positions[idx] = Math.cos(angle) * dist;
-          positions[idx + 2] = Math.sin(angle) * dist - 0.75;
-        }
-        
-        // Apply velocity
-        positions[idx] += velocities[idx];
-        positions[idx + 1] += velocities[idx + 1];
-        positions[idx + 2] += velocities[idx + 2];
-      }
-      
-      // Remove when lifetime expires
-      if (elapsed > particles.userData.maxLifetime) {
-        scene.remove(particles);
-        celebrationParticles.splice(index, 1);
-        continue;
-      }
-    }
-    else if (particles.userData.type === 'glitter') {
-      // Intense twinkling for glitter particles
-      if (sizes) {
-        for (let i = 0; i < sizes.length; i++) {
-          // Random rapid changes in size for sparkle effect
-          if (Math.random() < 0.2) {
-            sizes[i] = particles.userData.originalSizes[i] * (Math.random() * 2.0 + 0.5);
-          }
-        }
-        particles.geometry.attributes.size.needsUpdate = true;
-      }
-      
-      // Occasionally change opacity
-      if (Math.random() < 0.1) {
-        particles.material.opacity = Math.random() * 0.5 + 0.5;
-      }
-      
-      // Slow drift movement
-      for (let i = 0; i < positions.length; i += 3) {
-        positions[i] += velocities[i];
-        positions[i + 1] += velocities[i + 1];
-        positions[i + 2] += velocities[i + 2];
-        
-        // Occasionally change velocity for sparkle effect
-        if (Math.random() < 0.05) {
-          velocities[i] = (Math.random() - 0.5) * 0.001;
-          velocities[i + 1] = (Math.random() - 0.5) * 0.001;
-          velocities[i + 2] = (Math.random() - 0.5) * 0.001;
         }
       }
     }
@@ -725,61 +503,47 @@ function updateCelebrationParticles() {
     }
     
     particles.geometry.attributes.position.needsUpdate = true;
-  }
+  });
   
   // Create new starburst particles occasionally for continuous celebration
-  if (celebrationParticles.length > 0) {
-    if (Math.random() < 0.005) {
-      createStarburstParticles();
-    }
-    if (Math.random() < 0.002) {
-      createSpiralParticles();
-    }
-    if (Math.random() < 0.003) {
-      createGlitteringParticles();
-    }
+  if (celebrationParticles.length > 0 && Math.random() < 0.005) {
+    createStarburstParticles();
   }
 }
 
-// Flash the wire between colors for celebration
-function flashWire(count, rainbow = false) {
+// Function to make the wire flash
+function flashWire(times = 3, isGameComplete = false) {
   if (isFlashing) return;
   isFlashing = true;
   
   let flashCount = 0;
-  let interval;
+  const maxFlashes = times * 2; // Each flash is white->blue, so double the count
+  const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game complete
   
-  interval = setInterval(() => {
-    if (flashCount >= count * 2) {
-      clearInterval(interval);
+  function flash() {
+    if (flashCount >= maxFlashes) {
       isFlashing = false;
       return;
     }
     
-    if (flashCount % 2 === 0) {
-      // Flash on - white or rainbow color
-      if (rainbow) {
-        // Rainbow effect for grand finale
-        const hue = (flashCount / (count * 2)) % 1.0;
-        const color = new THREE.Color().setHSL(hue, 1, 0.5);
-        wireMaterial.emissive.set(color);
-        wireMaterial.emissiveIntensity = 2.0;
-      } else {
-        // Simple white flash
-        wireMaterial.emissive.set(0xffffff);
-        wireMaterial.emissiveIntensity = 2.0;
-      }
-    } else {
-      // Flash off - back to blue
-      wireMaterial.emissive.set(0x0000ff);
-      wireMaterial.emissiveIntensity = 0.5;
+    const colors = wire.geometry.attributes.color.array;
+    const isWhite = flashCount % 2 === 0;
+    
+    for (let i = 0; i < colors.length; i += 3) {
+      colors[i] = isWhite ? 1 : 0;     // R
+      colors[i + 1] = isWhite ? 1 : 0; // G
+      colors[i + 2] = 1;               // B (always 1 for white or blue)
     }
     
+    wire.geometry.attributes.color.needsUpdate = true;
     flashCount++;
-  }, 100);
+    
+    setTimeout(flash, flashDuration);
+  }
+  
+  flash();
 }
 
-// Function to create the wire pattern based on current level
 function createWire(level = 1) {
   // Remove old wire if it exists
   if (wire) {
@@ -1116,6 +880,159 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// Create spiral/helix particle effects that sweep around in patterns
+function createSpiralParticles() {
+  const particleCount = 800;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+  const sizes = new Float32Array(particleCount);
+  
+  // Create particles arranged in spiral patterns
+  for (let i = 0; i < particleCount; i++) {
+    const spiralType = Math.floor(i / (particleCount / 3)); // 3 different spiral types
+    const t = (i % (particleCount / 3)) / (particleCount / 3);
+    const angle = t * Math.PI * 10; // Multiple full rotations
+    
+    // Different spiral patterns
+    let x, y, z;
+    const radius = 0.2 + t * 0.8; // Expanding radius
+    
+    if (spiralType === 0) {
+      // Horizontal expanding spiral
+      x = Math.cos(angle) * radius;
+      y = 1.1 + t * 0.2;
+      z = Math.sin(angle) * radius - 0.75;
+    } else if (spiralType === 1) {
+      // Vertical spiral
+      x = Math.cos(angle) * (radius * 0.7);
+      y = 1.1 + Math.sin(angle * 0.5) * 0.2;
+      z = Math.sin(angle) * (radius * 0.7) - 0.75;
+    } else {
+      // DNA-like double helix
+      const side = Math.floor(i % 2);
+      const helix = Math.sin(angle) * 0.15;
+      const offset = (side === 0) ? 0.05 : -0.05;
+      x = Math.cos(angle) * 0.3 + offset;
+      y = 0.8 + t * 0.6;
+      z = helix - 0.75;
+    }
+    
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+    
+    // Create velocities that follow the spiral paths
+    const tangentialSpeed = 0.003;
+    velocities[i * 3] = Math.random() * 0.002 - 0.001;
+    velocities[i * 3 + 1] = Math.random() * 0.002 - 0.001;
+    velocities[i * 3 + 2] = Math.random() * 0.002 - 0.001;
+    
+    // Create rainbow gradient based on position in spiral
+    const hue = (t + spiralType * 0.33) % 1.0;
+    const color = new THREE.Color().setHSL(hue, 1, 0.5);
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+    
+    // Varying sizes
+    sizes[i] = Math.random() * 0.04 + 0.02;
+  }
+  
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  
+  const material = new THREE.PointsMaterial({
+    size: 0.04,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  
+  const particles = new THREE.Points(geometry, material);
+  
+  // Store animation properties
+  particles.userData = {
+    velocities: velocities,
+    type: 'spiral',
+    creationTime: Date.now(),
+    maxLifetime: 8000, // longer lifetime
+    angleOffset: 0
+  };
+  
+  scene.add(particles);
+  celebrationParticles.push(particles);
+}
+
+// Create glittering diamond-like particles
+function createGlitteringParticles() {
+  const particleCount = 200;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+  const sizes = new Float32Array(particleCount);
+  const opacities = new Float32Array(particleCount);
+  
+  for (let i = 0; i < particleCount; i++) {
+    // Position in a sphere around the completion area
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI;
+    const radius = Math.random() * 0.8 + 0.2;
+    
+    positions[i * 3] = Math.sin(phi) * Math.cos(theta) * radius;
+    positions[i * 3 + 1] = Math.cos(phi) * radius + 1.1;
+    positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius - 0.75;
+    
+    // Very slow drift
+    velocities[i * 3] = (Math.random() - 0.5) * 0.001;
+    velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
+    velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
+    
+    // White/silver with slight color tints
+    const colorTint = Math.random() * 0.2;
+    colors[i * 3] = 0.8 + colorTint; // R
+    colors[i * 3 + 1] = 0.8 + colorTint; // G
+    colors[i * 3 + 2] = 0.8 + colorTint; // B
+    
+    // Random sizes for intense twinkling
+    sizes[i] = Math.random() * 0.05 + 0.01;
+    
+    // Random opacities
+    opacities[i] = Math.random();
+  }
+  
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  
+  const material = new THREE.PointsMaterial({
+    size: 0.03,
+    vertexColors: true,
+    transparent: true,
+    opacity: 1.0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  
+  const particles = new THREE.Points(geometry, material);
+  
+  particles.userData = {
+    velocities: velocities,
+    originalSizes: sizes.slice(),
+    opacities: opacities.slice(),
+    type: 'glitter',
+    lastUpdate: Date.now()
+  };
+  
+  scene.add(particles);
+  celebrationParticles.push(particles);
+}
+
 function animate() {
   renderer.setAnimationLoop(render);
 }
@@ -1197,6 +1114,7 @@ function render() {
 
   renderer.render(scene, camera);
 }
-  </script>
+</script>
 </body>
 </html>
+
