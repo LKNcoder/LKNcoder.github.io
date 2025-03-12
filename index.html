@@ -47,7 +47,7 @@
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 2; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 // New sound effects and flashing state
@@ -543,7 +543,7 @@ function victory() {
         );
         gameCompleteGeometry.computeBoundingBox();
         const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
-        gameCompleteMesh.position.set(completeOffset, 1.9, -0.75);
+        gameCompleteMesh.position.set(completeOffset, 0.9, -0.75);
         scene.add(gameCompleteMesh);
         
         // Level 1 time - closer to title
@@ -552,7 +552,7 @@ function victory() {
         const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
         level1Geometry.computeBoundingBox();
         const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
-        level1Mesh.position.set(level1Offset, 1.85, -0.75);
+        level1Mesh.position.set(level1Offset, 0.85, -0.75);
         scene.add(level1Mesh);
         
         // Level 2 time - closer to level 1
@@ -561,7 +561,7 @@ function victory() {
         const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
         level2Geometry.computeBoundingBox();
         const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
-        level2Mesh.position.set(level2Offset, 1.8, -0.75);
+        level2Mesh.position.set(level2Offset, 0.8, -0.75);
         scene.add(level2Mesh);
         
         // Total time - closer to level 2
@@ -570,7 +570,7 @@ function victory() {
         const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
         totalGeometry.computeBoundingBox();
         const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-        totalMesh.position.set(totalOffset, 1.75, -0.75);
+        totalMesh.position.set(totalOffset, 0.75, -0.75);
         scene.add(totalMesh);
         
         // Remove the original text mesh since we're replacing it with multiple meshes
