@@ -54,6 +54,7 @@ let explosionStartTime = null;
 let isExploding = false;
 let confettiParticles = [];
 let confettiStartTime = null;
+let flashTimerId = null;
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
@@ -197,6 +198,7 @@ const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game co
 function flash() {
   if (flashCount >= maxFlashes || !wire || !wire.geometry || !wire.geometry.attributes) {
     isFlashing = false;
+    flashTimerId = null;
     return;
   }
 
@@ -212,7 +214,7 @@ colors[i + 2] = 1;               // B (always 1 for white or blue)
 wire.geometry.attributes.color.needsUpdate = true;
 flashCount++;
 
-setTimeout(flash, flashDuration);
+flashTimerId = setTimeout(flash, flashDuration);
 }
 
 flash();
@@ -832,6 +834,12 @@ flashWire(6, true);
 
 // Hide the wire and ring when game is completed
 setTimeout(() => {
+   // Cancel any ongoing flashing animation before removing the wire
+   if (flashTimerId !== null) {
+    clearTimeout(flashTimerId);
+    flashTimerId = null;
+    isFlashing = false;
+  }
 if (wire) {
     scene.remove(wire);
   }
