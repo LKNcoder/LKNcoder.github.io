@@ -49,6 +49,9 @@ let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], w
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
 let currentLevel = 4; // Track current level
 let levelTimes = []; // Array to store completion times for each level
+let explosionFragments = [];
+let explosionStartTime = null;
+let isExploding = false;
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound;
@@ -311,6 +314,53 @@ console.log(`Wire for level ${level} created:`, wire);
 return wire;
 }
 
+function explodeRing() {
+  if (isExploding) return; // Prevent multiple explosions
+  isExploding = true;
+  explosionStartTime = Date.now();
+  
+  // Hide the original ring
+  ring.visible = false;
+  
+  // Create fragments
+  const segments = 20;
+  for (let i = 0; i < segments; i++) {
+    // Create fragment geometry (smaller than the original ring)
+    const fragGeometry = new THREE.TorusGeometry(0.075, 0.00625, 8, 6, Math.PI * 2 / segments);
+    const fragMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ff00, 
+      emissive: 0x00ff00, 
+      emissiveIntensity: 1.0, 
+      metalness: 1.0, 
+      roughness: 0.0 
+    });
+    const fragment = new THREE.Mesh(fragGeometry, fragMaterial);
+    
+    // Position and rotate to match the original ring
+    fragment.position.copy(ring.position);
+    fragment.rotation.copy(ring.rotation);
+    
+    // Rotate fragment to correct position in the ring
+    fragment.rotateOnAxis(new THREE.Vector3(0, 1, 0), (i / segments) * Math.PI * 2);
+    
+    // Add explosion velocity - direction slightly outward from the center
+    const angle = (i / segments) * Math.PI * 2;
+    const direction = new THREE.Vector3(Math.cos(angle), 0.2, Math.sin(angle));
+    direction.normalize();
+    
+    fragment.userData.velocity = direction.multiplyScalar(0.02 + Math.random() * 0.02);
+    fragment.userData.rotationSpeed = {
+      x: (Math.random() - 0.5) * 0.2,
+      y: (Math.random() - 0.5) * 0.2,
+      z: (Math.random() - 0.5) * 0.2
+    };
+    
+    // Add to scene and array
+    scene.add(fragment);
+    explosionFragments.push(fragment);
+  }
+}
+
 function onWindowResize() {
 camera.aspect = window.innerWidth / window.innerHeight;
 camera.updateProjectionMatrix();
@@ -418,7 +468,7 @@ handleCollision(); // Treat as a collision if time exceeds limit
 return;
 }
 
-const seconds = Math.floor((elapsedTime / 1000) % 60);
+const seconds = Math.floor(elapsedTime / 1000);
 const milliseconds = Math.floor(elapsedTime % 1000);
 const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
@@ -448,6 +498,42 @@ timerMesh.lookAt(camera.position);
 // Check for wire collision and update wire color
 updateWireColor();
 
+if (isExploding) {
+    const explosionElapsed = Date.now() - explosionStartTime;
+    const explosionDuration = 2000; // 2 seconds
+    
+    if (explosionElapsed < explosionDuration) {
+      // Update fragment positions and rotations
+      for (let i = 0; i < explosionFragments.length; i++) {
+        const fragment = explosionFragments[i];
+        fragment.position.add(fragment.userData.velocity);
+        fragment.rotation.x += fragment.userData.rotationSpeed.x;
+        fragment.rotation.y += fragment.userData.rotationSpeed.y;
+        fragment.rotation.z += fragment.userData.rotationSpeed.z;
+        
+        // Add gravity effect
+        fragment.userData.velocity.y -= 0.0005;
+      }
+    } else {
+      // Clean up explosion
+      for (let i = 0; i < explosionFragments.length; i++) {
+        const fragment = explosionFragments[i];
+        scene.remove(fragment);
+        if (fragment.geometry) fragment.geometry.dispose();
+        if (fragment.material) fragment.material.dispose();
+      }
+      
+      // Reset
+      explosionFragments = [];
+      isExploding = false;
+      
+      // Show and reset ring
+      ring.visible = true;
+      ring.position.copy(ringStartPosition);
+      ring.rotation.set(0, Math.PI / 2, 0);
+    }
+  }
+  
 renderer.render(scene, camera);
 }
 
@@ -488,8 +574,7 @@ victory();
 }
 
 function handleCollision() {
-ring.position.copy(ringStartPosition); // Reset ring to start position
-ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
+explodeRing(); // Add explosion effect
 contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
 resetWireColor(); // Reset wire color to pink
 grabbed = false; // Override the grab
