@@ -1,4 +1,3 @@
-ini.html -->
 <!doctype html>
 <html>
 <head>
@@ -44,13 +43,11 @@ ini.html -->
     import * as THREE from 'three';
     import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-    
     let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
     let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
     let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-    let level = 2; // Current level
-    let level2Wire; // Store the level 2 wire
+    let currentLevel = 1; // Track current level
 
     init();
     animate();
@@ -77,7 +74,13 @@ ini.html -->
       const loader = new THREE.FontLoader();
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
         font = loadedFont;
-        updateLevelText();
+        const textGeometry = new THREE.TextGeometry('LEVEL 1', { font: font, size: 0.02, height: 0.005 });
+        const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        textMesh.position.set(centerOffset, 2.0, -0.75);
+        scene.add(textMesh);
 
         // Load a monospaced font for the timer
         const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
@@ -144,34 +147,49 @@ ini.html -->
       const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
       scene.add(particlesMesh);
 
-      // Create both level wires
-      wire = createLevel1Wire();
-      level2Wire = createLevel2Wire();
-      level2Wire.mesh.visible = false; // Initially hide level 2 wire
+      wire = createWire(currentLevel);
 
       victorySound = new Audio('short_horns.mp3');
       contactSound = new Audio('contact.mp3');
-
-      // Initial checkCollision to prevent immediate collision at start
-      setTimeout(() => {
-        checkCollision();
-      }, 1000); // Delay the initial collision check by 1 second
     }
 
-    function createLevel1Wire() {
+    function createWire(level = 1) {
+      // Remove old wire if it exists
+      if (wire) {
+        scene.remove(wire);
+        if (wire.geometry) wire.geometry.dispose();
+      }
+      
       const points = [];
       const segments = 200;
       const radius = 0.75;
+      
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const angle = t * Math.PI * 2;
-        const waveX = Math.sin(angle * 8) * 0.05;
-        const waveY = Math.cos(angle * 6) * 0.05;
-        const x = (Math.cos(angle) * radius) + waveX;
-        const y = 1.4 + waveY;
-        const z = (Math.sin(angle) * radius) + waveX;
+        
+        let waveX, waveY, waveZ, x, y, z;
+        
+        if (level === 1) {
+          // Level 1 wire pattern
+          waveX = Math.sin(angle * 8) * 0.05;
+          waveY = Math.cos(angle * 6) * 0.05;
+          x = (Math.cos(angle) * radius) + waveX;
+          y = 1.4 + waveY;
+          z = (Math.sin(angle) * radius) + waveX;
+        } else {
+          // Level 2 wire pattern - more complex
+          waveX = Math.sin(angle * 10) * 0.08;
+          waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
+          waveZ = Math.sin(angle * 12) * 0.06;
+          x = (Math.cos(angle) * radius) + waveX;
+          y = 1.4 + waveY;
+          z = (Math.sin(angle) * radius) + waveZ;
+        }
+        
         points.push(new THREE.Vector3(x, y, z));
       }
+      
       wirePoints = points;
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
       const colors = new Float32Array(points.length * 3);
@@ -181,55 +199,13 @@ ini.html -->
         colors[i * 3 + 2] = 1; // B
       }
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 }); // Increased linewidth
-      const wire = new THREE.Line(geometry, wireMaterial);
+      wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
+      
+      wire = new THREE.Line(geometry, wireMaterial);
       scene.add(wire);
-
-      console.log('Wire created:', wire);
-      return { mesh: wire, points: points };
-    }
-
-    function createLevel2Wire() {
-        const points = [];
-        const segments = 200;
-        const radius = 0.75;
-
-        for (let i = 0; i <= segments; i++) {
-            const t = i / segments;
-            const angle = t * Math.PI * 2;
-
-            // Add wave variations (matching green particle path)
-            const waveX = Math.sin(angle * 8) * 0.1; // Increased waveX
-            const waveY = Math.cos(angle * 6) * 0.1; // Increased waveY
-
-            // Calculate position with waves
-            const x = (Math.cos(angle) * radius) + waveX;
-            const y = 1.4 + waveY;
-            const z = (Math.sin(angle) * radius) + waveX;
-
-            points.push(new THREE.Vector3(x, y, z));
-        }
-
-        const curve = new THREE.CatmullRomCurve3(points);
-        const tubeGeometry = new THREE.TubeGeometry(curve, segments * 2, 0.0125, 16, false); // Increased segments
-        const wireMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, vertexColors: true }); // Pink color
-
-        // Add vertex colors to level 2 wire
-        const colors = new Float32Array(points.length * 3);
-        for (let i = 0; i < points.length; i++) {
-            colors[i * 3] = 1; // R
-            colors[i * 3 + 1] = 0; // G
-            colors[i * 3 + 2] = 1; // B
-        }
-
-        const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
-        wireMesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        scene.add(wireMesh);
-
-        return {
-            mesh: wireMesh,
-            points: points
-        };
+      
+      console.log(`Wire for level ${level} created:`, wire);
+      return wire;
     }
 
     function onWindowResize() {
@@ -239,31 +215,24 @@ ini.html -->
     }
 
     function checkCollision() {
-      let currentWire;
-        if (level === 1) {
-            currentWire = wire;
-        } else if (level === 2) {
-            currentWire = level2Wire;
+      const ringVertices = ring.geometry.attributes.position.array;
+      const ringMatrixWorld = ring.matrixWorld;
+      const thresholdDistance = 0.01; // Adjust this value as needed
+
+      for (let i = 0; i < ringVertices.length; i += 3) {
+        const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
+        vertex.applyMatrix4(ringMatrixWorld);
+
+        for (let j = 0; j < wirePoints.length; j++) {
+          const distance = vertex.distanceTo(wirePoints[j]);
+          if (distance < thresholdDistance) {
+            console.log('Collision detected');
+            return true;
+          }
         }
+      }
 
-        const ringVertices = ring.geometry.attributes.position.array;
-        const ringMatrixWorld = ring.matrixWorld;
-        const thresholdDistance = 0.1; // Adjust this value as needed
-
-        for (let i = 0; i < ringVertices.length; i += 3) {
-            const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
-            vertex.applyMatrix4(ringMatrixWorld);
-
-            for (let j = 0; j < currentWire.points.length; j++) {
-                const distance = vertex.distanceTo(currentWire.points[j]);
-                if (distance < thresholdDistance) {
-                    console.log('Collision detected');
-                    return true;
-                }
-            }
-        }
-
-        return false;
+      return false;
     }
 
     function onSelectStart(event) {
@@ -373,56 +342,39 @@ ini.html -->
     }
 
     function updateWireColor() {
-        let currentWire;
-        if (level === 1) {
-            currentWire = wire;
-        } else if (level === 2) {
-            currentWire = level2Wire;
+      const ringBox = new THREE.Box3().setFromObject(ring);
+      const colors = wire.geometry.attributes.color.array;
+
+      // Calculate a dynamic pointBox size based on the ring's scale
+      const ringScale = ring.scale.x; // Assuming uniform scale
+      const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+
+      for (let i = 0; i < wirePoints.length; i++) {
+        const point = wirePoints[i];
+        const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
+
+        if (ringBox.intersectsBox(pointBox)) {
+          // Color this segment blue
+          colors[i * 3] = 0;     // R
+          colors[i * 3 + 1] = 0; // G
+          colors[i * 3 + 2] = 1; // B
         }
+        //No ELSE, so color will remain unless reset
+      }
 
-        // Check if currentWire and its properties are valid
-        if (!currentWire || !currentWire.mesh || !currentWire.mesh.geometry || !currentWire.mesh.geometry.attributes.color) {
-            console.error('Invalid currentWire properties:', currentWire);
-            return; // Exit the function if properties are invalid
+      wire.geometry.attributes.color.needsUpdate = true;
+
+      // Check if the entire wire is blue (victory condition)
+      let allBlue = true;
+      for (let i = 0; i < wirePoints.length; i++) {
+        if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
+          allBlue = false;
+          break;
         }
-
-        const ringBox = new THREE.Box3().setFromObject(ring);
-        const colors = currentWire.mesh.geometry.attributes.color.array;
-
-        // Calculate a dynamic pointBox size based on the ring's scale
-        const ringScale = ring.scale.x; // Assuming uniform scale
-        const pointBoxSize = 0.1 * ringScale; // Adjust the multiplier as needed
-
-        for (let i = 0; i < currentWire.points.length; i++) {
-            const point = currentWire.points[i];
-            const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
-
-            if (ringBox.intersectsBox(pointBox)) {
-                // Color this segment blue
-                colors[i * 3] = 0;     // R
-                colors[i * 3 + 1] = 0; // G
-                colors[i * 3 + 2] = 1; // B
-            } else {
-                // Ensure the color is reset if the ring moves away
-                colors[i * 3] = 1;     // R
-                colors[i * 3 + 1] = 0; // G
-                colors[i * 3 + 2] = 1; // B
-            }
-        }
-
-        currentWire.mesh.geometry.attributes.color.needsUpdate = true;
-
-        // Check if the entire wire is blue (victory condition)
-        let allBlue = true;
-        for (let i = 0; i < currentWire.points.length; i++) {
-            if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
-                allBlue = false;
-                break;
-            }
-        }
-        if (allBlue) {
-            victory();
-        }
+      }
+      if (allBlue) {
+        victory();
+      }
     }
 
     function handleCollision() {
@@ -432,22 +384,20 @@ ini.html -->
       resetWireColor(); // Reset wire color to pink
       grabbed = false; // Override the grab
       grabbingController = null; // Clear the grabbing controller
+      
+      // Reset timer but don't change level
+      elapsedTime = 0;
+      startTime = null;
     }
 
     function resetWireColor() {
-        let currentWire;
-        if (level === 1) {
-            currentWire = wire;
-        } else if (level === 2) {
-            currentWire = level2Wire;
-        }
-        const colors = currentWire.mesh.geometry.attributes.color.array;
-        for (let i = 0; i < currentWire.points.length; i++) {
-            colors[i * 3] = 1;     // R
-            colors[i * 3 + 1] = 0; // G
-            colors[i * 3 + 2] = 1; // B
-        }
-        currentWire.mesh.geometry.attributes.color.needsUpdate = true;
+      const colors = wire.geometry.attributes.color.array;
+      for (let i = 0; i < colors.length; i += 3) {
+        colors[i] = 1; // R
+        colors[i + 1] = 0; // G
+        colors[i + 2] = 1; // B
+      }
+      wire.geometry.attributes.color.needsUpdate = true;
     }
 
     function victory() {
@@ -455,44 +405,40 @@ ini.html -->
         startTime = null;
         victorySound.play().catch(error => console.log('Sound play error:', error));
         console.log('Victory!');
-        // Move to the next level
-        nextLevel();
-      }
-    }
-
-    function nextLevel() {
-        level++;
-        updateLevelText();
-
-        // Swap visibility of wires
-        if (level === 2) {
-            wire.mesh.visible = false;
-            level2Wire.mesh.visible = true;
+        
+        // Advance to the next level
+        if (currentLevel === 1) {
+          setTimeout(() => {
+            currentLevel = 2;
+            // Update the level text
+            if (textMesh && font) {
+              textMesh.geometry.dispose();
+              textMesh.geometry = new THREE.TextGeometry('LEVEL 2', { font: font, size: 0.02, height: 0.005 });
+              textMesh.geometry.computeBoundingBox();
+            }
+            
+            // Reset the ring position and create the new wire
+            ring.position.copy(ringStartPosition);
+            ring.rotation.set(0, Math.PI / 2, 0);
+            wire = createWire(currentLevel);
+            
+            // Reset timer for level 2
+            elapsedTime = 0;
+            grabbed = false;
+            grabbingController = null;
+            
+            // Play a level-up sound (can be the same as victory for now)
+            victorySound.play().catch(error => console.log('Sound play error:', error));
+          }, 2000); // Wait 2 seconds before starting level 2
         } else {
-            // Handle game completion or loop back to level 1
-            level = 1;
-            wire.mesh.visible = true;
-            level2Wire.mesh.visible = false;
+          // Game complete!
+          if (textMesh && font) {
+            textMesh.geometry.dispose();
+            textMesh.geometry = new THREE.TextGeometry('GAME COMPLETE!', { font: font, size: 0.02, height: 0.005 });
+            textMesh.geometry.computeBoundingBox();
+          }
         }
-
-        // Reset ring position and color
-        ring.position.copy(ringStartPosition);
-        ring.rotation.set(0, Math.PI / 2, 0);
-        resetWireColor();
-    }
-
-    function updateLevelText() {
-        if (textMesh && font) {
-            scene.remove(textMesh);
-            const textGeometry = new THREE.TextGeometry(`LEVEL ${level}`, { font: font, size: 0.02, height: 0.005 });
-            const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            textMesh = new THREE.Mesh(textGeometry, textMaterial);
-            textGeometry.computeBoundingBox();
-            const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-            textMesh.position.set(ring.position.x + centerOffset, 2.0, ring.position.z);
-            textMesh.lookAt(camera.position);
-            scene.add(textMesh);
-        }
+      }
     }
   </script>
 </body>
