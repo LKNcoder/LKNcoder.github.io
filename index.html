@@ -47,7 +47,7 @@
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 3; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 // Sound effects and flashing state
@@ -207,7 +207,9 @@ function createWire(level = 1) {
   const radius = 0.75;
   
   // Add rotation offset for different levels
-  const rotationOffset = level === 2 ? Math.PI / 3 : level === 3 ? Math.PI / 6 : 0;
+  const rotationOffset = level === 2 ? Math.PI / 3 : 
+                        level === 3 ? Math.PI / 6 : 
+                        level === 4 ? Math.PI / 5 : 0;
   
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
@@ -224,23 +226,22 @@ function createWire(level = 1) {
       z = (Math.sin(angle) * radius) + waveX;
     } 
     else if (level === 2) {
-       // Level 3 wire 
+      // Level 2 wire pattern 
       waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
       waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
       waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 4) * 0.05;
 
-       // Create gentle undulations in height
-       const heightVar = Math.sin(angle * 3) * 0.06;
+      // Create gentle undulations in height
+      const heightVar = Math.sin(angle * 3) * 0.06;
       
-       const rotatedAngle = angle + rotationOffset;
+      const rotatedAngle = angle + rotationOffset;
       // Create an elliptical path 
       x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
       y = 1.4 + waveY + heightVar;
       z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
     }
-      
-    else {
-       // Level 3 wire pattern
+    else if (level === 3) {
+      // Level 3 wire pattern
       waveX = Math.sin(angle * 10) * 0.08;
       waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
       waveZ = Math.sin(angle * 12) * 0.06;
@@ -249,6 +250,47 @@ function createWire(level = 1) {
       x = (Math.cos(rotatedAngle) * radius) + waveX;
       y = 1.4 + waveY;
       z = (Math.sin(rotatedAngle) * radius) + waveZ;
+    }
+    else {
+      // Level 4 wire pattern - most complex but still navigable
+      // Create a dynamic path with interesting features
+      
+      // Use prime number frequencies for less predictable patterns
+      waveX = Math.sin(angle * 11) * 0.07 + Math.cos(angle * 5) * 0.05;
+      waveY = Math.cos(angle * 7) * 0.09 + Math.sin(angle * 13) * 0.04;
+      waveZ = Math.sin(angle * 17) * 0.06 + Math.cos(angle * 3) * 0.07;
+      
+      // Add some controlled chaos with sectional variations
+      // Divide the wire into sections with different behaviors
+      const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
+      
+      let sectionFactor = 0;
+      if (section === 0) {
+        // First quarter - spiral up
+        sectionFactor = t * 4; // 0 to 1 for first quarter
+        y = 1.4 + waveY + (sectionFactor * 0.15); // Gradually rise
+      } else if (section === 1) {
+        // Second quarter - flatten and twist
+        sectionFactor = (t - 0.25) * 4; // 0 to 1 for second quarter
+        waveX *= 1 + sectionFactor * 0.5; // Increase x waves
+      } else if (section === 2) {
+        // Third quarter - ripple pattern
+        sectionFactor = (t - 0.5) * 4; // 0 to 1 for third quarter
+        waveX += Math.sin(angle * 23) * 0.04 * sectionFactor; // Add high frequency detail
+        waveZ += Math.cos(angle * 19) * 0.04 * sectionFactor; // Add high frequency detail
+      } else {
+        // Fourth quarter - descend and return to start
+        sectionFactor = (t - 0.75) * 4; // 0 to 1 for last quarter
+        y = 1.4 + waveY - (sectionFactor * 0.08) + ((1-sectionFactor) * 0.08); // Drop then rise back
+      }
+      
+      // Create smooth transition variations in radius
+      const radiusVar = 1 + 0.15 * Math.sin(angle * 2) - 0.05 * Math.cos(angle * 5);
+      
+      const rotatedAngle = angle + rotationOffset;
+      x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
+      y = y || 1.4 + waveY + Math.sin(angle * 2) * 0.07; // Base height variation
+      z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
     }
     
     points.push(new THREE.Vector3(x, y, z));
@@ -495,8 +537,8 @@ function victory() {
     
     console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
     
-    // Advance to the next level - CHANGED to support three levels
-    if (currentLevel < 3) {
+    // Advance to the next level - CHANGED to support four levels
+    if (currentLevel < 4) {  // Updated to go to level 4
       setTimeout(() => {
         currentLevel++;
         // Update the level text
@@ -559,8 +601,8 @@ function victory() {
         gameCompleteMesh.position.set(completeOffset, 1.2, -0.75);
         scene.add(gameCompleteMesh);
         
-        // Level 1 time - closer to title
-        const level1Text = `Level 1: ${formatTime(levelTimes[0] || 0)}`;
+           // Level 1 time 
+           const level1Text = `Level 1: ${formatTime(levelTimes[0] || 0)}`;
         const level1Geometry = new THREE.TextGeometry(level1Text, { font: font, size: 0.02, height: 0.005 });
         const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
         level1Geometry.computeBoundingBox();
@@ -568,7 +610,7 @@ function victory() {
         level1Mesh.position.set(level1Offset, 1.15, -0.75);
         scene.add(level1Mesh);
         
-        // Level 2 time - closer to level 1
+        // Level 2 time
         const level2Text = `Level 2: ${formatTime(levelTimes[1] || 0)}`;
         const level2Geometry = new THREE.TextGeometry(level2Text, { font: font, size: 0.02, height: 0.005 });
         const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
@@ -577,7 +619,7 @@ function victory() {
         level2Mesh.position.set(level2Offset, 1.1, -0.75);
         scene.add(level2Mesh);
         
-        // Level 3 time - ADD THIS SECTION
+        // Level 3 time
         const level3Text = `Level 3: ${formatTime(levelTimes[2] || 0)}`;
         const level3Geometry = new THREE.TextGeometry(level3Text, { font: font, size: 0.02, height: 0.005 });
         const level3Mesh = new THREE.Mesh(level3Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
@@ -586,13 +628,22 @@ function victory() {
         level3Mesh.position.set(level3Offset, 1.05, -0.75);
         scene.add(level3Mesh);
         
-        // Total time - move down to account for level 3
+        // Level 4 time
+        const level4Text = `Level 4: ${formatTime(levelTimes[3] || 0)}`;
+        const level4Geometry = new THREE.TextGeometry(level4Text, { font: font, size: 0.02, height: 0.005 });
+        const level4Mesh = new THREE.Mesh(level4Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        level4Geometry.computeBoundingBox();
+        const level4Offset = -0.5 * (level4Geometry.boundingBox.max.x - level4Geometry.boundingBox.min.x);
+        level4Mesh.position.set(level4Offset, 1.0, -0.75);
+        scene.add(level4Mesh);
+        
+        // Total time - moved down to account for level 4
         const totalText = `Total: ${formatTime(totalTime)}`;
         const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
         const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
         totalGeometry.computeBoundingBox();
         const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-        totalMesh.position.set(totalOffset, 1.0, -0.75);
+        totalMesh.position.set(totalOffset, 0.95, -0.75);
         scene.add(totalMesh);
         
         // Remove the original text mesh since we're replacing it with multiple meshes
