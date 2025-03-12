@@ -165,7 +165,7 @@
       const radius = 0.75;
       
       // Add rotation offset for level 2
-      const rotationOffset = level === 2 ? Math.PI / 2 : 0;
+      const rotationOffset = level === 2 ? Math.PI / 3 : 0;
       
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
@@ -188,7 +188,7 @@
           
           // Apply rotation offset to level 2 wire
           const rotatedAngle = angle + rotationOffset;
-          x = (Math.cos(rotatedAngle/3) * radius) + waveX;
+          x = (Math.cos(rotatedAngle) * radius) + waveX;
           y = 1.4 + waveY;
           z = (Math.sin(rotatedAngle) * radius) + waveZ;
         }
