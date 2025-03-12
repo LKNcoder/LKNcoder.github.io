@@ -47,7 +47,7 @@
     let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
     let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-    let currentLevel = 1; // Track current level
+    let currentLevel = 2; // Track current level
 
     init();
     animate();
@@ -164,6 +164,9 @@
       const segments = 200;
       const radius = 0.75;
       
+      // Add rotation offset for level 2
+      const rotationOffset = level === 2 ? Math.PI / 2 : 0;
+      
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const angle = t * Math.PI * 2;
@@ -182,9 +185,12 @@
           waveX = Math.sin(angle * 10) * 0.08;
           waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
           waveZ = Math.sin(angle * 12) * 0.06;
-          x = (Math.cos(angle) * radius) + waveX;
+          
+          // Apply rotation offset to level 2 wire
+          const rotatedAngle = angle + rotationOffset;
+          x = (Math.cos(rotatedAngle) * radius) + waveX;
           y = 1.4 + waveY;
-          z = (Math.sin(angle) * radius) + waveZ;
+          z = (Math.sin(rotatedAngle) * radius) + waveZ;
         }
         
         points.push(new THREE.Vector3(x, y, z));
