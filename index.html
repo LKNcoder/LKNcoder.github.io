@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 4; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -531,7 +531,22 @@ if (isExploding) {
       ring.visible = true;
       ring.position.copy(ringStartPosition);
       ring.rotation.set(0, Math.PI / 2, 0);
+
+        // Reset timer display to 00:000
+    if (timerMesh && timerFont) {
+      timerMesh.geometry.dispose();
+      timerMesh.geometry = new THREE.TextGeometry('00:000', {
+        font: timerFont,
+        size: 0.02,
+        height: 0.005,
+      });
+      timerMesh.geometry.computeBoundingBox();
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+      timerMesh.lookAt(camera.position);
+    
     }
+  }
   }
   
 renderer.render(scene, camera);
