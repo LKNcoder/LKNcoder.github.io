@@ -50,7 +50,7 @@ const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
 let currentLevel = 2; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
-// New sound effects and flashing state
+// Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound;
 let isFlashing = false;
 
@@ -206,8 +206,8 @@ function createWire(level = 1) {
   const segments = 200;
   const radius = 0.75;
   
-  // Add rotation offset for level 2
-  const rotationOffset = level === 2 ? Math.PI / 3 : 0;
+  // Add rotation offset for different levels
+  const rotationOffset = level === 2 ? Math.PI / 3 : level === 3 ? Math.PI / 6 : 0;
   
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
@@ -222,17 +222,29 @@ function createWire(level = 1) {
       x = (Math.cos(angle) * radius) + waveX;
       y = 1.4 + waveY;
       z = (Math.sin(angle) * radius) + waveX;
-    } else {
-      // Level 2 wire pattern - more complex
+    } 
+    else if (level === 2) {
+      // Level 2 wire pattern
       waveX = Math.sin(angle * 10) * 0.08;
       waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
       waveZ = Math.sin(angle * 12) * 0.06;
       
-      // Apply rotation offset to level 2 wire
       const rotatedAngle = angle + rotationOffset;
       x = (Math.cos(rotatedAngle) * radius) + waveX;
       y = 1.4 + waveY;
       z = (Math.sin(rotatedAngle) * radius) + waveZ;
+    }
+    else {
+      // Level 3 wire pattern - most complex with true 3D movement
+      waveX = Math.sin(angle * 15) * 0.10 + Math.cos(angle * 7) * 0.05;
+      waveY = Math.cos(angle * 12) * 0.12 + Math.sin(angle * 20) * 0.04;
+      waveZ = Math.sin(angle * 18) * 0.08 + Math.cos(angle * 10) * 0.06;
+      
+      const rotatedAngle = angle + rotationOffset;
+      // Add a figure-eight pattern with more vertical movement
+      x = (Math.cos(rotatedAngle) * radius * (0.9 + 0.1 * Math.sin(angle * 4))) + waveX;
+      y = 1.4 + waveY + Math.sin(angle * 2) * 0.1; // More height variation
+      z = (Math.sin(rotatedAngle) * radius * (0.9 + 0.1 * Math.cos(angle * 4))) + waveZ;
     }
     
     points.push(new THREE.Vector3(x, y, z));
@@ -479,10 +491,10 @@ function victory() {
     
     console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
     
-    // Advance to the next level
-    if (currentLevel === 1) {
+    // Advance to the next level - CHANGED to support three levels
+    if (currentLevel < 3) {
       setTimeout(() => {
-        currentLevel = 2;
+        currentLevel++;
         // Update the level text
         if (textMesh && font) {
           textMesh.geometry.dispose();
@@ -495,7 +507,7 @@ function victory() {
         ring.rotation.set(0, Math.PI / 2, 0);
         wire = createWire(currentLevel);
         
-        // Reset timer for level 2
+        // Reset timer for next level
         elapsedTime = 0;
         grabbed = false;
         grabbingController = null;
@@ -512,10 +524,7 @@ function victory() {
             const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
             timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
         }
-        
-        // No second victory sound here
-        
-      }, 2000); // Wait 2 seconds before starting level 2
+      }, 2000); // Wait 2 seconds before starting next level
     } else {
       // Game complete! Show summary of times
       const totalTime = levelTimes.reduce((total, time) => total + time, 0);
@@ -543,7 +552,7 @@ function victory() {
         );
         gameCompleteGeometry.computeBoundingBox();
         const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
-        gameCompleteMesh.position.set(completeOffset, 0.9, -0.75);
+        gameCompleteMesh.position.set(completeOffset, 1.2, -0.75);
         scene.add(gameCompleteMesh);
         
         // Level 1 time - closer to title
@@ -552,7 +561,7 @@ function victory() {
         const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
         level1Geometry.computeBoundingBox();
         const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
-        level1Mesh.position.set(level1Offset, 0.85, -0.75);
+        level1Mesh.position.set(level1Offset, 1.15, -0.75);
         scene.add(level1Mesh);
         
         // Level 2 time - closer to level 1
@@ -561,16 +570,25 @@ function victory() {
         const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
         level2Geometry.computeBoundingBox();
         const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
-        level2Mesh.position.set(level2Offset, 0.8, -0.75);
+        level2Mesh.position.set(level2Offset, 1.1, -0.75);
         scene.add(level2Mesh);
         
-        // Total time - closer to level 2
+        // Level 3 time - ADD THIS SECTION
+        const level3Text = `Level 3: ${formatTime(levelTimes[2] || 0)}`;
+        const level3Geometry = new THREE.TextGeometry(level3Text, { font: font, size: 0.02, height: 0.005 });
+        const level3Mesh = new THREE.Mesh(level3Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        level3Geometry.computeBoundingBox();
+        const level3Offset = -0.5 * (level3Geometry.boundingBox.max.x - level3Geometry.boundingBox.min.x);
+        level3Mesh.position.set(level3Offset, 1.05, -0.75);
+        scene.add(level3Mesh);
+        
+        // Total time - move down to account for level 3
         const totalText = `Total: ${formatTime(totalTime)}`;
         const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
         const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
         totalGeometry.computeBoundingBox();
         const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-        totalMesh.position.set(totalOffset, 0.75, -0.75);
+        totalMesh.position.set(totalOffset, 1.0, -0.75);
         scene.add(totalMesh);
         
         // Remove the original text mesh since we're replacing it with multiple meshes
