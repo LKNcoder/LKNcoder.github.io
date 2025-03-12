@@ -1,3 +1,4 @@
+05_w_gemini.html -->
 <!doctype html>
 <html>
 <head>
@@ -207,7 +208,17 @@
         const curve = new THREE.CatmullRomCurve3(points);
         const tubeGeometry = new THREE.TubeGeometry(curve, segments, 0.0125, 16, false); // 0.025m/2 radius, more radial segments
         const wireMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xff00ff }); // Pink color
+
+        // Add vertex colors to level 2 wire
+        const colors = new Float32Array(points.length * 3);
+        for (let i = 0; i < points.length; i++) {
+            colors[i * 3] = 1; // R
+            colors[i * 3 + 1] = 0; // G
+            colors[i * 3 + 2] = 1; // B
+        }
+
         const wireMesh = new THREE.Mesh(tubeGeometry, wireMaterial);
+        wireMesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         scene.add(wireMesh);
 
         return {
@@ -363,6 +374,13 @@
         } else if (level === 2) {
             currentWire = level2Wire;
         }
+
+        // Check if currentWire and its properties are valid
+        if (!currentWire || !currentWire.mesh || !currentWire.mesh.geometry || !currentWire.mesh.geometry.attributes.color) {
+            console.error('Invalid currentWire properties:', currentWire);
+            return; // Exit the function if properties are invalid
+        }
+
         const ringBox = new THREE.Box3().setFromObject(ring);
         const colors = currentWire.mesh.geometry.attributes.color.array;
 
