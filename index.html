@@ -47,7 +47,8 @@
     let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
     let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-    let currentLevel = 2; // Track current level
+    let currentLevel = 1; // Track current level
+    let levelTimes = []; // Array to store completion times for each level
 
     init();
     animate();
@@ -74,7 +75,7 @@
       const loader = new THREE.FontLoader();
       loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
         font = loadedFont;
-        const textGeometry = new THREE.TextGeometry('LEVEL 1', { font: font, size: 0.02, height: 0.005 });
+        const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
         const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
         textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textGeometry.computeBoundingBox();
@@ -406,11 +407,22 @@
       wire.geometry.attributes.color.needsUpdate = true;
     }
 
+    // Helper function to format time as MM:SSS
+    function formatTime(ms) {
+      const seconds = Math.floor((ms / 1000) % 60);
+      const milliseconds = Math.floor(ms % 1000);
+      return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+    }
+
     function victory() {
       if (startTime !== null) {
+        // Store the completion time for this level
+        const levelTime = Date.now() - startTime;
+        levelTimes[currentLevel - 1] = levelTime;
+        
         startTime = null;
         victorySound.play().catch(error => console.log('Sound play error:', error));
-        console.log('Victory!');
+        console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
         
         // Advance to the next level
         if (currentLevel === 1) {
@@ -419,7 +431,7 @@
             // Update the level text
             if (textMesh && font) {
               textMesh.geometry.dispose();
-              textMesh.geometry = new THREE.TextGeometry('LEVEL 2', { font: font, size: 0.02, height: 0.005 });
+              textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
               textMesh.geometry.computeBoundingBox();
             }
             
@@ -437,11 +449,62 @@
             victorySound.play().catch(error => console.log('Sound play error:', error));
           }, 2000); // Wait 2 seconds before starting level 2
         } else {
-          // Game complete!
+          // Game complete! Show summary of times
+          const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+          
           if (textMesh && font) {
             textMesh.geometry.dispose();
-            textMesh.geometry = new THREE.TextGeometry('GAME COMPLETE!', { font: font, size: 0.02, height: 0.005 });
-            textMesh.geometry.computeBoundingBox();
+            
+            // Create individual text meshes for each line of the summary
+            const summaryMeshes = [];
+            
+            // Game complete text
+            const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
+              font: font, 
+              size: 0.03, 
+              height: 0.005 
+            });
+            const gameCompleteMesh = new THREE.Mesh(
+              gameCompleteGeometry, 
+              new THREE.MeshStandardMaterial({ color: 0xffff00 })
+            );
+            gameCompleteGeometry.computeBoundingBox();
+            const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
+            gameCompleteMesh.position.set(completeOffset, 1.9, -0.75);
+            scene.add(gameCompleteMesh);
+            
+            // Level 1 time
+            const level1Text = `Level 1: ${formatTime(levelTimes[0] || 0)}`;
+            const level1Geometry = new THREE.TextGeometry(level1Text, { font: font, size: 0.02, height: 0.005 });
+            const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+            level1Geometry.computeBoundingBox();
+            const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
+            level1Mesh.position.set(level1Offset, 1.8, -0.75);
+            scene.add(level1Mesh);
+            
+            // Level 2 time
+            const level2Text = `Level 2: ${formatTime(levelTimes[1] || 0)}`;
+            const level2Geometry = new THREE.TextGeometry(level2Text, { font: font, size: 0.02, height: 0.005 });
+            const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+            level2Geometry.computeBoundingBox();
+            const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
+            level2Mesh.position.set(level2Offset, 1.7, -0.75);
+            scene.add(level2Mesh);
+            
+            // Total time
+            const totalText = `Total: ${formatTime(totalTime)}`;
+            const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
+            const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+            totalGeometry.computeBoundingBox();
+            const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
+            totalMesh.position.set(totalOffset, 1.55, -0.75);
+            scene.add(totalMesh);
+            
+            // Remove the original text mesh since we're replacing it with multiple meshes
+            scene.remove(textMesh);
+            
+            // Hide the timer mesh
+            if (timerMesh) timerMesh.visible = false;
           }
         }
       }
