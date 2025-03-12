@@ -49,6 +49,10 @@
     const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
     let currentLevel = 1; // Track current level
     let levelTimes = []; // Array to store completion times for each level
+    
+    // New sound effects and flashing state
+    let applauseSound, longApplauseSound, longHornsSound;
+    let isFlashing = false;
 
     init();
     animate();
@@ -87,8 +91,8 @@
         const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
         loader.load(timerFontURL, function (loadedTimerFont) {
           timerFont = loadedTimerFont;
-          // Use the loaded font for the timer
-          const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
+          // Use the loaded font for the timer with updated format
+          const timerGeometry = new THREE.TextGeometry('000:00:000', { font: timerFont, size: 0.02, height: 0.005 });
           const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
           timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
           timerGeometry.computeBoundingBox();
@@ -150,8 +154,45 @@
 
       wire = createWire(currentLevel);
 
+      // Load all sound effects
       victorySound = new Audio('short_horns.mp3');
       contactSound = new Audio('contact.mp3');
+      applauseSound = new Audio('short_applause.mp3');
+      longApplauseSound = new Audio('long_applause.mp3');
+      longHornsSound = new Audio('long_horns.mp3');
+    }
+
+    // Function to make the wire flash
+    function flashWire(times = 3, isGameComplete = false) {
+      if (isFlashing) return;
+      isFlashing = true;
+      
+      let flashCount = 0;
+      const maxFlashes = times * 2; // Each flash is white->blue, so double the count
+      const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game complete
+      
+      function flash() {
+        if (flashCount >= maxFlashes) {
+          isFlashing = false;
+          return;
+        }
+        
+        const colors = wire.geometry.attributes.color.array;
+        const isWhite = flashCount % 2 === 0;
+        
+        for (let i = 0; i < colors.length; i += 3) {
+          colors[i] = isWhite ? 1 : 0;     // R
+          colors[i + 1] = isWhite ? 1 : 0; // G
+          colors[i + 2] = 1;               // B (always 1 for white or blue)
+        }
+        
+        wire.geometry.attributes.color.needsUpdate = true;
+        flashCount++;
+        
+        setTimeout(flash, flashDuration);
+      }
+      
+      flash();
     }
 
     function createWire(level = 1) {
@@ -312,12 +353,13 @@
         textMesh.lookAt(camera.position);
       }
 
-      // Update timer
+      // Update timer with minutes:seconds:milliseconds format
       if (startTime !== null && timerFont) {
         elapsedTime = Date.now() - startTime;
+        const minutes = Math.floor(elapsedTime / 60000);
+        const seconds = Math.floor((elapsedTime % 60000) / 1000);
         const milliseconds = Math.floor(elapsedTime % 1000);
-        const seconds = Math.floor((elapsedTime / 1000) % 60);
-        const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+        const timerText = `${minutes.toString().padStart(3, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
         // Update timer text
         if (timerMesh && timerMesh.geometry) {
@@ -407,11 +449,12 @@
       wire.geometry.attributes.color.needsUpdate = true;
     }
 
-    // Helper function to format time as MM:SSS
+    // Helper function to format time as MMM:SS:MMM
     function formatTime(ms) {
-      const seconds = Math.floor((ms / 1000) % 60);
+      const minutes = Math.floor(ms / 60000);
+      const seconds = Math.floor((ms % 60000) / 1000);
       const milliseconds = Math.floor(ms % 1000);
-      return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+      return `${minutes.toString().padStart(3, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
     }
 
     function victory() {
@@ -421,7 +464,14 @@
         levelTimes[currentLevel - 1] = levelTime;
         
         startTime = null;
+        
+        // Play victory sounds
         victorySound.play().catch(error => console.log('Sound play error:', error));
+        applauseSound.play().catch(error => console.log('Sound play error:', error));
+        
+        // Flash the wire white and blue
+        flashWire(3, false);
+        
         console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
         
         // Advance to the next level
@@ -445,19 +495,37 @@
             grabbed = false;
             grabbingController = null;
             
-            // Play a level-up sound (can be the same as victory for now)
-            victorySound.play().catch(error => console.log('Sound play error:', error));
+            // Reset the timer display to 000:00:000
+            if (timerMesh && timerFont) {
+                timerMesh.geometry.dispose();
+                timerMesh.geometry = new THREE.TextGeometry('000:00:000', {
+                    font: timerFont,
+                    size: 0.02,
+                    height: 0.005,
+                });
+                timerMesh.geometry.computeBoundingBox();
+                const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+                timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+            }
+            
+            // No second victory sound here
+            
           }, 2000); // Wait 2 seconds before starting level 2
         } else {
           // Game complete! Show summary of times
           const totalTime = levelTimes.reduce((total, time) => total + time, 0);
           
+          // Play grand finale sounds
+          longHornsSound.play().catch(error => console.log('Sound play error:', error));
+          longApplauseSound.play().catch(error => console.log('Sound play error:', error));
+          
+          // Flash the wire more dramatically
+          flashWire(6, true);
+          
           if (textMesh && font) {
             textMesh.geometry.dispose();
             
             // Create individual text meshes for each line of the summary
-            const summaryMeshes = [];
-            
             // Game complete text
             const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
               font: font, 
