@@ -151,6 +151,11 @@
 
       victorySound = new Audio('short_horns.mp3');
       contactSound = new Audio('contact.mp3');
+
+      // Initial checkCollision to prevent immediate collision at start
+      setTimeout(() => {
+        checkCollision();
+      }, 1000); // Delay the initial collision check by 1 second
     }
 
     function createLevel1Wire() {
@@ -484,7 +489,8 @@
             textMesh = new THREE.Mesh(textGeometry, textMaterial);
             textGeometry.computeBoundingBox();
             const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-            textMesh.position.set(centerOffset, 2.0, -0.75);
+            textMesh.position.set(ring.position.x + centerOffset, 2.0, ring.position.z);
+            textMesh.lookAt(camera.position);
             scene.add(textMesh);
         }
     }
