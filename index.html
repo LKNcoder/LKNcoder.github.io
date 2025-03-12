@@ -195,10 +195,10 @@ const maxFlashes = times * 2; // Each flash is white->blue, so double the count
 const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game complete
 
 function flash() {
-if (flashCount >= maxFlashes) {
-isFlashing = false;
-return;
-}
+  if (flashCount >= maxFlashes || !wire || !wire.geometry || !wire.geometry.attributes) {
+    isFlashing = false;
+    return;
+  }
 
 const colors = wire.geometry.attributes.color.array;
 const isWhite = flashCount % 2 === 0;
@@ -838,7 +838,7 @@ if (wire) {
   if (ring) {
     ring.visible = false;
   }
-}, 3000); // Hide wire and ring after 3 seconds
+}, 3500); // Hide wire and ring after 3 seconds
 
 if (textMesh && font) {
 textMesh.geometry.dispose();
