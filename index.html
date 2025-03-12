@@ -107,6 +107,9 @@ scene.add(timerMesh);
 });
 });
 
+const MAX_LEVEL_TIME = 600000; // 10 minutes in milliseconds
+let timeoutOccurred = false;
+
 const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
 sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
@@ -702,6 +705,10 @@ wire.geometry.attributes.color.needsUpdate = true;
 
 // Helper function to format time as SS:MMM
 function formatTime(ms) {
+   // Special case for timeout
+   if (ms >= 599999) {
+    return "9:59:999";
+  }
 const minutes = Math.floor(ms / 60000);
 const seconds = Math.floor((ms % 60000) / 1000);
 const milliseconds = Math.floor(ms % 1000);
@@ -753,8 +760,17 @@ function createConfetti() {
 function victory() {
 if (startTime !== null) {
 // Store the completion time for this level
-const levelTime = Date.now() - startTime;
-levelTimes[currentLevel - 1] = levelTime;
+let levelTime;
+    
+    // If timeout occurred, record time as 9:59:999 (represented as a very high millisecond value)
+    if (timeoutOccurred) {
+      levelTime = 599999; // This will display as 9:59:999 when formatted
+      timeoutOccurred = false; // Reset for next level
+    } else {
+      levelTime = Date.now() - startTime;
+    }
+    
+    levelTimes[currentLevel - 1] = levelTime;
 
 startTime = null;
 
