@@ -827,16 +827,18 @@ longApplauseSound.play().catch(error => console.log('Sound play error:', error))
 
 createConfetti(); // Add confetti effect
 
+// Flash the wire more dramatically
+flashWire(6, true);
+
 // Hide the wire and ring when game is completed
+setTimeout(() => {
 if (wire) {
     scene.remove(wire);
   }
   if (ring) {
     ring.visible = false;
   }
-
-// Flash the wire more dramatically
-flashWire(6, true);
+}, 3000); // Hide wire and ring after 3 seconds
 
 if (textMesh && font) {
 textMesh.geometry.dispose();
