@@ -84,7 +84,7 @@ scene.add(ring);
 const loader = new THREE.FontLoader();
 loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
 font = loadedFont;
-const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
 const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 textMesh = new THREE.Mesh(textGeometry, textMaterial);
 textGeometry.computeBoundingBox();
@@ -778,7 +778,7 @@ currentLevel++;
 // Update the level text
 if (textMesh && font) {
 textMesh.geometry.dispose();
-textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
 textMesh.geometry.computeBoundingBox();
 }
 
@@ -815,6 +815,14 @@ longApplauseSound.play().catch(error => console.log('Sound play error:', error))
 
 createConfetti(); // Add confetti effect
 
+// Hide the wire and ring when game is completed
+if (wire) {
+    scene.remove(wire);
+  }
+  if (ring) {
+    ring.visible = false;
+  }
+
 // Flash the wire more dramatically
 flashWire(6, true);
 
@@ -834,7 +842,7 @@ new THREE.MeshStandardMaterial({ color: 0xffff00 })
 );
 gameCompleteGeometry.computeBoundingBox();
 const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
-gameCompleteMesh.position.set(completeOffset, 1.2, -0.75);
+gameCompleteMesh.position.set(completeOffset, 1.6, -0.75);
 scene.add(gameCompleteMesh);
 
 // Level 1 time 
@@ -843,7 +851,7 @@ const level1Geometry = new THREE.TextGeometry(level1Text, { font: font, size: 0.
 const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
 level1Geometry.computeBoundingBox();
 const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
-level1Mesh.position.set(level1Offset, 1.15, -0.75);
+level1Mesh.position.set(level1Offset, 1.55, -0.75);
 scene.add(level1Mesh);
 
 // Level 2 time
@@ -852,7 +860,7 @@ const level2Geometry = new THREE.TextGeometry(level2Text, { font: font, size: 0.
 const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
 level2Geometry.computeBoundingBox();
 const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
-level2Mesh.position.set(level2Offset, 1.1, -0.75);
+level2Mesh.position.set(level2Offset, 1.5, -0.75);
 scene.add(level2Mesh);
 
 // Level 3 time
@@ -861,7 +869,7 @@ const level3Geometry = new THREE.TextGeometry(level3Text, { font: font, size: 0.
 const level3Mesh = new THREE.Mesh(level3Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
 level3Geometry.computeBoundingBox();
 const level3Offset = -0.5 * (level3Geometry.boundingBox.max.x - level3Geometry.boundingBox.min.x);
-level3Mesh.position.set(level3Offset, 1.05, -0.75);
+level3Mesh.position.set(level3Offset, 1.45, -0.75);
 scene.add(level3Mesh);
 
 // Level 4 time
@@ -870,7 +878,7 @@ const level4Geometry = new THREE.TextGeometry(level4Text, { font: font, size: 0.
 const level4Mesh = new THREE.Mesh(level4Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
 level4Geometry.computeBoundingBox();
 const level4Offset = -0.5 * (level4Geometry.boundingBox.max.x - level4Geometry.boundingBox.min.x);
-level4Mesh.position.set(level4Offset, 1.0, -0.75);
+level4Mesh.position.set(level4Offset, 1.4, -0.75);
 scene.add(level4Mesh);
 
 // Level 5 time
@@ -879,7 +887,7 @@ const level5Geometry = new THREE.TextGeometry(level5Text, { font: font, size: 0.
 const level5Mesh = new THREE.Mesh(level5Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
 level5Geometry.computeBoundingBox();
 const level5Offset = -0.5 * (level5Geometry.boundingBox.max.x - level5Geometry.boundingBox.min.x);
-level5Mesh.position.set(level5Offset, 0.95, -0.75);
+level5Mesh.position.set(level5Offset, 1.35, -0.75);
 scene.add(level5Mesh);
 
 // Total time 
@@ -888,7 +896,7 @@ const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.02
 const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
 totalGeometry.computeBoundingBox();
 const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-totalMesh.position.set(totalOffset, 0.90, -0.75);
+totalMesh.position.set(totalOffset, 1.3, -0.75);
 scene.add(totalMesh);
 
 // Remove the original text mesh since we're replacing it with multiple meshes
