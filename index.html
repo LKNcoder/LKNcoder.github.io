@@ -252,46 +252,43 @@ function createWire(level = 1) {
       z = (Math.sin(rotatedAngle) * radius) + waveZ;
     }
     else {
-      // Level 4 wire pattern - most complex but still navigable
-      // Create a dynamic path with interesting features
-      
-      // Use prime number frequencies for less predictable patterns
-      waveX = Math.sin(angle * 11) * 0.07 + Math.cos(angle * 5) * 0.05;
-      waveY = Math.cos(angle * 7) * 0.09 + Math.sin(angle * 13) * 0.04;
-      waveZ = Math.sin(angle * 17) * 0.06 + Math.cos(angle * 3) * 0.07;
-      
-      // Add some controlled chaos with sectional variations
-      // Divide the wire into sections with different behaviors
-      const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
-      
-      let sectionFactor = 0;
-      if (section === 0) {
-        // First quarter - spiral up
-        sectionFactor = t * 4; // 0 to 1 for first quarter
-        y = 1.4 + waveY + (sectionFactor * 0.15); // Gradually rise
-      } else if (section === 1) {
-        // Second quarter - flatten and twist
-        sectionFactor = (t - 0.25) * 4; // 0 to 1 for second quarter
-        waveX *= 1 + sectionFactor * 0.5; // Increase x waves
-      } else if (section === 2) {
-        // Third quarter - ripple pattern
-        sectionFactor = (t - 0.5) * 4; // 0 to 1 for third quarter
-        waveX += Math.sin(angle * 23) * 0.04 * sectionFactor; // Add high frequency detail
-        waveZ += Math.cos(angle * 19) * 0.04 * sectionFactor; // Add high frequency detail
-      } else {
-        // Fourth quarter - descend and return to start
-        sectionFactor = (t - 0.75) * 4; // 0 to 1 for last quarter
-        y = 1.4 + waveY - (sectionFactor * 0.08) + ((1-sectionFactor) * 0.08); // Drop then rise back
-      }
-      
-      // Create smooth transition variations in radius
-      const radiusVar = 1 + 0.15 * Math.sin(angle * 2) - 0.05 * Math.cos(angle * 5);
-      
-      const rotatedAngle = angle + rotationOffset;
-      x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
-      y = y || 1.4 + waveY + Math.sin(angle * 2) * 0.07; // Base height variation
-      z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
-    }
+  // Level 4 wire pattern - most complex but still navigable
+  
+  // Use prime number frequencies for less predictable patterns
+  waveX = Math.sin(angle * 11) * 0.07 + Math.cos(angle * 5) * 0.05;
+  waveY = Math.cos(angle * 7) * 0.09 + Math.sin(angle * 13) * 0.04;
+  waveZ = Math.sin(angle * 17) * 0.06 + Math.cos(angle * 3) * 0.07;
+  
+  // Add some controlled chaos with sectional variations
+  // Divide the wire into sections with different behaviors
+  const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
+  
+  // Base Y position that's consistent across all sections
+  y = 1.4 + waveY + Math.sin(angle * 2) * 0.07;
+  
+  // Apply section-specific modifications to y-coordinate
+  const sectionFactor = section === 0 ? t * 4 : 
+                       section === 1 ? (t - 0.25) * 4 :
+                       section === 2 ? (t - 0.5) * 4 :
+                       (t - 0.75) * 4;
+                       
+  if (section === 0) {
+    // First quarter - spiral up - add to base y
+    y += (sectionFactor * 0.15);
+  } else if (section === 3) {
+    // Fourth quarter - smooth transition back
+    // Use a sine curve for smooth transition
+    y += Math.sin(sectionFactor * Math.PI) * 0.08;
+  }
+  
+  // Create smooth transition variations in radius
+  const radiusVar = 1 + 0.15 * Math.sin(angle * 2) - 0.05 * Math.cos(angle * 5);
+  
+  const rotatedAngle = angle + rotationOffset;
+  x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
+  // y is already set above
+  z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+}
     
     points.push(new THREE.Vector3(x, y, z));
   }
