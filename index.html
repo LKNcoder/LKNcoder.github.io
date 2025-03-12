@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 4; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -216,7 +216,8 @@ const radius = 0.75;
 // Add rotation offset for different levels
 const rotationOffset = level === 2 ? Math.PI / 3 : 
 level === 3 ? Math.PI / 6 : 
-level === 4 ? Math.PI / 6.3 : 0;
+level === 4 ? Math.PI / 6.3 : 
+level === 5 ? Math.PI / 4.2 : 0;
 
 for (let i = 0; i <= segments; i++) {
 const t = i / segments;
@@ -258,7 +259,7 @@ x = (Math.cos(rotatedAngle) * radius) + waveX;
 y = 1.4 + waveY;
 z = (Math.sin(rotatedAngle) * radius) + waveZ;
 }
-else {
+else if (level === 4) {
 // Level 4 wire pattern - most complex but still navigable
 
 // Use prime number frequencies for less predictable patterns
@@ -295,6 +296,51 @@ const rotatedAngle = angle + rotationOffset;
 x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 // y is already set above
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+}
+
+else if (level === 5) {
+// Level 5 - most complex pattern
+// Use even more complex combinations of frequencies
+waveX = Math.sin(angle * 13) * 0.08 + Math.cos(angle * 7) * 0.06 + Math.sin(angle * 23) * 0.03;
+waveY = Math.cos(angle * 11) * 0.09 + Math.sin(angle * 19) * 0.05 + Math.cos(angle * 5) * 0.04;
+waveZ = Math.sin(angle * 17) * 0.07 + Math.cos(angle * 13) * 0.06 + Math.sin(angle * 3) * 0.05;
+
+// Create a spiral that varies in all three dimensions
+const spiral = t * 0.2;
+y = 1.4 + waveY + (Math.sin(angle * 3) * 0.05) + (spiral * Math.sin(angle * 2));
+
+// Create sections with different behaviors - 6 sections for more complexity
+const section = Math.floor(angle / (Math.PI/3)); // 0-5 sections
+const sectionFactor = t * 6 - section;
+
+// Create a mobius strip-like twist by varying radius based on angle
+const twistFactor = Math.sin(angle * 1.5) * 0.15;
+const radiusVar = 1 + twistFactor + Math.sin(angle * 3) * 0.1;
+
+// Add height variations based on section
+if (section === 0) {
+  y += Math.sin(sectionFactor * Math.PI) * 0.1;
+} else if (section === 1) {
+  y -= Math.cos(sectionFactor * Math.PI) * 0.12;
+} else if (section === 2) {
+  y += Math.sin(sectionFactor * Math.PI * 2) * 0.08;
+} else if (section === 3) {
+  y -= Math.sin(sectionFactor * Math.PI) * 0.1;
+} else if (section === 4) {
+  y += Math.cos(sectionFactor * Math.PI * 1.5) * 0.12;
+} else {
+  // Last section - smooth transition back
+  y += Math.sin(sectionFactor * Math.PI * 0.5) * 0.09;
+}
+
+const rotatedAngle = angle + rotationOffset;
+x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
+// y is already set above
+z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+
+// Create a figure-8 shape by adding additional path modifications
+x += Math.sin(angle * 2) * 0.08 * Math.sin(angle);
+z += Math.cos(angle * 2) * 0.08 * Math.sin(angle);
 }
 
 points.push(new THREE.Vector3(x, y, z));
@@ -658,7 +704,7 @@ function createConfetti() {
   const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
   
   // Create 3000 confetti particles
-  for (let i = 0; i < 3000; i++) {
+  for (let i = 0; i < 1000; i++) {
     const material = new THREE.MeshBasicMaterial({ 
       color: colors[Math.floor(Math.random() * colors.length)], 
       side: THREE.DoubleSide,
@@ -712,7 +758,7 @@ flashWire(3, false);
 console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
 
 // Advance to the next level - CHANGED to support four levels
-if (currentLevel < 4) {  // Updated to go to level 4
+if (currentLevel < 5) {  // Updated to go to level 5
 setTimeout(() => {
 currentLevel++;
 // Update the level text
@@ -813,13 +859,22 @@ const level4Offset = -0.5 * (level4Geometry.boundingBox.max.x - level4Geometry.b
 level4Mesh.position.set(level4Offset, 1.0, -0.75);
 scene.add(level4Mesh);
 
-// Total time - moved down to account for level 4
+// Level 5 time
+const level5Text = `Level 5: ${formatTime(levelTimes[4] || 0)}`;
+const level5Geometry = new THREE.TextGeometry(level5Text, { font: font, size: 0.02, height: 0.005 });
+const level5Mesh = new THREE.Mesh(level5Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+level5Geometry.computeBoundingBox();
+const level5Offset = -0.5 * (level5Geometry.boundingBox.max.x - level5Geometry.boundingBox.min.x);
+level5Mesh.position.set(level5Offset, 0.95, -0.75);
+scene.add(level5Mesh);
+
+// Total time 
 const totalText = `Total: ${formatTime(totalTime)}`;
 const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
 const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
 totalGeometry.computeBoundingBox();
 const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-totalMesh.position.set(totalOffset, 0.95, -0.75);
+totalMesh.position.set(totalOffset, 0.90, -0.75);
 scene.add(totalMesh);
 
 // Remove the original text mesh since we're replacing it with multiple meshes
