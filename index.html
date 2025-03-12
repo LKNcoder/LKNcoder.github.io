@@ -1,56 +1,56 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset='utf-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
-  <meta name='mobile-web-app-capable' content='yes'>
-  <meta name='apple-mobile-web-app-capable' content='yes'>
-  <link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
-  <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
-  <title>Ring Ring</title>
-  <style>
-    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
-    canvas { display: block; }
-    #vrButton {
-      padding: 20px 40px;
-      font-size: 24px;
-      background-color: #0078d7;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-    #vrButton:hover { background-color: #005bb5; }
-  </style>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+<meta name='mobile-web-app-capable' content='yes'>
+<meta name='apple-mobile-web-app-capable' content='yes'>
+<link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+<link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+<title>Ring Ring</title>
+<style>
+body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
+canvas { display: block; }
+#vrButton {
+padding: 20px 40px;
+font-size: 24px;
+background-color: #0078d7;
+color: white;
+border: none;
+border-radius: 10px;
+cursor: pointer;
+transition: background-color 0.3s ease;
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+}
+#vrButton:hover { background-color: #005bb5; }
+</style>
 </head>
 <body>
-  <button id="vrButton">Enter VR</button>
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
-        "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
-      }
-    }
-  </script>
-  <script type="module">
-    import * as THREE from 'three';
-    import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+<button id="vrButton">Enter VR</button>
+<script type="importmap">
+{
+"imports": {
+"three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+"three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+"three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
+}
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-    let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
+let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
 let currentLevel = 4; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
-// New sound effects and flashing state
+// Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound;
 let isFlashing = false;
 
@@ -58,530 +58,601 @@ init();
 animate();
 
 function init() {
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.xr.enabled = true;
-  document.body.appendChild(renderer.domElement);
+scene = new THREE.Scene();
+camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
 
-  const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-  light.position.set(0.5, 1, 0.25);
-  scene.add(light);
+const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+light.position.set(0.5, 1, 0.25);
+scene.add(light);
 
-  const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
-  const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1.0, metalness: 1.0, roughness: 0.0 });
-  ring = new THREE.Mesh(ringGeometry, ringMaterial);
-  ring.position.copy(ringStartPosition);
-  ring.rotation.y = Math.PI / 2;
-  scene.add(ring);
+const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
+const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1.0, metalness: 1.0, roughness: 0.0 });
+ring = new THREE.Mesh(ringGeometry, ringMaterial);
+ring.position.copy(ringStartPosition);
+ring.rotation.y = Math.PI / 2;
+scene.add(ring);
 
-  const loader = new THREE.FontLoader();
-  loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
-    font = loadedFont;
-    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
-    const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    textMesh = new THREE.Mesh(textGeometry, textMaterial);
-    textGeometry.computeBoundingBox();
-    const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-    textMesh.position.set(centerOffset, 2.0, -0.75);
-    scene.add(textMesh);
+const loader = new THREE.FontLoader();
+loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+font = loadedFont;
+const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+textMesh = new THREE.Mesh(textGeometry, textMaterial);
+textGeometry.computeBoundingBox();
+const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+textMesh.position.set(centerOffset, 2.0, -0.75);
+scene.add(textMesh);
 
-    // Load a monospaced font for the timer
-    const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
-    loader.load(timerFontURL, function (loadedTimerFont) {
-      timerFont = loadedTimerFont;
-      // Use the loaded font for the timer with shorter format
-      const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
-      const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-      timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-      timerGeometry.computeBoundingBox();
-      const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-      timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-      scene.add(timerMesh);
-    });
-  });
+// Load a monospaced font for the timer
+const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
+loader.load(timerFontURL, function (loadedTimerFont) {
+timerFont = loadedTimerFont;
+// Use the loaded font for the timer with shorter format
+const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
+const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+timerGeometry.computeBoundingBox();
+const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
+scene.add(timerMesh);
+});
+});
 
-  const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
-  sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-  scene.add(sphere1);
-  sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-  scene.add(sphere2);
+const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
+sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+scene.add(sphere1);
+sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+scene.add(sphere2);
 
-  controller1 = renderer.xr.getController(0);
-  controller1.addEventListener('selectstart', onSelectStart);
-  controller1.addEventListener('selectend', onSelectEnd);
-  controller1.addEventListener('squeezestart', onSelectStart);
-  controller1.addEventListener('squeezeend', onSelectEnd);
-  scene.add(controller1);
+controller1 = renderer.xr.getController(0);
+controller1.addEventListener('selectstart', onSelectStart);
+controller1.addEventListener('selectend', onSelectEnd);
+controller1.addEventListener('squeezestart', onSelectStart);
+controller1.addEventListener('squeezeend', onSelectEnd);
+scene.add(controller1);
 
-  controller2 = renderer.xr.getController(1);
-  controller2.addEventListener('selectstart', onSelectStart);
-  controller2.addEventListener('selectend', onSelectEnd);
-  controller2.addEventListener('squeezestart', onSelectStart);
-  controller2.addEventListener('squeezeend', onSelectEnd);
-  scene.add(controller2);
+controller2 = renderer.xr.getController(1);
+controller2.addEventListener('selectstart', onSelectStart);
+controller2.addEventListener('selectend', onSelectEnd);
+controller2.addEventListener('squeezestart', onSelectStart);
+controller2.addEventListener('squeezeend', onSelectEnd);
+scene.add(controller2);
 
-  window.addEventListener('resize', onWindowResize, false);
+window.addEventListener('resize', onWindowResize, false);
 
-  const vrButton = document.getElementById('vrButton');
-  vrButton.addEventListener('click', async () => {
-    try {
-      const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
-      renderer.xr.setSession(session);
-      vrButton.style.display = 'none';
-    } catch (error) {
-      console.error('Failed to enter VR:', error);
-    }
-  });
+const vrButton = document.getElementById('vrButton');
+vrButton.addEventListener('click', async () => {
+try {
+const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
+renderer.xr.setSession(session);
+vrButton.style.display = 'none';
+} catch (error) {
+console.error('Failed to enter VR:', error);
+}
+});
 
-  const particlesGeometry = new THREE.BufferGeometry();
-  const particlesCount = 3000;
-  const posArray = new Float32Array(particlesCount * 3);
-  for (let i = 0; i < particlesCount * 3; i += 3) {
-    let x = (Math.random() - 0.5) * 100;
-    let y = (Math.random() - 0.5) * 100;
-    let z = (Math.random() - 0.5) * 100;
-    posArray[i] = x;
-    posArray[i + 1] = y;
-    posArray[i + 2] = z;
-  }
-  particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-  const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-  const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-  scene.add(particlesMesh);
+const particlesGeometry = new THREE.BufferGeometry();
+const particlesCount = 3000;
+const posArray = new Float32Array(particlesCount * 3);
+for (let i = 0; i < particlesCount * 3; i += 3) {
+let x = (Math.random() - 0.5) * 100;
+let y = (Math.random() - 0.5) * 100;
+let z = (Math.random() - 0.5) * 100;
+posArray[i] = x;
+posArray[i + 1] = y;
+posArray[i + 2] = z;
+}
+particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+scene.add(particlesMesh);
 
-  wire = createWire(currentLevel);
+wire = createWire(currentLevel);
 
-  // Load all sound effects
-  victorySound = new Audio('short_horns.mp3');
-  contactSound = new Audio('contact.mp3');
-  applauseSound = new Audio('short_applause.mp3');
-  longApplauseSound = new Audio('long_applause.mp3');
-  longHornsSound = new Audio('long_horns.mp3');
+// Load all sound effects
+victorySound = new Audio('short_horns.mp3');
+contactSound = new Audio('contact.mp3');
+applauseSound = new Audio('short_applause.mp3');
+longApplauseSound = new Audio('long_applause.mp3');
+longHornsSound = new Audio('long_horns.mp3');
 }
 
 // Function to make the wire flash
 function flashWire(times = 3, isGameComplete = false) {
-  if (isFlashing) return;
-  isFlashing = true;
-  
-  let flashCount = 0;
-  const maxFlashes = times * 2; // Each flash is white->blue, so double the count
-  const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game complete
-  
-  function flash() {
-    if (flashCount >= maxFlashes) {
-      isFlashing = false;
-      return;
-    }
-    
-    const colors = wire.geometry.attributes.color.array;
-    const isWhite = flashCount % 2 === 0;
-    
-    for (let i = 0; i < colors.length; i += 3) {
-      colors[i] = isWhite ? 1 : 0;     // R
-      colors[i + 1] = isWhite ? 1 : 0; // G
-      colors[i + 2] = 1;               // B (always 1 for white or blue)
-    }
-    
-    wire.geometry.attributes.color.needsUpdate = true;
-    flashCount++;
-    
-    setTimeout(flash, flashDuration);
-  }
-  
-  flash();
+if (isFlashing) return;
+isFlashing = true;
+
+let flashCount = 0;
+const maxFlashes = times * 2; // Each flash is white->blue, so double the count
+const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game complete
+
+function flash() {
+if (flashCount >= maxFlashes) {
+isFlashing = false;
+return;
+}
+
+const colors = wire.geometry.attributes.color.array;
+const isWhite = flashCount % 2 === 0;
+
+for (let i = 0; i < colors.length; i += 3) {
+colors[i] = isWhite ? 1 : 0;     // R
+colors[i + 1] = isWhite ? 1 : 0; // G
+colors[i + 2] = 1;               // B (always 1 for white or blue)
+}
+
+wire.geometry.attributes.color.needsUpdate = true;
+flashCount++;
+
+setTimeout(flash, flashDuration);
+}
+
+flash();
 }
 
 function createWire(level = 1) {
-  // Remove old wire if it exists
-  if (wire) {
-    scene.remove(wire);
-    if (wire.geometry) wire.geometry.dispose();
-  }
-  
-  const points = [];
-  const segments = 200;
-  const radius = 0.75;
-  
-  // Add rotation offset for level 2
-  const rotationOffset = level === 2 ? Math.PI / 3 : 0;
-  
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const angle = t * Math.PI * 2;
-    
-    let waveX, waveY, waveZ, x, y, z;
-    
-    if (level === 1) {
-      // Level 1 wire pattern
-      waveX = Math.sin(angle * 8) * 0.05;
-      waveY = Math.cos(angle * 6) * 0.05;
-      x = (Math.cos(angle) * radius) + waveX;
-      y = 1.4 + waveY;
-      z = (Math.sin(angle) * radius) + waveX;
-    } else {
-      // Level 2 wire pattern - more complex
-      waveX = Math.sin(angle * 10) * 0.08;
-      waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
-      waveZ = Math.sin(angle * 12) * 0.06;
-      
-      // Apply rotation offset to level 2 wire
-      const rotatedAngle = angle + rotationOffset;
-      x = (Math.cos(rotatedAngle) * radius) + waveX;
-      y = 1.4 + waveY;
-      z = (Math.sin(rotatedAngle) * radius) + waveZ;
-    }
-    
-    points.push(new THREE.Vector3(x, y, z));
-  }
-  
-  wirePoints = points;
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const colors = new Float32Array(points.length * 3);
-  for (let i = 0; i < points.length; i++) {
-    colors[i * 3] = 1; // R
-    colors[i * 3 + 1] = 0; // G
-    colors[i * 3 + 2] = 1; // B
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
-  
-  wire = new THREE.Line(geometry, wireMaterial);
-  scene.add(wire);
-  
-  console.log(`Wire for level ${level} created:`, wire);
-  return wire;
+// Remove old wire if it exists
+if (wire) {
+scene.remove(wire);
+if (wire.geometry) wire.geometry.dispose();
+}
+
+const points = [];
+const segments = 200;
+const radius = 0.75;
+
+// Add rotation offset for different levels
+const rotationOffset = level === 2 ? Math.PI / 3 : 
+level === 3 ? Math.PI / 6 : 
+                        level === 4 ? Math.PI / 4 : 0;
+                        level === 4 ? Math.PI / 3 : 0;
+
+for (let i = 0; i <= segments; i++) {
+const t = i / segments;
+const angle = t * Math.PI * 2;
+
+let waveX, waveY, waveZ, x, y, z;
+
+if (level === 1) {
+// Level 1 wire pattern
+waveX = Math.sin(angle * 8) * 0.05;
+waveY = Math.cos(angle * 6) * 0.05;
+x = (Math.cos(angle) * radius) + waveX;
+y = 1.4 + waveY;
+z = (Math.sin(angle) * radius) + waveX;
+} 
+else if (level === 2) {
+// Level 2 wire pattern 
+waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
+waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
+waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 4) * 0.05;
+
+// Create gentle undulations in height
+const heightVar = Math.sin(angle * 3) * 0.06;
+
+const rotatedAngle = angle + rotationOffset;
+// Create an elliptical path 
+x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
+y = 1.4 + waveY + heightVar;
+z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
+}
+else if (level === 3) {
+// Level 3 wire pattern
+waveX = Math.sin(angle * 10) * 0.08;
+waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
+waveZ = Math.sin(angle * 12) * 0.06;
+
+const rotatedAngle = angle + rotationOffset;
+x = (Math.cos(rotatedAngle) * radius) + waveX;
+y = 1.4 + waveY;
+z = (Math.sin(rotatedAngle) * radius) + waveZ;
+}
+else {
+// Level 4 wire pattern - most complex but still navigable
+
+// Use prime number frequencies for less predictable patterns
+waveX = Math.sin(angle * 11) * 0.07 + Math.cos(angle * 5) * 0.05;
+waveY = Math.cos(angle * 7) * 0.09 + Math.sin(angle * 13) * 0.04;
+waveZ = Math.sin(angle * 17) * 0.06 + Math.cos(angle * 3) * 0.07;
+
+// Add some controlled chaos with sectional variations
+// Divide the wire into sections with different behaviors
+const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
+
+// Base Y position that's consistent across all sections
+y = 1.4 + waveY + Math.sin(angle * 2) * 0.07;
+
+// Apply section-specific modifications to y-coordinate
+const sectionFactor = section === 0 ? t * 4 : 
+section === 1 ? (t - 0.25) * 4 :
+section === 2 ? (t - 0.5) * 4 :
+(t - 0.75) * 4;
+
+if (section === 0) {
+// First quarter - spiral up - add to base y
+y += (sectionFactor * 0.15);
+} else if (section === 3) {
+// Fourth quarter - smooth transition back
+// Use a sine curve for smooth transition
+y += Math.sin(sectionFactor * Math.PI) * 0.08;
+}
+
+// Create smooth transition variations in radius
+const radiusVar = 1 + 0.15 * Math.sin(angle * 2) - 0.05 * Math.cos(angle * 5);
+
+const rotatedAngle = angle + rotationOffset;
+x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
+// y is already set above
+z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+}
+
+points.push(new THREE.Vector3(x, y, z));
+}
+
+wirePoints = points;
+const geometry = new THREE.BufferGeometry().setFromPoints(points);
+const colors = new Float32Array(points.length * 3);
+for (let i = 0; i < points.length; i++) {
+colors[i * 3] = 1; // R
+colors[i * 3 + 1] = 0; // G
+colors[i * 3 + 2] = 1; // B
+}
+geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
+
+wire = new THREE.Line(geometry, wireMaterial);
+scene.add(wire);
+
+console.log(`Wire for level ${level} created:`, wire);
+return wire;
 }
 
 function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+camera.aspect = window.innerWidth / window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function checkCollision() {
-  const ringVertices = ring.geometry.attributes.position.array;
-  const ringMatrixWorld = ring.matrixWorld;
-  const thresholdDistance = 0.01; // Adjust this value as needed
+const ringVertices = ring.geometry.attributes.position.array;
+const ringMatrixWorld = ring.matrixWorld;
+const thresholdDistance = 0.01; // Adjust this value as needed
 
-  for (let i = 0; i < ringVertices.length; i += 3) {
-    const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
-    vertex.applyMatrix4(ringMatrixWorld);
+for (let i = 0; i < ringVertices.length; i += 3) {
+const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
+vertex.applyMatrix4(ringMatrixWorld);
 
-    for (let j = 0; j < wirePoints.length; j++) {
-      const distance = vertex.distanceTo(wirePoints[j]);
-      if (distance < thresholdDistance) {
-        console.log('Collision detected');
-        return true;
-      }
-    }
-  }
+for (let j = 0; j < wirePoints.length; j++) {
+const distance = vertex.distanceTo(wirePoints[j]);
+if (distance < thresholdDistance) {
+console.log('Collision detected');
+return true;
+}
+}
+}
 
-  return false;
+return false;
 }
 
 function onSelectStart(event) {
-  const ringBox = new THREE.Box3().setFromObject(ring);
-  const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
-  const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
+const ringBox = new THREE.Box3().setFromObject(ring);
+const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
-  if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
-    grabbed = true;
-    grabbingController = controller1;
-    grabOffset.copy(ring.position).sub(controller1.position);
-    grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
-    if (startTime === null) {
-      startTime = Date.now() - elapsedTime;
-    }
-  } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
-    grabbed = true;
-    grabbingController = controller2;
-    grabOffset.copy(ring.position).sub(controller2.position);
-    grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
-    if (startTime === null) {
-      startTime = Date.now() - elapsedTime;
-    }
-  }
+if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+grabbed = true;
+grabbingController = controller1;
+grabOffset.copy(ring.position).sub(controller1.position);
+grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
+if (startTime === null) {
+startTime = Date.now() - elapsedTime;
+}
+} else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+grabbed = true;
+grabbingController = controller2;
+grabOffset.copy(ring.position).sub(controller2.position);
+grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
+if (startTime === null) {
+startTime = Date.now() - elapsedTime;
+}
+}
 }
 
 function onSelectEnd(event) {
-  if (event.target === grabbingController) {
-    grabbed = false;
-    grabbingController = null;
-  }
+if (event.target === grabbingController) {
+grabbed = false;
+grabbingController = null;
+}
 }
 
 function animate() {
-  renderer.setAnimationLoop(render);
+renderer.setAnimationLoop(render);
 }
 
 function render() {
-  // Update sphere positions to match controller positions
-  if (controller1 && controller2) {
-    sphere1.position.copy(controller1.position);
-    sphere2.position.copy(controller2.position);
-  }
+// Update sphere positions to match controller positions
+if (controller1 && controller2) {
+sphere1.position.copy(controller1.position);
+sphere2.position.copy(controller2.position);
+}
 
-  // Check for collisions
-  if (checkCollision()) {
-    handleCollision();
-  }
+// Check for collisions
+if (checkCollision()) {
+handleCollision();
+}
 
-  // Move ring with the grabbing controller while maintaining the offset
-  if (grabbed && grabbingController) {
-    ring.position.copy(grabbingController.position).add(grabOffset);
-    ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
+// Move ring with the grabbing controller while maintaining the offset
+if (grabbed && grabbingController) {
+ring.position.copy(grabbingController.position).add(grabOffset);
+ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
 
-    // Hide the spheres when the ring is grabbed
-    sphere1.visible = false;
-    sphere2.visible = false;
-  } else {
-    // Show the spheres when the ring is not grabbed
-    sphere1.visible = true;
-    sphere2.visible = true;
-  }
+// Hide the spheres when the ring is grabbed
+sphere1.visible = false;
+sphere2.visible = false;
+} else {
+// Show the spheres when the ring is not grabbed
+sphere1.visible = true;
+sphere2.visible = true;
+}
 
-  // Keep the text and timer above the ring and billboarded to face the player
-  if (textMesh) {
-    textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-    textMesh.geometry.computeBoundingBox();
-    const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-    textMesh.position.x += centerOffset;
-    textMesh.lookAt(camera.position);
-  }
+// Keep the text and timer above the ring and billboarded to face the player
+if (textMesh) {
+textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+textMesh.geometry.computeBoundingBox();
+const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+textMesh.position.x += centerOffset;
+textMesh.lookAt(camera.position);
+}
 
-  // Update timer with seconds:milliseconds format and check time limit
-  if (startTime !== null && timerFont) {
-    elapsedTime = Date.now() - startTime;
-    
-    // Check if time exceeds 100 seconds
-    if (elapsedTime > 100000) {
-      handleCollision(); // Treat as a collision if time exceeds limit
-      return;
-    }
-    
-    const seconds = Math.floor((elapsedTime / 1000) % 60);
-    const milliseconds = Math.floor(elapsedTime % 1000);
-    const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+// Update timer with seconds:milliseconds format and check time limit
+if (startTime !== null && timerFont) {
+elapsedTime = Date.now() - startTime;
 
-    // Update timer text
-    if (timerMesh && timerMesh.geometry) {
-      timerMesh.geometry.dispose();
-      timerMesh.geometry = new THREE.TextGeometry(timerText, {
-        font: timerFont,
-        size: 0.02,
-        height: 0.005,
-      });
-      timerMesh.geometry.computeBoundingBox();
-      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-      timerMesh.lookAt(camera.position);
-    }
-  }
+// Check if time exceeds 100 seconds
+if (elapsedTime > 100000) {
+handleCollision(); // Treat as a collision if time exceeds limit
+return;
+}
 
-  // Ensure timer text stays attached to the ring and faces the player
-  if (timerMesh) {
-    timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-    const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-    timerMesh.position.x += timerCenterOffset;
-    timerMesh.lookAt(camera.position);
-  }
+const seconds = Math.floor((elapsedTime / 1000) % 60);
+const milliseconds = Math.floor(elapsedTime % 1000);
+const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
-  // Check for wire collision and update wire color
-  updateWireColor();
+// Update timer text
+if (timerMesh && timerMesh.geometry) {
+timerMesh.geometry.dispose();
+timerMesh.geometry = new THREE.TextGeometry(timerText, {
+font: timerFont,
+size: 0.02,
+height: 0.005,
+});
+timerMesh.geometry.computeBoundingBox();
+const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+timerMesh.lookAt(camera.position);
+}
+}
 
-  renderer.render(scene, camera);
+// Ensure timer text stays attached to the ring and faces the player
+if (timerMesh) {
+timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+timerMesh.position.x += timerCenterOffset;
+timerMesh.lookAt(camera.position);
+}
+
+// Check for wire collision and update wire color
+updateWireColor();
+
+renderer.render(scene, camera);
 }
 
 function updateWireColor() {
-  const ringBox = new THREE.Box3().setFromObject(ring);
-  const colors = wire.geometry.attributes.color.array;
+const ringBox = new THREE.Box3().setFromObject(ring);
+const colors = wire.geometry.attributes.color.array;
 
-  // Calculate a dynamic pointBox size based on the ring's scale
-  const ringScale = ring.scale.x; // Assuming uniform scale
-  const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+// Calculate a dynamic pointBox size based on the ring's scale
+const ringScale = ring.scale.x; // Assuming uniform scale
+const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
 
-  for (let i = 0; i < wirePoints.length; i++) {
-    const point = wirePoints[i];
-    const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
+for (let i = 0; i < wirePoints.length; i++) {
+const point = wirePoints[i];
+const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
 
-    if (ringBox.intersectsBox(pointBox)) {
-      // Color this segment blue
-      colors[i * 3] = 0;     // R
-      colors[i * 3 + 1] = 0; // G
-      colors[i * 3 + 2] = 1; // B
-    }
-    //No ELSE, so color will remain unless reset
-  }
+if (ringBox.intersectsBox(pointBox)) {
+// Color this segment blue
+colors[i * 3] = 0;     // R
+colors[i * 3 + 1] = 0; // G
+colors[i * 3 + 2] = 1; // B
+}
+//No ELSE, so color will remain unless reset
+}
 
-  wire.geometry.attributes.color.needsUpdate = true;
+wire.geometry.attributes.color.needsUpdate = true;
 
-  // Check if the entire wire is blue (victory condition)
-  let allBlue = true;
-  for (let i = 0; i < wirePoints.length; i++) {
-    if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
-      allBlue = false;
-      break;
-    }
-  }
-  if (allBlue) {
-    victory();
-  }
+// Check if the entire wire is blue (victory condition)
+let allBlue = true;
+for (let i = 0; i < wirePoints.length; i++) {
+if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
+allBlue = false;
+break;
+}
+}
+if (allBlue) {
+victory();
+}
 }
 
 function handleCollision() {
-  ring.position.copy(ringStartPosition); // Reset ring to start position
-  ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
-  contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
-  resetWireColor(); // Reset wire color to pink
-  grabbed = false; // Override the grab
-  grabbingController = null; // Clear the grabbing controller
-  
-  // Reset timer but don't change level
-  elapsedTime = 0;
-  startTime = null;
+ring.position.copy(ringStartPosition); // Reset ring to start position
+ring.rotation.set(0, Math.PI / 2, 0); // Reset ring to starting rotation
+contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
+resetWireColor(); // Reset wire color to pink
+grabbed = false; // Override the grab
+grabbingController = null; // Clear the grabbing controller
+
+// Reset timer but don't change level
+elapsedTime = 0;
+startTime = null;
 }
 
 function resetWireColor() {
-  const colors = wire.geometry.attributes.color.array;
-  for (let i = 0; i < colors.length; i += 3) {
-    colors[i] = 1; // R
-    colors[i + 1] = 0; // G
-    colors[i + 2] = 1; // B
-  }
-  wire.geometry.attributes.color.needsUpdate = true;
+const colors = wire.geometry.attributes.color.array;
+for (let i = 0; i < colors.length; i += 3) {
+colors[i] = 1; // R
+colors[i + 1] = 0; // G
+colors[i + 2] = 1; // B
+}
+wire.geometry.attributes.color.needsUpdate = true;
 }
 
 // Helper function to format time as SS:MMM
 function formatTime(ms) {
-  const seconds = Math.floor((ms / 1000) % 60);
-  const milliseconds = Math.floor(ms % 1000);
-  return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+const seconds = Math.floor((ms / 1000) % 60);
+const milliseconds = Math.floor(ms % 1000);
+return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 }
 
 function victory() {
-  if (startTime !== null) {
-    // Store the completion time for this level
-    const levelTime = Date.now() - startTime;
-    levelTimes[currentLevel - 1] = levelTime;
-    
-    startTime = null;
-    
-    // Play victory sounds
-    victorySound.play().catch(error => console.log('Sound play error:', error));
-    applauseSound.play().catch(error => console.log('Sound play error:', error));
-    
-    // Flash the wire white and blue
-    flashWire(3, false);
-    
-    console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
-    
-    // Advance to the next level
-    if (currentLevel === 1) {
-      setTimeout(() => {
-        currentLevel = 2;
-        // Update the level text
-        if (textMesh && font) {
-          textMesh.geometry.dispose();
-          textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
-          textMesh.geometry.computeBoundingBox();
-        }
-        
-        // Reset the ring position and create the new wire
-        ring.position.copy(ringStartPosition);
-        ring.rotation.set(0, Math.PI / 2, 0);
-        wire = createWire(currentLevel);
-        
-        // Reset timer for level 2
-        elapsedTime = 0;
-        grabbed = false;
-        grabbingController = null;
-        
-        // Reset the timer display to 00:000
-        if (timerMesh && timerFont) {
-            timerMesh.geometry.dispose();
-            timerMesh.geometry = new THREE.TextGeometry('00:000', {
-                font: timerFont,
-                size: 0.02,
-                height: 0.005,
-            });
-            timerMesh.geometry.computeBoundingBox();
-            const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-            timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-        }
-        
-        // No second victory sound here
-        
-      }, 2000); // Wait 2 seconds before starting level 2
-    } else {
-      // Game complete! Show summary of times
-      const totalTime = levelTimes.reduce((total, time) => total + time, 0);
-      
-      // Play grand finale sounds
-      longHornsSound.play().catch(error => console.log('Sound play error:', error));
-      longApplauseSound.play().catch(error => console.log('Sound play error:', error));
-      
-      // Flash the wire more dramatically
-      flashWire(6, true);
-      
-      if (textMesh && font) {
-        textMesh.geometry.dispose();
-        
-        // Create individual text meshes for each line of the summary
-        // Game complete text
-        const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
-          font: font, 
-          size: 0.03, 
-          height: 0.005 
-        });
-        const gameCompleteMesh = new THREE.Mesh(
-          gameCompleteGeometry, 
-          new THREE.MeshStandardMaterial({ color: 0xffff00 })
-        );
-        gameCompleteGeometry.computeBoundingBox();
-        const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
-        gameCompleteMesh.position.set(completeOffset, 1.2, -0.75);
-        scene.add(gameCompleteMesh);
-        
-        // Level 1 time - closer to title
-        const level1Text = `Level 1: ${formatTime(levelTimes[0] || 0)}`;
-        const level1Geometry = new THREE.TextGeometry(level1Text, { font: font, size: 0.02, height: 0.005 });
-        const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
-        level1Geometry.computeBoundingBox();
-        const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
-        level1Mesh.position.set(level1Offset, 1.15, -0.75);
-        scene.add(level1Mesh);
-        
-        // Level 2 time - closer to level 1
-        const level2Text = `Level 2: ${formatTime(levelTimes[1] || 0)}`;
-        const level2Geometry = new THREE.TextGeometry(level2Text, { font: font, size: 0.02, height: 0.005 });
-        const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
-        level2Geometry.computeBoundingBox();
-        const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
-        level2Mesh.position.set(level2Offset, 1.1, -0.75);
-        scene.add(level2Mesh);
-        
-        // Total time - closer to level 2
-        const totalText = `Total: ${formatTime(totalTime)}`;
-        const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
-        const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-        totalGeometry.computeBoundingBox();
-        const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-        totalMesh.position.set(totalOffset, 1.05, -0.75);
-        scene.add(totalMesh);
-        
-        // Remove the original text mesh since we're replacing it with multiple meshes
-        scene.remove(textMesh);
-        
-        // Hide the timer mesh
-        if (timerMesh) timerMesh.visible = false;
-      }
-    }
-  }
+if (startTime !== null) {
+// Store the completion time for this level
+const levelTime = Date.now() - startTime;
+levelTimes[currentLevel - 1] = levelTime;
+
+startTime = null;
+
+// Play victory sounds
+victorySound.play().catch(error => console.log('Sound play error:', error));
+applauseSound.play().catch(error => console.log('Sound play error:', error));
+
+// Flash the wire white and blue
+flashWire(3, false);
+
+console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+
+// Advance to the next level - CHANGED to support four levels
+if (currentLevel < 4) {  // Updated to go to level 4
+setTimeout(() => {
+currentLevel++;
+// Update the level text
+if (textMesh && font) {
+textMesh.geometry.dispose();
+textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+textMesh.geometry.computeBoundingBox();
 }
-  </script>
+
+// Reset the ring position and create the new wire
+ring.position.copy(ringStartPosition);
+ring.rotation.set(0, Math.PI / 2, 0);
+wire = createWire(currentLevel);
+
+// Reset timer for next level
+elapsedTime = 0;
+grabbed = false;
+grabbingController = null;
+
+// Reset the timer display to 00:000
+if (timerMesh && timerFont) {
+timerMesh.geometry.dispose();
+timerMesh.geometry = new THREE.TextGeometry('00:000', {
+font: timerFont,
+size: 0.02,
+height: 0.005,
+});
+timerMesh.geometry.computeBoundingBox();
+const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+}
+}, 2000); // Wait 2 seconds before starting next level
+} else {
+// Game complete! Show summary of times
+const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+
+// Play grand finale sounds
+longHornsSound.play().catch(error => console.log('Sound play error:', error));
+longApplauseSound.play().catch(error => console.log('Sound play error:', error));
+
+// Flash the wire more dramatically
+flashWire(6, true);
+
+if (textMesh && font) {
+textMesh.geometry.dispose();
+
+// Create individual text meshes for each line of the summary
+// Game complete text
+const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
+font: font, 
+size: 0.03, 
+height: 0.005 
+});
+const gameCompleteMesh = new THREE.Mesh(
+gameCompleteGeometry, 
+new THREE.MeshStandardMaterial({ color: 0xffff00 })
+);
+gameCompleteGeometry.computeBoundingBox();
+const completeOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
+gameCompleteMesh.position.set(completeOffset, 1.2, -0.75);
+scene.add(gameCompleteMesh);
+
+// Level 1 time 
+const level1Text = `Level 1: ${formatTime(levelTimes[0] || 0)}`;
+const level1Geometry = new THREE.TextGeometry(level1Text, { font: font, size: 0.02, height: 0.005 });
+const level1Mesh = new THREE.Mesh(level1Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+level1Geometry.computeBoundingBox();
+const level1Offset = -0.5 * (level1Geometry.boundingBox.max.x - level1Geometry.boundingBox.min.x);
+level1Mesh.position.set(level1Offset, 1.15, -0.75);
+scene.add(level1Mesh);
+
+// Level 2 time
+const level2Text = `Level 2: ${formatTime(levelTimes[1] || 0)}`;
+const level2Geometry = new THREE.TextGeometry(level2Text, { font: font, size: 0.02, height: 0.005 });
+const level2Mesh = new THREE.Mesh(level2Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+level2Geometry.computeBoundingBox();
+const level2Offset = -0.5 * (level2Geometry.boundingBox.max.x - level2Geometry.boundingBox.min.x);
+level2Mesh.position.set(level2Offset, 1.1, -0.75);
+scene.add(level2Mesh);
+
+// Level 3 time
+const level3Text = `Level 3: ${formatTime(levelTimes[2] || 0)}`;
+const level3Geometry = new THREE.TextGeometry(level3Text, { font: font, size: 0.02, height: 0.005 });
+const level3Mesh = new THREE.Mesh(level3Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+level3Geometry.computeBoundingBox();
+const level3Offset = -0.5 * (level3Geometry.boundingBox.max.x - level3Geometry.boundingBox.min.x);
+level3Mesh.position.set(level3Offset, 1.05, -0.75);
+scene.add(level3Mesh);
+
+// Level 4 time
+const level4Text = `Level 4: ${formatTime(levelTimes[3] || 0)}`;
+const level4Geometry = new THREE.TextGeometry(level4Text, { font: font, size: 0.02, height: 0.005 });
+const level4Mesh = new THREE.Mesh(level4Geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+level4Geometry.computeBoundingBox();
+const level4Offset = -0.5 * (level4Geometry.boundingBox.max.x - level4Geometry.boundingBox.min.x);
+level4Mesh.position.set(level4Offset, 1.0, -0.75);
+scene.add(level4Mesh);
+
+// Total time - moved down to account for level 4
+const totalText = `Total: ${formatTime(totalTime)}`;
+const totalGeometry = new THREE.TextGeometry(totalText, { font: font, size: 0.025, height: 0.005 });
+const totalMesh = new THREE.Mesh(totalGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+totalGeometry.computeBoundingBox();
+const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
+totalMesh.position.set(totalOffset, 0.95, -0.75);
+scene.add(totalMesh);
+
+// Remove the original text mesh since we're replacing it with multiple meshes
+scene.remove(textMesh);
+
+// Hide the timer mesh
+if (timerMesh) timerMesh.visible = false;
+}
+}
+}
+}
+</script>
 </body>
 </html>
