@@ -93,7 +93,7 @@ textMesh.position.set(centerOffset, 2.0, -0.75);
 scene.add(textMesh);
 
 // Load a monospaced font for the timer
-const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_regular.typeface.json';
+const timerFontURL = 'https://threejs.org/examples/fonts/optimer_regular.typeface.json';
 loader.load(timerFontURL, function (loadedTimerFont) {
 timerFont = loadedTimerFont;
 // Use the loaded font for the timer with shorter format
@@ -227,7 +227,7 @@ const segments = 200;
 const radius = 0.75;
 
 // Add rotation offset for different levels
-const rotationOffset = level === 2 ? Math.PI / 5.1 : 
+const rotationOffset = level === 2 ? Math.PI / 5.2 : 
 level === 3 ? Math.PI / 6 : 
 level === 4 ? Math.PI / 6.3 : 
 level === 5 ? Math.PI / 1.1 : 0;
