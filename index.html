@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 5; // Track current level
+let currentLevel = 4; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -97,7 +97,7 @@ const timerFontURL = 'https://threejs.org/examples/fonts/droid/droid_sans_mono_r
 loader.load(timerFontURL, function (loadedTimerFont) {
 timerFont = loadedTimerFont;
 // Use the loaded font for the timer with shorter format
-const timerGeometry = new THREE.TextGeometry('00:000', { font: timerFont, size: 0.02, height: 0.005 });
+const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
 const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
 timerGeometry.computeBoundingBox();
@@ -526,15 +526,10 @@ textMesh.lookAt(camera.position);
 if (startTime !== null && timerFont) {
 elapsedTime = Date.now() - startTime;
 
-// Check if time exceeds 100 seconds
-if (elapsedTime > 100000) {
-handleCollision(); // Treat as a collision if time exceeds limit
-return;
-}
-
-const seconds = Math.floor(elapsedTime / 1000);
+const minutes = Math.floor(elapsedTime / 60000);
+const seconds = Math.floor((elapsedTime % 60000) / 1000);
 const milliseconds = Math.floor(elapsedTime % 1000);
-const timerText = `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
 // Update timer text
 if (timerMesh && timerMesh.geometry) {
@@ -627,10 +622,10 @@ if (isExploding) {
       ring.position.copy(ringStartPosition);
       ring.rotation.set(0, Math.PI / 2, 0);
 
-        // Reset timer display to 00:000
+        // Reset timer display to 0:00:000
     if (timerMesh && timerFont) {
       timerMesh.geometry.dispose();
-      timerMesh.geometry = new THREE.TextGeometry('00:000', {
+      timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
         font: timerFont,
         size: 0.02,
         height: 0.005,
@@ -707,7 +702,8 @@ wire.geometry.attributes.color.needsUpdate = true;
 
 // Helper function to format time as SS:MMM
 function formatTime(ms) {
-const seconds = Math.floor((ms / 1000) % 60);
+const minutes = Math.floor(ms / 60000);  
+const seconds = Math.floor((ms % 60000) / 1000);
 const milliseconds = Math.floor(ms % 1000);
 return `${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 }
@@ -792,10 +788,10 @@ elapsedTime = 0;
 grabbed = false;
 grabbingController = null;
 
-// Reset the timer display to 00:000
+// Reset the timer display to 0:00:000
 if (timerMesh && timerFont) {
 timerMesh.geometry.dispose();
-timerMesh.geometry = new THREE.TextGeometry('00:000', {
+timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
 font: timerFont,
 size: 0.02,
 height: 0.005,
