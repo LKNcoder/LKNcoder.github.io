@@ -728,7 +728,7 @@ function createConfetti() {
   const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
   
   // Create 3000 confetti particles
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < 300; i++) {
     const material = new THREE.MeshBasicMaterial({ 
       color: colors[Math.floor(Math.random() * colors.length)], 
       side: THREE.DoubleSide,
@@ -782,8 +782,9 @@ let levelTime;
 startTime = null;
 
 // Play victory sounds
-victorySound.play().catch(error => console.log('Sound play error:', error));
-applauseSound.play().catch(error => console.log('Sound play error:', error));
+setTimeout(() => longHornsSound.play().catch(error => console.log('Sound error:', error)), 0);
+setTimeout(() => longApplauseSound.play().catch(error => console.log('Sound error:', error)), 500);
+
 
 // Flash the wire white and blue
 flashWire(3, false);
@@ -832,10 +833,10 @@ const totalTime = levelTimes.reduce((total, time) => total + time, 0);
 longHornsSound.play().catch(error => console.log('Sound play error:', error));
 longApplauseSound.play().catch(error => console.log('Sound play error:', error));
 
-createConfetti(); // Add confetti effect
+setTimeout(() => createConfetti(), 1000); // Add confetti effect
 
 // Flash the wire more dramatically
-flashWire(6, true);
+setTimeout(() => flashWire(6, true), 1500);
 
 // Hide the wire and ring when game is completed
 setTimeout(() => {
@@ -852,10 +853,6 @@ if (wire) {
     ring.visible = false;
   }
 }, 3500); // Hide wire and ring after 3 seconds
-
-if (ring && ring.visible) {
-  // code that uses ring
-}
 
 if (textMesh && font) {
 textMesh.geometry.dispose();
