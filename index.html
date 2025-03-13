@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 4; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -84,7 +84,7 @@ scene.add(ring);
 const loader = new THREE.FontLoader();
 loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
 font = loadedFont;
-const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
 const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 textMesh = new THREE.Mesh(textGeometry, textMaterial);
 textGeometry.computeBoundingBox();
@@ -774,7 +774,7 @@ currentLevel++;
 // Update the level text
 if (textMesh && font) {
 textMesh.geometry.dispose();
-textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}`, { font: font, size: 0.02, height: 0.005 });
+textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
 textMesh.geometry.computeBoundingBox();
 }
 
