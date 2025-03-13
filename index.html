@@ -536,6 +536,11 @@ const seconds = Math.floor((elapsedTime % 60000) / 1000);
 const milliseconds = Math.floor(elapsedTime % 1000);
 const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
+//Only call updateWireColor if the wire still exists
+  if (wire && wire.geometry) {
+    updateWireColor();
+  }
+
 // Update timer text
 if (timerMesh && timerMesh.geometry) {
 timerMesh.geometry.dispose();
