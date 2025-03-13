@@ -493,6 +493,8 @@ renderer.setAnimationLoop(render);
 }
 
 function render() {
+  if (!scene || !camera) return;
+
 // Update sphere positions to match controller positions
 if (controller1 && controller2) {
 sphere1.position.copy(controller1.position);
@@ -500,9 +502,9 @@ sphere2.position.copy(controller2.position);
 }
 
 // Check for collisions
-if (!isExploding && checkCollision()) {
-    handleCollision();
-  }
+  if (!isExploding && ring && wirePoints && wirePoints.length > 0 && checkCollision()) {
+  handleCollision();
+}
 
 // Move ring with the grabbing controller while maintaining the offset
 if (grabbed && grabbingController) {
@@ -536,10 +538,6 @@ const seconds = Math.floor((elapsedTime % 60000) / 1000);
 const milliseconds = Math.floor(elapsedTime % 1000);
 const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
 
-//Only call updateWireColor if the wire still exists
-  if (wire && wire.geometry) {
-    updateWireColor();
-  }
 
 // Update timer text
 if (timerMesh && timerMesh.geometry) {
@@ -565,7 +563,9 @@ timerMesh.lookAt(camera.position);
 }
 
 // Check for wire collision and update wire color
-updateWireColor();
+if (wire && wire.geometry && wire.geometry.attributes) {
+  updateWireColor();
+}
 
 if (confettiStartTime !== null) {
   const elapsed = Date.now() - confettiStartTime;
@@ -622,7 +622,7 @@ if (isExploding) {
         if (fragment.geometry) fragment.geometry.dispose();
         if (fragment.material) fragment.material.dispose();
       }
-      
+    }
       // Reset
       explosionFragments = [];
       isExploding = false;
@@ -647,7 +647,7 @@ if (isExploding) {
     
     }
   }
-  }
+  
   
 renderer.render(scene, camera);
 }
@@ -852,6 +852,10 @@ if (wire) {
     ring.visible = false;
   }
 }, 3500); // Hide wire and ring after 3 seconds
+
+if (ring && ring.visible) {
+  // code that uses ring
+}
 
 if (textMesh && font) {
 textMesh.geometry.dispose();
