@@ -782,13 +782,18 @@ let levelTime;
 startTime = null;
 
 // Play victory sounds
-setTimeout(() => longHornsSound.play().catch(error => console.log('Sound error:', error)), 0);
-setTimeout(() => longApplauseSound.play().catch(error => console.log('Sound error:', error)), 500);
-
+if (currentLevel < 5) {
+      // For levels 1-4, play short victory sounds
+      setTimeout(() => victorySound.play().catch(error => console.log('Sound error:', error)), 0);
+      setTimeout(() => applauseSound.play().catch(error => console.log('Sound error:', error)), 500);
+    } else {
+      // For final level (5), play long victory sounds ONLY ONCE
+      setTimeout(() => longHornsSound.play().catch(error => console.log('Sound error:', error)), 0);
+      setTimeout(() => longApplauseSound.play().catch(error => console.log('Sound error:', error)), 500);
+    }
 
 // Flash the wire white and blue
 flashWire(3, false);
-
 console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
 
 // Advance to the next level - CHANGED to support four levels
@@ -829,14 +834,8 @@ timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.
 // Game complete! Show summary of times
 const totalTime = levelTimes.reduce((total, time) => total + time, 0);
 
-// Play grand finale sounds
-longHornsSound.play().catch(error => console.log('Sound play error:', error));
-longApplauseSound.play().catch(error => console.log('Sound play error:', error));
-
 setTimeout(() => createConfetti(), 1000); // Add confetti effect
-
-// Flash the wire more dramatically
-setTimeout(() => flashWire(6, true), 1500);
+setTimeout(() => flashWire(6, true), 1500);  // Flash the wire more dramatically
 
 // Hide the wire and ring when game is completed
 setTimeout(() => {
