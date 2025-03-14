@@ -54,6 +54,7 @@ let explosionStartTime = null;
 let isExploding = false;
 let confettiParticles = [];
 let confettiStartTime = null;
+let gameCompletionMeshes = [];
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
@@ -457,6 +458,35 @@ const ringBox = new THREE.Box3().setFromObject(ring);
 const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
 const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
+// Check for button interactions first
+if (gameCompletionMeshes.length > 0) {
+    const controllerPosition = event.target.position;
+    const raycaster = new THREE.Raycaster();
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(event.target.quaternion);
+    raycaster.set(controllerPosition, direction);
+    
+    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes.filter(mesh => mesh.userData && mesh.userData.isButton));
+    
+    if (buttonIntersects.length > 0) {
+      const button = buttonIntersects[0].object;
+      
+      if (button.userData.buttonType === 'restart') {
+        // Reset game state
+        restartGame();
+        return;
+      } else if (button.userData.buttonType === 'quit') {
+        // Exit VR session if active
+        if (renderer.xr.isPresenting) {
+          renderer.xr.getSession().end();
+        }
+        // Show "Thanks for playing" message
+        alert("Thanks for playing!");
+        return;
+      }
+    }
+  }
+
 if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
 grabbed = true;
 grabbingController = controller1;
@@ -481,6 +511,59 @@ if (event.target === grabbingController) {
 grabbed = false;
 grabbingController = null;
 }
+}
+
+// Add the restartGame function
+function restartGame() {
+  // Clean up game completion meshes
+  gameCompletionMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  gameCompletionMeshes = [];
+  
+  // Reset game state
+  currentLevel = 1;
+  levelTimes = [];
+  startTime = null;
+  elapsedTime = 0;
+  
+  // Show ring and reset position
+  ring.visible = true;
+  ring.position.copy(ringStartPosition);
+  ring.rotation.set(0, Math.PI / 2, 0);
+  
+  // Create new wire for level 1
+  wire = createWire(currentLevel);
+  wire.visible = true;
+  
+  // Reset the level text
+  if (textMesh && font) {
+    textMesh.geometry.dispose();
+    textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
+    textMesh.geometry.computeBoundingBox();
+    const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+    textMesh.position.set(centerOffset, 2.0, -0.75);
+    scene.add(textMesh);
+  }
+  
+  // Reset and show timer
+  if (timerMesh && timerFont) {
+    timerMesh.geometry.dispose();
+    timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+      font: timerFont,
+      size: 0.02,
+      height: 0.005,
+    });
+    timerMesh.visible = true;
+    timerMesh.geometry.computeBoundingBox();
+    const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+    timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+  }
+  
+  // Play chime sound to indicate restart
+  chimeSound.play().catch(error => console.log('Sound play error:', error));
 }
 
 function animate() {
@@ -890,6 +973,54 @@ totalGeometry.computeBoundingBox();
 const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
 totalMesh.position.set(totalOffset, 1.2, -0.75);
 scene.add(totalMesh);
+
+// Add Restart button
+const restartGeometry = new THREE.TextGeometry('RESTART', { font: font, size: 0.025, height: 0.005 });
+const restartMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
+const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
+restartGeometry.computeBoundingBox();
+const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
+const restartOffset = -0.5 * restartWidth;
+restartMesh.position.set(restartOffset - 0.1, 1.0, -0.75);
+scene.add(restartMesh);
+
+// Create invisible box for restart button interaction
+const restartBox = new THREE.Mesh(
+  new THREE.BoxGeometry(restartWidth + 0.05, 0.05, 0.01),
+  new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+);
+restartBox.position.copy(restartMesh.position);
+restartBox.position.y += 0.01; // Slight offset for better interaction
+scene.add(restartBox);
+restartBox.userData.isButton = true;
+restartBox.userData.buttonType = 'restart';
+
+// Add Quit button
+const quitGeometry = new THREE.TextGeometry('QUIT', { font: font, size: 0.025, height: 0.005 });
+const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 });
+const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
+quitGeometry.computeBoundingBox();
+const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
+const quitOffset = -0.5 * quitWidth;
+quitMesh.position.set(quitOffset + 0.15, 1.0, -0.75);
+scene.add(quitMesh);
+
+// Create invisible box for quit button interaction
+const quitBox = new THREE.Mesh(
+  new THREE.BoxGeometry(quitWidth + 0.05, 0.05, 0.01),
+  new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+);
+quitBox.position.copy(quitMesh.position);
+quitBox.position.y += 0.01; // Slight offset for better interaction
+scene.add(quitBox);
+quitBox.userData.isButton = true;
+quitBox.userData.buttonType = 'quit';
+
+// Store references to these meshes to remove them if needed
+gameCompletionMeshes = [
+  gameCompleteMesh, level1Mesh, level2Mesh, level3Mesh, level4Mesh, level5Mesh, 
+  totalMesh, restartMesh, quitMesh, restartBox, quitBox
+];
 
 // Remove the original text mesh since we're replacing it with multiple meshes
 scene.remove(textMesh);
