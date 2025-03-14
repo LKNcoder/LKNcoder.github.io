@@ -252,18 +252,6 @@ function initControllerHaptics() {
     }
   });
   
-  // Test haptics after a delay
-  setTimeout(() => {
-    console.log('Testing left controller haptics');
-    triggerHapticFeedbackByHandedness('left', 0.7, 300);
-    
-    setTimeout(() => {
-      console.log('Testing right controller haptics');
-      triggerHapticFeedbackByHandedness('right', 0.7, 300);
-    }, 500);
-  }, 1000);
-}
-
 // Function to trigger haptics by controller handedness
 function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
   // Find the input source for the specified hand
