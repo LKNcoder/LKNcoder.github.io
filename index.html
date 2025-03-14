@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -904,8 +904,8 @@ function handleCollision() {
 explodeRing(); // Add explosion effect
 contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
 resetWireColor(); // Reset wire color to pink
-triggerHapticFeedbackByHandedness('left', 1.0, 200); // haptic feedback
-triggerHapticFeedbackByHandedness('right', 1.0, 200);  // haptic feedback
+triggerHapticFeedbackByHandedness('left', 1.0, 80); // haptic feedback
+triggerHapticFeedbackByHandedness('right', 1.0, 80);  // haptic feedback
 grabbed = false; // Override the grab
 grabbingController = null; // Clear the grabbing controller
 
