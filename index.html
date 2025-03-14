@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -184,6 +184,13 @@ longHornsSound = new Audio('long_horns.mp3');
 chimeSound = new Audio('chime.mp3');
 }
 
+// helper function for haptic feedback
+function triggerHapticFeedback(controller, intensity, duration) {
+  if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
+    controller.gamepad.hapticActuators[0].pulse(intensity, duration);
+  }
+}
+
 // Function to make the wire flash
 function flashWire(times = 3, isGameComplete = false) {
 if (isFlashing) return;
@@ -197,13 +204,6 @@ function flash() {
 if (flashCount >= maxFlashes) {
 isFlashing = false;
 return;
-}
-
-// helper function for haptic feedback
-function triggerHapticFeedback(controller, intensity, duration) {
-  if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
-    controller.gamepad.hapticActuators[0].pulse(intensity, duration);
-  }
 }
 
 const colors = wire.geometry.attributes.color.array;
