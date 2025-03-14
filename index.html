@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -56,6 +56,7 @@ let confettiParticles = [];
 let confettiStartTime = null;
 let gameCompletionMeshes = [];
 let transitionImmunity = false;
+let xrInputSources = [];
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
@@ -194,60 +195,104 @@ longHornsSound = new Audio('long_horns.mp3');
 chimeSound = new Audio('chime.mp3');
 }
 
-// helper function for haptic feedback
-function triggerHapticFeedback(controller, intensity, duration) {
-  const gamepad = controller ? controller.gamepad : null;
+// Function to initialize haptic feedback system using direct XR input sources
+function initControllerHaptics() {
+  console.log('Initializing haptic feedback system');
   
-  if (gamepad) {
-    try {
-      console.log('Controller index:', controller.userData ? controller.userData.index : 'unknown');
-      
-      // Specific handling for Oculus/Meta Quest controllers
-      // Quest controllers are typically identified by "Oculus Touch" in their id
-      if (gamepad.id && gamepad.id.includes("Oculus Touch")) {
-        console.log('Quest controller detected, using appropriate haptic method');
-        
-        if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
-          return gamepad.hapticActuators[0].pulse(intensity, duration);
-        } else if (gamepad.vibrationActuator) {
-          return gamepad.vibrationActuator.playEffect('dual-rumble', {
-            duration: duration,
-            strongMagnitude: intensity,
-            weakMagnitude: intensity
-          });
-        }
-      } 
-      // Standard WebXR method as fallback
-      else if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
-        return gamepad.hapticActuators[0].pulse(intensity, duration);
-      }
-      else {
-        console.warn('No haptic actuators found on gamepad:', gamepad.id || 'unknown gamepad');
-      }
-    } catch (error) {
-      console.error('Haptic feedback error:', error);
+  // Clear any previous input sources
+  xrInputSources = [];
+  
+  // Get current session
+  const session = renderer.xr.getSession();
+  if (!session) {
+    console.warn('No XR session available for haptics');
+    return;
+  }
+
+ // Get and store all input sources
+ xrInputSources = Array.from(session.inputSources || []);
+  console.log('Found input sources:', xrInputSources.length);
+  
+  // Log details about each input source
+  xrInputSources.forEach((inputSource, index) => {
+    console.log(`Input source ${index}:`, {
+      handedness: inputSource.handedness,
+      profiles: inputSource.profiles,
+      hasGamepad: !!inputSource.gamepad
+    });
+  });
+  
+  // Set up listener for future input source changes
+  session.addEventListener('inputsourceschange', (event) => {
+    console.log('Input sources changed:', event);
+    
+    // Update our stored input sources
+    xrInputSources = Array.from(session.inputSources || []);
+    console.log('Updated input sources count:', xrInputSources.length);
+    
+    // Test newly added input sources
+    if (event.added && event.added.length > 0) {
+      event.added.forEach(source => {
+        console.log('Testing new input source:', source.handedness);
+        setTimeout(() => {
+          triggerHapticFeedbackByHandedness(source.handedness, 0.7, 300);
+        }, 500);
+      });
     }
-  } else {
-    console.warn('No gamepad available on controller');
+  });
+  
+  // Test haptics after a delay
+  setTimeout(() => {
+    console.log('Testing left controller haptics');
+    triggerHapticFeedbackByHandedness('left', 0.7, 300);
+    
+    setTimeout(() => {
+      console.log('Testing right controller haptics');
+      triggerHapticFeedbackByHandedness('right', 0.7, 300);
+    }, 500);
+  }, 1000);
+}
+
+// Function to trigger haptics by controller handedness
+function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
+  // Find the input source for the specified hand
+  const inputSource = xrInputSources.find(source => source.handedness === handedness);
+  
+  if (!inputSource) {
+    console.warn(`No input source found for ${handedness} hand`);
+    return;
+  }
+  
+  console.log(`Attempting haptic feedback on ${handedness} controller:`, inputSource);
+  
+  try {
+    // Try to use the gamepad haptics
+    if (inputSource.gamepad) {
+      if (inputSource.gamepad.hapticActuators && inputSource.gamepad.hapticActuators.length > 0) {
+        console.log(`Using hapticActuators for ${handedness}`);
+        return inputSource.gamepad.hapticActuators[0].pulse(intensity, duration);
+      } 
+      else if (inputSource.gamepad.vibrationActuator) {
+        console.log(`Using vibrationActuator for ${handedness}`);
+        return inputSource.gamepad.vibrationActuator.playEffect('dual-rumble', {
+          duration: duration,
+          strongMagnitude: intensity,
+          weakMagnitude: intensity
+        });
+      }
+    }
+    
+    console.warn(`No haptic capability found for ${handedness} controller`);
+  } catch (error) {
+    console.error(`Error triggering haptic on ${handedness} controller:`, error);
   }
 }
 
-function initControllerHaptics() {
-  // Store controller indexes for better debugging and access
-  if (controller1) controller1.userData = { index: 0 };
-  if (controller2) controller2.userData = { index: 1 };
-  
-  console.log('Controller haptics initialized');
-  
-  // Test haptic feedback after a moment to ensure everything is ready
-  setTimeout(() => {
-    console.log('Testing haptic feedback...');
-    console.log('Controller1 gamepad:', controller1.gamepad);
-    console.log('Controller2 gamepad:', controller2.gamepad);
-    
-    triggerHapticFeedback(controller1, 0.5, 300);
-    setTimeout(() => triggerHapticFeedback(controller2, 0.5, 300), 500);
-  }, 1000);
+// Function to trigger haptics on a controller
+function triggerHapticFeedback(controller, intensity, duration) {
+  // Determine handedness from controller index
+  const handedness = controller === controller1 ? 'left' : 'right';
+  return triggerHapticFeedbackByHandedness(handedness, intensity, duration);
 }
 
 // Function to make the wire flash
@@ -832,8 +877,8 @@ function handleCollision() {
 explodeRing(); // Add explosion effect
 contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
 resetWireColor(); // Reset wire color to pink
-triggerHapticFeedback(controller1, 1.0, 100); // haptic feedback
-triggerHapticFeedback(controller2, 1.0, 100);  // haptic feedback
+triggerHapticFeedbackByHandedness('left', 1.0, 200); // haptic feedback
+triggerHapticFeedbackByHandedness('right', 1.0, 200);  // haptic feedback
 grabbed = false; // Override the grab
 grabbingController = null; // Clear the grabbing controller
 
@@ -914,8 +959,8 @@ startTime = null;
 victorySound.play().catch(error => console.log('Sound play error:', error));
 applauseSound.play().catch(error => console.log('Sound play error:', error));
 
-triggerHapticFeedback(controller1, 0.5, 500); // haptic feedback
-triggerHapticFeedback(controller2, 0.5, 500);  // haptic feedback
+triggerHapticFeedbackByHandedness('left', 0.5, 500); 
+triggerHapticFeedbackByHandedness('right', 0.5, 500);
 
 // Flash the wire white and blue
 flashWire(3, false);
@@ -982,8 +1027,8 @@ longApplauseSound.play().catch(error => console.log('Sound play error:', error))
  const celebratePulses = () => {
     let count = 0;
     const interval = setInterval(() => {
-      triggerHapticFeedback(controller1, 0.7, 100);
-      triggerHapticFeedback(controller2, 0.7, 100);
+      triggerHapticFeedbackByHandedness('left', 0.7, 100);
+      triggerHapticFeedbackByHandedness('right', 0.7, 100);
       count++;
       if (count >= 5) clearInterval(interval);
     }, 300);
