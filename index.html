@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 5; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -141,14 +141,24 @@ const session = await navigator.xr.requestSession('immersive-vr', { optionalFeat
 renderer.xr.setSession(session);
 vrButton.style.display = 'none';
 
-  // Initialize haptics after the session starts
-  session.addEventListener('inputsourceschange', () => {
-      console.log('XR input sources changed, initializing haptics');
-      initControllerHaptics();
+    // Set a flag to track first frame
+    let firstFrameRendered = false;
+
+     // Initialize haptics after the first frame is rendered
+     session.requestAnimationFrame(() => {
+      console.log('First XR frame rendered');
+      if (!firstFrameRendered) {
+        firstFrameRendered = true;
+        console.log('Waiting for controllers to initialize...');
+        setTimeout(initControllerHaptics, 1000);
+      }
     });
     
-    // Also try initializing after a delay as a backup approach
-    setTimeout(initControllerHaptics, 2000);
+    // Also listen for input source changes
+    session.addEventListener('inputsourceschange', (event) => {
+      console.log('Input sources changed:', event);
+      setTimeout(initControllerHaptics, 500); // Small delay after change
+    });
 
 } catch (error) {
 console.error('Failed to enter VR:', error);
@@ -268,17 +278,34 @@ function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
   try {
     // Try to use the gamepad haptics
     if (inputSource.gamepad) {
+      console.log(`Gamepad found for ${handedness}:`, inputSource.gamepad);
+      
+      // Method 1: Standard haptic actuators array
       if (inputSource.gamepad.hapticActuators && inputSource.gamepad.hapticActuators.length > 0) {
         console.log(`Using hapticActuators for ${handedness}`);
         return inputSource.gamepad.hapticActuators[0].pulse(intensity, duration);
       } 
-      else if (inputSource.gamepad.vibrationActuator) {
+      
+      // Method 2: Single haptic actuator (some Quest versions)
+      if (inputSource.gamepad.hapticActuator) {
+        console.log(`Using single hapticActuator for ${handedness}`);
+        return inputSource.gamepad.hapticActuator.pulse(intensity, duration);
+      }
+      
+      // Method 3: Vibration actuator (older standard)
+      if (inputSource.gamepad.vibrationActuator) {
         console.log(`Using vibrationActuator for ${handedness}`);
         return inputSource.gamepad.vibrationActuator.playEffect('dual-rumble', {
           duration: duration,
           strongMagnitude: intensity,
           weakMagnitude: intensity
         });
+      }
+      
+      // Log all available properties on the gamepad
+      console.log(`All gamepad properties for ${handedness}:`);
+      for (const prop in inputSource.gamepad) {
+        console.log(`- ${prop}:`, inputSource.gamepad[prop]);
       }
     }
     
