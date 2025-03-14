@@ -199,6 +199,13 @@ isFlashing = false;
 return;
 }
 
+// helper function for haptic feedback
+function triggerHapticFeedback(controller, intensity, duration) {
+  if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
+    controller.gamepad.hapticActuators[0].pulse(intensity, duration);
+  }
+}
+
 const colors = wire.geometry.attributes.color.array;
 const isWhite = flashCount % 2 === 0;
 
@@ -766,6 +773,8 @@ function handleCollision() {
 explodeRing(); // Add explosion effect
 contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
 resetWireColor(); // Reset wire color to pink
+triggerHapticFeedback(controller1, 1.0, 100); // haptic feedback
+triggerHapticFeedback(controller2, 1.0, 100);  // haptic feedback
 grabbed = false; // Override the grab
 grabbingController = null; // Clear the grabbing controller
 
@@ -846,6 +855,9 @@ startTime = null;
 victorySound.play().catch(error => console.log('Sound play error:', error));
 applauseSound.play().catch(error => console.log('Sound play error:', error));
 
+triggerHapticFeedback(controller1, 0.5, 500); // haptic feedback
+triggerHapticFeedback(controller2, 0.5, 500);  // haptic feedback
+
 // Flash the wire white and blue
 flashWire(3, false);
 
@@ -906,6 +918,18 @@ wire.visible = false;
 // Play grand finale sounds
 longHornsSound.play().catch(error => console.log('Sound play error:', error));
 longApplauseSound.play().catch(error => console.log('Sound play error:', error));
+
+ // special game completion haptic pattern - alternating pulses
+ const celebratePulses = () => {
+    let count = 0;
+    const interval = setInterval(() => {
+      triggerHapticFeedback(controller1, 0.7, 100);
+      triggerHapticFeedback(controller2, 0.7, 100);
+      count++;
+      if (count >= 5) clearInterval(interval);
+    }, 300);
+  };
+  celebratePulses();
 
 createConfetti(); // Add confetti effect
 
