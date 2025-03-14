@@ -139,6 +139,16 @@ chimeSound.play().catch(error => console.log('Chime sound play error:', error));
 const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
 renderer.xr.setSession(session);
 vrButton.style.display = 'none';
+
+  // Initialize haptics after the session starts
+  session.addEventListener('inputsourceschange', () => {
+      console.log('XR input sources changed, initializing haptics');
+      initControllerHaptics();
+    });
+    
+    // Also try initializing after a delay as a backup approach
+    setTimeout(initControllerHaptics, 2000);
+
 } catch (error) {
 console.error('Failed to enter VR:', error);
 }
@@ -186,34 +196,58 @@ chimeSound = new Audio('chime.mp3');
 
 // helper function for haptic feedback
 function triggerHapticFeedback(controller, intensity, duration) {
-  console.log('Attempting haptic feedback', controller);
+  const gamepad = controller ? controller.gamepad : null;
   
-  try {
-    // Method 1: Standard WebXR method
-    if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
-      console.log('Using standard haptic actuators');
-      return controller.gamepad.hapticActuators[0].pulse(intensity, duration);
-    } 
-    // Method 2: Oculus Touch controllers specific method
-    else if (controller && controller.gamepad && controller.gamepad.vibrationActuator) {
-      console.log('Using vibration actuator');
-      return controller.gamepad.vibrationActuator.playEffect('dual-rumble', {
-        duration: duration,
-        strongMagnitude: intensity,
-        weakMagnitude: intensity
-      });
+  if (gamepad) {
+    try {
+      console.log('Controller index:', controller.userData ? controller.userData.index : 'unknown');
+      
+      // Specific handling for Oculus/Meta Quest controllers
+      // Quest controllers are typically identified by "Oculus Touch" in their id
+      if (gamepad.id && gamepad.id.includes("Oculus Touch")) {
+        console.log('Quest controller detected, using appropriate haptic method');
+        
+        if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
+          return gamepad.hapticActuators[0].pulse(intensity, duration);
+        } else if (gamepad.vibrationActuator) {
+          return gamepad.vibrationActuator.playEffect('dual-rumble', {
+            duration: duration,
+            strongMagnitude: intensity,
+            weakMagnitude: intensity
+          });
+        }
+      } 
+      // Standard WebXR method as fallback
+      else if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
+        return gamepad.hapticActuators[0].pulse(intensity, duration);
+      }
+      else {
+        console.warn('No haptic actuators found on gamepad:', gamepad.id || 'unknown gamepad');
+      }
+    } catch (error) {
+      console.error('Haptic feedback error:', error);
     }
-    // Method 3: Alternative syntax for some browsers
-    else if (controller && controller.hapticActuators && controller.hapticActuators.length > 0) {
-      console.log('Using controller direct haptic actuators');
-      return controller.hapticActuators[0].pulse(intensity, duration);
-    }
-    else {
-      console.warn('No haptic feedback capability found on controller:', controller);
-    }
-  } catch (error) {
-    console.error('Error triggering haptic feedback:', error);
+  } else {
+    console.warn('No gamepad available on controller');
   }
+}
+
+function initControllerHaptics() {
+  // Store controller indexes for better debugging and access
+  if (controller1) controller1.userData = { index: 0 };
+  if (controller2) controller2.userData = { index: 1 };
+  
+  console.log('Controller haptics initialized');
+  
+  // Test haptic feedback after a moment to ensure everything is ready
+  setTimeout(() => {
+    console.log('Testing haptic feedback...');
+    console.log('Controller1 gamepad:', controller1.gamepad);
+    console.log('Controller2 gamepad:', controller2.gamepad);
+    
+    triggerHapticFeedback(controller1, 0.5, 300);
+    setTimeout(() => triggerHapticFeedback(controller2, 0.5, 300), 500);
+  }, 1000);
 }
 
 // Function to make the wire flash
