@@ -57,6 +57,7 @@ let confettiStartTime = null;
 let gameCompletionMeshes = [];
 let transitionImmunity = false;
 let xrInputSources = [];
+let gameCompleted = false;
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
@@ -669,6 +670,7 @@ function restartGame() {
   elapsedTime = 0;
   
   // Show ring and reset position
+  gameCompleted = false;
   ring.visible = true;
   ring.position.copy(ringStartPosition);
   ring.rotation.set(0, Math.PI / 2, 0);
@@ -840,9 +842,11 @@ if (isExploding) {
       isExploding = false;
       
       // Show and reset ring
+      if (!gameCompleted) {
       ring.visible = true;
       ring.position.copy(ringStartPosition);
       ring.rotation.set(0, Math.PI / 2, 0);
+      }
 
         // Reset timer display to 0:00:000
     if (timerMesh && timerFont) {
@@ -1040,6 +1044,7 @@ timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.
 }, 2000); // Wait 2 seconds before starting next level
 } else {
 // Game complete! Show summary of times
+gameCompleted = true;
 const totalTime = levelTimes.reduce((total, time) => total + time, 0);
 
 // Hide the ring and wire when game is complete
