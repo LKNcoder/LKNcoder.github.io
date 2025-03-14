@@ -47,7 +47,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 5; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -186,8 +186,33 @@ chimeSound = new Audio('chime.mp3');
 
 // helper function for haptic feedback
 function triggerHapticFeedback(controller, intensity, duration) {
-  if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
-    controller.gamepad.hapticActuators[0].pulse(intensity, duration);
+  console.log('Attempting haptic feedback', controller);
+  
+  try {
+    // Method 1: Standard WebXR method
+    if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
+      console.log('Using standard haptic actuators');
+      return controller.gamepad.hapticActuators[0].pulse(intensity, duration);
+    } 
+    // Method 2: Oculus Touch controllers specific method
+    else if (controller && controller.gamepad && controller.gamepad.vibrationActuator) {
+      console.log('Using vibration actuator');
+      return controller.gamepad.vibrationActuator.playEffect('dual-rumble', {
+        duration: duration,
+        strongMagnitude: intensity,
+        weakMagnitude: intensity
+      });
+    }
+    // Method 3: Alternative syntax for some browsers
+    else if (controller && controller.hapticActuators && controller.hapticActuators.length > 0) {
+      console.log('Using controller direct haptic actuators');
+      return controller.hapticActuators[0].pulse(intensity, duration);
+    }
+    else {
+      console.warn('No haptic feedback capability found on controller:', controller);
+    }
+  } catch (error) {
+    console.error('Error triggering haptic feedback:', error);
   }
 }
 
