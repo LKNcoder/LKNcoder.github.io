@@ -55,6 +55,7 @@ let isExploding = false;
 let confettiParticles = [];
 let confettiStartTime = null;
 let gameCompletionMeshes = [];
+let transitionImmunity = false;
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
@@ -578,7 +579,7 @@ sphere2.position.copy(controller2.position);
 }
 
 // Check for collisions
-if (!isExploding && checkCollision()) {
+if (!isExploding && !transitionImmunity && checkCollision()) {
     handleCollision();
   }
 
@@ -852,7 +853,9 @@ console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
 
 // Advance to the next level - CHANGED to support four levels
 if (currentLevel < 5) {  // Updated to go to level 5
-setTimeout(() => {
+  ring.visible = false;
+  transitionImmunity = true;
+  setTimeout(() => {
 currentLevel++;
 // Update the level text
 if (textMesh && font) {
@@ -861,10 +864,18 @@ textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: fo
 textMesh.geometry.computeBoundingBox();
 }
 
+// create the new wire
+wire = createWire(currentLevel);
+
 // Reset the ring position and create the new wire
 ring.position.copy(ringStartPosition);
 ring.rotation.set(0, Math.PI / 2, 0);
-wire = createWire(currentLevel);
+
+ // Keep ring invisible until we're sure it's safe
+ setTimeout(() => {
+      ring.visible = true;
+      transitionImmunity = false; // Disable immunity after ring is safely positioned
+    }, 100); // Short delay before showing ring
 
 // Reset timer for next level
 elapsedTime = 0;
