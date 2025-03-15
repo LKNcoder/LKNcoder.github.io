@@ -27,6 +27,11 @@ transform: translate(-50%, -50%);
 }
 #vrButton:hover { background-color: #005bb5; }
 </style>
+
+// Initialize Firebase for Leaderboard
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
 </head>
 <body>
 <button id="vrButton">Enter VR</button>
@@ -47,7 +52,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 5; // Track current level
+let currentLevel = 0; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -58,10 +63,23 @@ let gameCompletionMeshes = [];
 let transitionImmunity = false;
 let xrInputSources = [];
 let gameCompleted = false;
+let initialsDisplayMesh;
+let nameEntered = false;
+let playerName = ""; // Empty string to start
+let maxNameLength = 10;
 
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
 let isFlashing = false;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCvzAS8zXYraoP-a10eAMFAZX7u1TQNY-M",
+  databaseURL: "https://ring-ring-vr-game-default-rtdb.firebaseio.com/",
+  projectId: "ring-ring-vr-game"
+};
+firebase.initializeApp(firebaseConfig);
+const leaderboardRef = firebase.database().ref('leaderboard');
+
 
 init();
 animate();
@@ -367,6 +385,13 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
+if (level === 0) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
+
 if (level === 1) {
 // Level 1 wire pattern
 waveX = Math.sin(angle * 8) * 0.05;
@@ -631,6 +656,37 @@ grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternio
 if (startTime === null) {
 startTime = Date.now() - elapsedTime;
 }
+}
+if (buttonIntersects.length > 0) {
+  const button = buttonIntersects[0].object;
+  
+  if (button.userData.buttonType === 'letter' && !nameEntered) {
+    // Only add letter if under max length
+    if (playerName.length < maxNameLength) {
+      playerName += button.userData.letter;
+      updateNameDisplay();
+      triggerHapticFeedbackByHandedness('left', 0.3, 50);
+      triggerHapticFeedbackByHandedness('right', 0.3, 50);
+    }
+  } 
+  else if (button.userData.buttonType === 'backspace' && !nameEntered) {
+    // Remove the last letter
+    if (playerName.length > 0) {
+      playerName = playerName.slice(0, -1);
+      updateNameDisplay();
+      triggerHapticFeedbackByHandedness('left', 0.2, 40);
+      triggerHapticFeedbackByHandedness('right', 0.2, 40);
+    }
+  }
+  else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
+    // Submit score to leaderboard
+    nameEntered = true;
+    submitScore(playerName, levelTimes);
+    fetchLeaderboard();
+    triggerHapticFeedbackByHandedness('left', 0.5, 100);
+    triggerHapticFeedbackByHandedness('right', 0.5, 100);
+  }
+
 }
 }
 
@@ -1133,6 +1189,232 @@ const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boun
 totalMesh.position.set(totalOffset, 1.2, -0.75);
 scene.add(totalMesh);
 
+// Submit score to Leaderboard 
+function submitScore(playerName, levelTimes) {
+  const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+  
+  // Add to leaderboard
+  leaderboardRef.push({
+    playerName: playerName || 'Anonymous Player',
+    totalTime: totalTime,
+    levelTimes: levelTimes,
+    date: Date.now()
+  });
+}
+
+// Fetch and display top scores
+function fetchLeaderboard() {
+  leaderboardRef.orderByChild('totalTime').limitToFirst(10).once('value', snapshot => {
+    const scores = [];
+    snapshot.forEach(child => {
+      scores.push({
+        name: child.val().playerName,
+        time: child.val().totalTime
+      });
+    });
+    displayScores(scores); // Your display function
+  });
+}
+
+// Add name input prompt
+const nameInputText = `Enter your name:`;
+const nameInputGeometry = new THREE.TextGeometry(nameInputText, { 
+  font: font, 
+  size: 0.02, 
+  height: 0.005 
+});
+const nameInputMesh = new THREE.Mesh(
+  nameInputGeometry, 
+  new THREE.MeshStandardMaterial({ color: 0xffffff })
+);
+nameInputGeometry.computeBoundingBox();
+const nameInputOffset = -0.5 * (nameInputGeometry.boundingBox.max.x - nameInputGeometry.boundingBox.min.x);
+nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
+scene.add(nameInputMesh);
+gameCompletionMeshes.push(nameInputMesh);
+
+// Display empty name field
+const updateNameDisplay = () => {
+  if (initialsDisplayMesh) scene.remove(initialsDisplayMesh);
+  
+  const displayText = playerName + (playerName.length < maxNameLength ? "_" : "");
+  const nameGeometry = new THREE.TextGeometry(displayText, { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  initialsDisplayMesh = new THREE.Mesh(
+    nameGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0x00ffff })
+  );
+  nameGeometry.computeBoundingBox();
+  const nameOffset = -0.5 * (nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x);
+  initialsDisplayMesh.position.set(nameOffset, 1.05, -0.75);
+  scene.add(initialsDisplayMesh);
+  gameCompletionMeshes.push(initialsDisplayMesh);
+};
+
+// Create virtual keyboard layout
+const createVirtualKeyboard = () => {
+  // First row: QWERTYUIOP
+  const firstRow = "QWERTYUIOP";
+  const secondRow = "ASDFGHJKL";
+  const thirdRow = "ZXCVBNM";
+  
+  // Create keyboard rows
+  const createKeyboardRow = (letters, y, xOffset = 0) => {
+    let buttonWidth = 0.035;
+    let spacing = 0.01;
+    let totalWidth = letters.length * (buttonWidth + spacing) - spacing;
+    let startX = -totalWidth / 2 + xOffset;
+    
+    for (let i = 0; i < letters.length; i++) {
+      createLetterButton(
+        letters[i], 
+        startX + i * (buttonWidth + spacing), 
+        y
+      );
+    }
+  };
+  
+  // Create keyboard with three rows
+  createKeyboardRow(firstRow, 0.95);
+  createKeyboardRow(secondRow, 0.9, 0.02);  // Slight offset for second row
+  createKeyboardRow(thirdRow, 0.85, 0.04);  // Larger offset for third row
+  
+  // Create spacebar
+  const spacebarGeometry = new THREE.BoxGeometry(0.2, 0.03, 0.01);
+  const spacebarMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+  const spacebar = new THREE.Mesh(spacebarGeometry, spacebarMaterial);
+  spacebar.position.set(0, 0.8, -0.75);
+  scene.add(spacebar);
+  gameCompletionMeshes.push(spacebar);
+  
+  spacebar.userData.isButton = true;
+  spacebar.userData.buttonType = 'letter';
+  spacebar.userData.letter = ' ';
+  
+  // Create backspace button
+  const backspaceGeometry = new THREE.TextGeometry("⌫", { font: font, size: 0.025, height: 0.005 });
+  const backspaceMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333 });
+  const backspaceMesh = new THREE.Mesh(backspaceGeometry, backspaceMaterial);
+  backspaceGeometry.computeBoundingBox();
+  backspaceMesh.position.set(0.2, 0.85, -0.75);
+  scene.add(backspaceMesh);
+  gameCompletionMeshes.push(backspaceMesh);
+  
+  const backspaceBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.04, 0.01),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+  );
+  backspaceBox.position.copy(backspaceMesh.position);
+  backspaceBox.position.z = -0.74; // Slightly in front
+  scene.add(backspaceBox);
+  gameCompletionMeshes.push(backspaceBox);
+  backspaceBox.userData.isButton = true;
+  backspaceBox.userData.buttonType = 'backspace';
+  
+  // Create submit button
+  const submitBtnGeometry = new THREE.TextGeometry('SUBMIT', { font: font, size: 0.025, height: 0.005 });
+  const submitBtnMesh = new THREE.Mesh(submitBtnGeometry, new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+  submitBtnGeometry.computeBoundingBox();
+  submitBtnMesh.position.set(0, 0.75, -0.75);
+  scene.add(submitBtnMesh);
+  gameCompletionMeshes.push(submitBtnMesh);
+  
+  // Create invisible box for submit button
+  const submitBtnBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 0.03, 0.01),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+  );
+  submitBtnBox.position.copy(submitBtnMesh.position);
+  submitBtnBox.position.z = -0.74; // Slightly in front
+  scene.add(submitBtnBox);
+  gameCompletionMeshes.push(submitBtnBox);
+  submitBtnBox.userData.isButton = true;
+  submitBtnBox.userData.buttonType = 'submit';
+};
+
+// Function to create letter buttons
+const createLetterButton = (letter, x, y) => {
+  const letterGeometry = new THREE.TextGeometry(letter, { font: font, size: 0.025, height: 0.005 });
+  const letterMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const letterMesh = new THREE.Mesh(letterGeometry, letterMaterial);
+  letterGeometry.computeBoundingBox();
+  letterMesh.position.set(x, y, -0.75);
+  scene.add(letterMesh);
+  gameCompletionMeshes.push(letterMesh);
+  
+  // Create invisible box for button interaction
+  const buttonBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.03, 0.03, 0.01),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+  );
+  buttonBox.position.copy(letterMesh.position);
+  buttonBox.position.z = -0.74; // Slightly in front
+  scene.add(buttonBox);
+  gameCompletionMeshes.push(buttonBox);
+  buttonBox.userData.isButton = true;
+  buttonBox.userData.buttonType = 'letter';
+  buttonBox.userData.letter = letter;
+};
+
+// Create the keyboard
+createVirtualKeyboard();
+
+// Initialize the name display
+updateNameDisplay();
+
+// Add this function to display leaderboard scores
+function displayScores(scores) {
+  // Remove any existing leaderboard display
+  gameCompletionMeshes.forEach(mesh => {
+    if (mesh.userData && mesh.userData.isLeaderboard) {
+      scene.remove(mesh);
+    }
+  });
+  
+  // Create leaderboard header
+  const headerGeometry = new THREE.TextGeometry('TOP SCORES', { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  const headerMesh = new THREE.Mesh(
+    headerGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  );
+  headerGeometry.computeBoundingBox();
+  const headerOffset = -0.5 * (headerGeometry.boundingBox.max.x - headerGeometry.boundingBox.min.x);
+  headerMesh.position.set(headerOffset, 0.65, -0.75);
+  headerMesh.userData.isLeaderboard = true;
+  scene.add(headerMesh);
+  gameCompletionMeshes.push(headerMesh);
+  
+  // Display up to 5 scores
+  scores.slice(0, 5).forEach((score, i) => {
+    const scoreText = `${i+1}. ${score.name.substring(0, 10)} - ${formatTime(score.time)}`;
+    const scoreGeometry = new THREE.TextGeometry(scoreText, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.005 
+    });
+    const scoreColor = score.name === playerName ? 0x00ffff : 0xffffff;
+    const scoreMesh = new THREE.Mesh(
+      scoreGeometry, 
+      new THREE.MeshStandardMaterial({ color: scoreColor })
+    );
+    scoreGeometry.computeBoundingBox();
+    const scoreOffset = -0.5 * (scoreGeometry.boundingBox.max.x - scoreGeometry.boundingBox.min.x);
+    scoreMesh.position.set(scoreOffset, 0.6 - (i * 0.05), -0.75);
+    scoreMesh.userData.isLeaderboard = true;
+    scene.add(scoreMesh);
+    gameCompletionMeshes.push(scoreMesh);
+  });
+}
+
+submitScore(playerName, levelTimes);
+
 // Add Restart button
 const restartGeometry = new THREE.TextGeometry('RESTART', { font: font, size: 0.025, height: 0.005 });
 const restartMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
@@ -1193,3 +1475,4 @@ if (timerMesh) timerMesh.visible = false;
 </script>
 </body>
 </html>
+
