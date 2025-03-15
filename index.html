@@ -269,7 +269,34 @@ function initControllerHaptics() {
       });
     }
   });
+}
+
+  // Helper functions for the virtual keyboard
+  function updateNameDisplay() {
+  if (initialsDisplayMesh) scene.remove(initialsDisplayMesh);
   
+  const displayText = playerName + (playerName.length < maxNameLength ? "_" : "");
+  const nameGeometry = new THREE.TextGeometry(displayText, { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  initialsDisplayMesh = new THREE.Mesh(
+    nameGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0x00ffff })
+  );
+  nameGeometry.computeBoundingBox();
+  const nameOffset = -0.5 * (nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x);
+  initialsDisplayMesh.position.set(nameOffset, 1.05, -0.75);
+  scene.add(initialsDisplayMesh);
+  gameCompletionMeshes.push(initialsDisplayMesh);
+}
+
+function createVirtualKeyboard() {
+  // Add all your keyboard creation code here
+  // (include the createLetterButton function within this function)
+}
+
 // Function to trigger haptics by controller handedness
 function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
   // Find the input source for the specified hand
@@ -1022,6 +1049,81 @@ function createConfetti() {
   }
 }
 
+// Submit score to Leaderboard 
+function submitScore(playerName, levelTimes) {
+  const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+  
+  // Add to leaderboard
+  leaderboardRef.push({
+    playerName: playerName || 'Anonymous Player',
+    totalTime: totalTime,
+    levelTimes: levelTimes,
+    date: Date.now()
+  });
+}
+
+// Fetch and display top scores
+function fetchLeaderboard() {
+  leaderboardRef.orderByChild('totalTime').limitToFirst(10).once('value', snapshot => {
+    const scores = [];
+    snapshot.forEach(child => {
+      scores.push({
+        name: child.val().playerName,
+        time: child.val().totalTime
+      });
+    });
+    displayScores(scores); 
+  });
+}
+
+// display leaderboard scores
+function displayScores(scores) {
+  // Remove any existing leaderboard display
+  gameCompletionMeshes.forEach(mesh => {
+    if (mesh.userData && mesh.userData.isLeaderboard) {
+      scene.remove(mesh);
+    }
+  });
+  
+  // Create leaderboard header
+  const headerGeometry = new THREE.TextGeometry('TOP SCORES', { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  const headerMesh = new THREE.Mesh(
+    headerGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  );
+  headerGeometry.computeBoundingBox();
+  const headerOffset = -0.5 * (headerGeometry.boundingBox.max.x - headerGeometry.boundingBox.min.x);
+  headerMesh.position.set(headerOffset, 0.65, -0.75);
+  headerMesh.userData.isLeaderboard = true;
+  scene.add(headerMesh);
+  gameCompletionMeshes.push(headerMesh);
+  
+  // Display up to 5 scores
+  scores.slice(0, 5).forEach((score, i) => {
+    const scoreText = `${i+1}. ${score.name.substring(0, 10)} - ${formatTime(score.time)}`;
+    const scoreGeometry = new THREE.TextGeometry(scoreText, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.005 
+    });
+    const scoreColor = score.name === playerName ? 0x00ffff : 0xffffff;
+    const scoreMesh = new THREE.Mesh(
+      scoreGeometry, 
+      new THREE.MeshStandardMaterial({ color: scoreColor })
+    );
+    scoreGeometry.computeBoundingBox();
+    const scoreOffset = -0.5 * (scoreGeometry.boundingBox.max.x - scoreGeometry.boundingBox.min.x);
+    scoreMesh.position.set(scoreOffset, 0.6 - (i * 0.05), -0.75);
+    scoreMesh.userData.isLeaderboard = true;
+    scene.add(scoreMesh);
+    gameCompletionMeshes.push(scoreMesh);
+  });
+}
+
 function victory() {
 if (startTime !== null) {
 // Store the completion time for this level
@@ -1189,34 +1291,8 @@ const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boun
 totalMesh.position.set(totalOffset, 1.2, -0.75);
 scene.add(totalMesh);
 
-// Submit score to Leaderboard 
-function submitScore(playerName, levelTimes) {
-  const totalTime = levelTimes.reduce((total, time) => total + time, 0);
-  
-  // Add to leaderboard
-  leaderboardRef.push({
-    playerName: playerName || 'Anonymous Player',
-    totalTime: totalTime,
-    levelTimes: levelTimes,
-    date: Date.now()
-  });
-}
 
-// Fetch and display top scores
-function fetchLeaderboard() {
-  leaderboardRef.orderByChild('totalTime').limitToFirst(10).once('value', snapshot => {
-    const scores = [];
-    snapshot.forEach(child => {
-      scores.push({
-        name: child.val().playerName,
-        time: child.val().totalTime
-      });
-    });
-    displayScores(scores); // Your display function
-  });
-}
-
-// Add name input prompt
+// name input prompt
 const nameInputText = `Enter your name:`;
 const nameInputGeometry = new THREE.TextGeometry(nameInputText, { 
   font: font, 
@@ -1232,6 +1308,8 @@ const nameInputOffset = -0.5 * (nameInputGeometry.boundingBox.max.x - nameInputG
 nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
 scene.add(nameInputMesh);
 gameCompletionMeshes.push(nameInputMesh);
+
+
 
 // Display empty name field
 const updateNameDisplay = () => {
@@ -1365,53 +1443,7 @@ createVirtualKeyboard();
 // Initialize the name display
 updateNameDisplay();
 
-// Add this function to display leaderboard scores
-function displayScores(scores) {
-  // Remove any existing leaderboard display
-  gameCompletionMeshes.forEach(mesh => {
-    if (mesh.userData && mesh.userData.isLeaderboard) {
-      scene.remove(mesh);
-    }
-  });
-  
-  // Create leaderboard header
-  const headerGeometry = new THREE.TextGeometry('TOP SCORES', { 
-    font: font, 
-    size: 0.03, 
-    height: 0.005 
-  });
-  const headerMesh = new THREE.Mesh(
-    headerGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0xffff00 })
-  );
-  headerGeometry.computeBoundingBox();
-  const headerOffset = -0.5 * (headerGeometry.boundingBox.max.x - headerGeometry.boundingBox.min.x);
-  headerMesh.position.set(headerOffset, 0.65, -0.75);
-  headerMesh.userData.isLeaderboard = true;
-  scene.add(headerMesh);
-  gameCompletionMeshes.push(headerMesh);
-  
-  // Display up to 5 scores
-  scores.slice(0, 5).forEach((score, i) => {
-    const scoreText = `${i+1}. ${score.name.substring(0, 10)} - ${formatTime(score.time)}`;
-    const scoreGeometry = new THREE.TextGeometry(scoreText, { 
-      font: font, 
-      size: 0.02, 
-      height: 0.005 
-    });
-    const scoreColor = score.name === playerName ? 0x00ffff : 0xffffff;
-    const scoreMesh = new THREE.Mesh(
-      scoreGeometry, 
-      new THREE.MeshStandardMaterial({ color: scoreColor })
-    );
-    scoreGeometry.computeBoundingBox();
-    const scoreOffset = -0.5 * (scoreGeometry.boundingBox.max.x - scoreGeometry.boundingBox.min.x);
-    scoreMesh.position.set(scoreOffset, 0.6 - (i * 0.05), -0.75);
-    scoreMesh.userData.isLeaderboard = true;
-    scene.add(scoreMesh);
-    gameCompletionMeshes.push(scoreMesh);
-  });
-}
+
 
 submitScore(playerName, levelTimes);
 
