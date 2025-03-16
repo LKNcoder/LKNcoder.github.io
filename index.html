@@ -634,38 +634,84 @@ return false;
 }
 
 function onSelectStart(event) {
-const ringBox = new THREE.Box3().setFromObject(ring);
-const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
-const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
-
-// Check for button interactions first
-if (gameCompletionMeshes.length > 0) {
-    const controllerPosition = event.target.position;
+  const controllerPosition = event.target.position;
+  
+  // Check for button interactions first if game is completed
+  if (gameCompletionMeshes.length > 0) {
     const raycaster = new THREE.Raycaster();
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
-    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes.filter(mesh => mesh.userData && mesh.userData.isButton));
+    // Debug visual - create a small sphere at raycast origin
+    const debugSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.01, 8, 8),
+      new THREE.MeshBasicMaterial({color: 0xff0000})
+    );
+    debugSphere.position.copy(controllerPosition);
+    scene.add(debugSphere);
+    setTimeout(() => scene.remove(debugSphere), 1000); // Remove after 1 second
+    
+    // Filter only interactive objects
+    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes.filter(mesh => 
+      mesh.userData && mesh.userData.isButton));
+    
+    console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
       const button = buttonIntersects[0].object;
+      console.log('Button clicked:', button.userData);
+      
+      // Play feedback sound
+      contactSound.play().catch(error => console.log('Sound play error:', error));
+      
+      // Strong haptic feedback on button press
+      triggerHapticFeedbackByHandedness('left', 0.5, 50);
+      triggerHapticFeedbackByHandedness('right', 0.5, 50);
       
       if (button.userData.buttonType === 'restart') {
-        // Reset game state
         restartGame();
         return;
-      } else if (button.userData.buttonType === 'quit') {
-        // Exit VR session if active
+      } 
+      else if (button.userData.buttonType === 'quit') {
         if (renderer.xr.isPresenting) {
           renderer.xr.getSession().end();
         }
-        // Show "Thanks for playing" message
         alert("Thanks for playing!");
         return;
       }
+      else if (button.userData.buttonType === 'letter' && !nameEntered) {
+        // Only add letter if under max length
+        if (playerName.length < maxNameLength) {
+          playerName += button.userData.letter;
+          updateNameDisplay();
+          triggerHapticFeedbackByHandedness('left', 0.3, 50);
+          triggerHapticFeedbackByHandedness('right', 0.3, 50);
+        }
+      } 
+      else if (button.userData.buttonType === 'backspace' && !nameEntered) {
+        // Remove the last letter
+        if (playerName.length > 0) {
+          playerName = playerName.slice(0, -1);
+          updateNameDisplay();
+          triggerHapticFeedbackByHandedness('left', 0.2, 40);
+          triggerHapticFeedbackByHandedness('right', 0.2, 40);
+        }
+      }
+      else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
+        // Submit score to leaderboard
+        nameEntered = true;
+        submitScore(playerName, levelTimes);
+        fetchLeaderboard();
+        triggerHapticFeedbackByHandedness('left', 0.5, 100);
+        triggerHapticFeedbackByHandedness('right', 0.5, 100);
+      }
     }
   }
+
+const ringBox = new THREE.Box3().setFromObject(ring);
+const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
 if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
 grabbed = true;
@@ -1130,13 +1176,11 @@ if (startTime !== null) {
 // Store the completion time for this level
 const levelTime = Date.now() - startTime;
 levelTimes[currentLevel - 1] = levelTime;
-
 startTime = null;
 
 // Play victory sounds
 victorySound.play().catch(error => console.log('Sound play error:', error));
 applauseSound.play().catch(error => console.log('Sound play error:', error));
-
 triggerHapticFeedbackByHandedness('left', 0.5, 500); 
 triggerHapticFeedbackByHandedness('right', 0.5, 500);
 
@@ -1310,9 +1354,78 @@ nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
 scene.add(nameInputMesh);
 gameCompletionMeshes.push(nameInputMesh);
 
+ // Allow time to view results with confetti (4 seconds)
+ setTimeout(() => {
+          // Animate scores moving away from player
+          animateScores(scoreMeshes, -0.95, () => {
+            // Display keyboard and name entry UI after animation
+            createNameEntryUI();
+          });
+        }, 4000); // 4 second delay before moving scores
 
+ // Helper function to create text meshes with consistent positioning
+ function createTextMesh(text, size, color, yPos) {
+    const geometry = new THREE.TextGeometry(text, { font: font, size: size, height: 0.005 });
+    const material = new THREE.MeshStandardMaterial({ color: color });
+    const mesh = new THREE.Mesh(geometry, material);
+    geometry.computeBoundingBox();
+    const offset = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
+    mesh.position.set(offset, yPos, -0.75);
+    scene.add(mesh);
+    return mesh;
+  }
+  
+  // Function to animate score meshes moving away
+  function animateScores(meshes, targetZ, callback) {
+    const startTime = Date.now();
+    const duration = 1000; // 1 second animation
+    const startPositions = meshes.map(mesh => mesh.position.z);
+    const targetPosition = targetZ;
+    
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Ease-out function for smooth deceleration
+      const easeOut = 1 - Math.pow(1 - progress, 2);
+      
+      // Update all mesh positions
+      meshes.forEach((mesh, i) => {
+        mesh.position.z = startPositions[i] + (targetPosition - startPositions[i]) * easeOut;
+      });
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Animation complete, call the callback
+        if (callback) callback();
+      }
+    }
+    
+    animate();
+  }
 
-// Display empty name field
+ // Create name entry UI with keyboard
+ function createNameEntryUI() {
+    // Add name entry prompt
+    const nameInputText = `Enter your name:`;
+    const nameInputGeometry = new THREE.TextGeometry(nameInputText, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.005 
+    });
+    const nameInputMesh = new THREE.Mesh(
+      nameInputGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0xffffff })
+    );
+    nameInputGeometry.computeBoundingBox();
+    const nameInputOffset = -0.5 * (nameInputGeometry.boundingBox.max.x - nameInputGeometry.boundingBox.min.x);
+    nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
+    scene.add(nameInputMesh);
+    gameCompletionMeshes.push(nameInputMesh);
+}
+
+  // Display empty name field
 const updateNameDisplay = () => {
   if (initialsDisplayMesh) scene.remove(initialsDisplayMesh);
   
@@ -1374,7 +1487,7 @@ const createVirtualKeyboard = () => {
   spacebar.userData.letter = ' ';
   
   // Create backspace button
-  const backspaceGeometry = new THREE.TextGeometry("⌫", { font: font, size: 0.035, height: 0.005 });
+  const backspaceGeometry = new THREE.TextGeometry("DEL", { font: font, size: 0.025, height: 0.005 });
   const backspaceMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333 });
   const backspaceMesh = new THREE.Mesh(backspaceGeometry, backspaceMaterial);
   backspaceGeometry.computeBoundingBox();
@@ -1416,26 +1529,31 @@ const createVirtualKeyboard = () => {
 
 // Function to create letter buttons
 const createLetterButton = (letter, x, y) => {
+      // Create a background box for each letter
+  const buttonBg = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.05, 0.005),
+    new THREE.MeshStandardMaterial({ color: 0x333333 })
+  );
+  buttonBg.position.set(x, y, -0.755);
+  scene.add(buttonBg);
+  gameCompletionMeshes.push(buttonBg);
+
   const letterGeometry = new THREE.TextGeometry(letter, { font: font, size: 0.025, height: 0.005 });
   const letterMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
   const letterMesh = new THREE.Mesh(letterGeometry, letterMaterial);
   letterGeometry.computeBoundingBox();
-  letterMesh.position.set(x, y, -0.75);
+
+  // Center letter on button
+  const letterWidth = letterGeometry.boundingBox.max.x - letterGeometry.boundingBox.min.x;
+  const letterHeight = letterGeometry.boundingBox.max.y - letterGeometry.boundingBox.min.y;
+  letterMesh.position.set(x - letterWidth/2, y - letterHeight/2, -0.75);
+
   scene.add(letterMesh);
   gameCompletionMeshes.push(letterMesh);
   
-  // Create invisible box for button interaction
-  const buttonBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.07, 0.07, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  buttonBox.position.copy(letterMesh.position);
-  buttonBox.position.z = -0.74; // Slightly in front
-  scene.add(buttonBox);
-  gameCompletionMeshes.push(buttonBox);
-  buttonBox.userData.isButton = true;
-  buttonBox.userData.buttonType = 'letter';
-  buttonBox.userData.letter = letter;
+  buttonBg.userData.isButton = true;
+  buttonBg.userData.buttonType = 'letter';
+  buttonBg.userData.letter = letter;
 };
 
 // Create the keyboard
