@@ -66,6 +66,8 @@ let transitionImmunity = false;
 let xrInputSources = [];
 
 let gameCompleted = false;
+let scoreSummaryMeshes = []; 
+let keyboardMeshes = [];
 let initialsDisplayMesh;
 let nameEntered = false;
 let playerName = ""; // Empty string to start
@@ -1405,6 +1407,23 @@ const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boun
 totalMesh.position.set(totalOffset, 1.2, -0.75);
 scene.add(totalMesh);
 
+// Store references to score display meshes for animation
+scoreSummaryMeshes = [
+  gameCompleteMesh, level1Mesh, level2Mesh, level3Mesh, level4Mesh, level5Mesh, totalMesh
+];
+gameCompletionMeshes = [...scoreSummaryMeshes]; // Initial array just has scores
+
+// Schedule animation to happen after 5 seconds
+setTimeout(() => {
+  console.log("Starting score animation");
+  // Animate scores moving away from player over 5 seconds (5000ms)
+  animateScores(scoreSummaryMeshes, -1.5, 5000, () => {
+    console.log("Score animation complete, showing keyboard");
+    // After animation completes, show keyboard
+    showNameEntry();
+  });
+}, 5000); // 5-second delay before animation starts
+
 
 // name input prompt
 const nameInputText = `Enter your name:`;
@@ -1424,36 +1443,65 @@ scene.add(nameInputMesh);
 gameCompletionMeshes.push(nameInputMesh);
 
   
-  // Function to animate score meshes moving away
-  function animateScores(meshes, targetZ, callback) {
+ // Function to animate score meshes moving away from player
+function animateScores(meshes, targetZ, duration, callback) {
     const startTime = Date.now();
-    const duration = 1000; // 1 second animation
     const startPositions = meshes.map(mesh => mesh.position.z);
-    const targetPosition = targetZ;
     
     function animate() {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Ease-out function for smooth deceleration
-      const easeOut = 1 - Math.pow(1 - progress, 2);
-      
-      // Update all mesh positions
-      meshes.forEach((mesh, i) => {
-        mesh.position.z = startPositions[i] + (targetPosition - startPositions[i]) * easeOut;
-      });
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        // Animation complete, call the callback
-        if (callback) callback();
-      }
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease-out function for smooth deceleration
+        const easeOut = 1 - Math.pow(1 - progress, 2);
+        
+        // Update all mesh positions
+        meshes.forEach((mesh, i) => {
+            if (mesh && mesh.position) {
+                mesh.position.z = startPositions[i] + (targetZ - startPositions[i]) * easeOut;
+            }
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else if (callback) {
+            // Animation complete, call the callback
+            callback();
+        }
     }
     
     animate();
-  }
+}
 
+//set up the keyboard UI
+function showNameEntry() {
+  // Create name input prompt
+  const nameInputText = `Enter your name:`;
+  const nameInputGeometry = new THREE.TextGeometry(nameInputText, { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const nameInputMesh = new THREE.Mesh(
+    nameInputGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0xffffff })
+  );
+  nameInputGeometry.computeBoundingBox();
+  const nameInputOffset = -0.5 * (nameInputGeometry.boundingBox.max.x - nameInputGeometry.boundingBox.min.x);
+  nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
+  scene.add(nameInputMesh);
+  gameCompletionMeshes.push(nameInputMesh);
+  keyboardMeshes.push(nameInputMesh);
+
+    // Create initial empty name display
+    updateNameDisplay();
+  
+  // Create the virtual keyboard
+  createVirtualKeyboard();
+
+  // Add restart and quit buttons
+  addGameControlButtons();
+}
 
 
 // Create virtual keyboard layout
@@ -1491,7 +1539,8 @@ const createVirtualKeyboard = () => {
   spacebar.position.set(0, 0.68, -0.75);
   scene.add(spacebar);
   gameCompletionMeshes.push(spacebar);
-  
+  keyboardMeshes.push(spacebar);
+
   spacebar.userData.isButton = true;
   spacebar.userData.buttonType = 'letter';
   spacebar.userData.letter = ' ';
@@ -1504,6 +1553,7 @@ const createVirtualKeyboard = () => {
   backspaceMesh.position.set(0.25, 0.77, -0.75);
   scene.add(backspaceMesh);
   gameCompletionMeshes.push(backspaceMesh);
+  keyboardMeshes.push(backspaceMesh);
   
   const backspaceBox = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.07, 0.01),
@@ -1513,6 +1563,7 @@ const createVirtualKeyboard = () => {
   backspaceBox.position.z = -0.74; // Slightly in front
   scene.add(backspaceBox);
   gameCompletionMeshes.push(backspaceBox);
+  keyboardMeshes.push(backspaceBox);
   backspaceBox.userData.isButton = true;
   backspaceBox.userData.buttonType = 'backspace';
   
@@ -1523,6 +1574,7 @@ const createVirtualKeyboard = () => {
   submitBtnMesh.position.set(0, 0.59, -0.75);
   scene.add(submitBtnMesh);
   gameCompletionMeshes.push(submitBtnMesh);
+  keyboardMeshes.push(submitBtnMesh);
   
   // Create invisible box for submit button
   const submitBtnBox = new THREE.Mesh(
@@ -1533,67 +1585,64 @@ const createVirtualKeyboard = () => {
   submitBtnBox.position.z = -0.74; // Slightly in front
   scene.add(submitBtnBox);
   gameCompletionMeshes.push(submitBtnBox);
+  keyboardMeshes.push(submitBtnBox);
   submitBtnBox.userData.isButton = true;
   submitBtnBox.userData.buttonType = 'submit';
 };
 
-submitScore(playerName, levelTimes);
 
-createVirtualKeyboard();
+// create the restart and quit buttons
+function addGameControlButtons() {
+  // Add Restart button
+  const restartGeometry = new THREE.TextGeometry('RESTART', { font: font, size: 0.025, height: 0.005 });
+  const restartMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
+  const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
+  restartGeometry.computeBoundingBox();
+  const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
+  const restartOffset = -0.5 * restartWidth;
+  restartMesh.position.set(restartOffset - 0.1, 0.5, -0.75); // Positioned lower
+  scene.add(restartMesh);
+  gameCompletionMeshes.push(restartMesh);
+  keyboardMeshes.push(restartMesh);
 
-// Add Restart button
-const restartGeometry = new THREE.TextGeometry('RESTART', { font: font, size: 0.025, height: 0.005 });
-const restartMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
-const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
-restartGeometry.computeBoundingBox();
-const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
-const restartOffset = -0.5 * restartWidth;
-restartMesh.position.set(restartOffset - 0.1, 1.0, -0.75);
-scene.add(restartMesh);
+  // Create invisible box for restart button interaction
+  const restartBox = new THREE.Mesh(
+    new THREE.BoxGeometry(restartWidth + 0.05, 0.05, 0.01),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+  );
+  restartBox.position.copy(restartMesh.position);
+  restartBox.position.y += 0.01; // Slight offset for better interaction
+  scene.add(restartBox);
+  restartBox.userData.isButton = true;
+  restartBox.userData.buttonType = 'restart';
+  gameCompletionMeshes.push(restartBox);
+  keyboardMeshes.push(restartBox);
 
-// Create invisible box for restart button interaction
-const restartBox = new THREE.Mesh(
-  new THREE.BoxGeometry(restartWidth + 0.05, 0.05, 0.01),
-  new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-);
-restartBox.position.copy(restartMesh.position);
-restartBox.position.y += 0.01; // Slight offset for better interaction
-scene.add(restartBox);
-restartBox.userData.isButton = true;
-restartBox.userData.buttonType = 'restart';
+  // Add Quit button
+  const quitGeometry = new THREE.TextGeometry('QUIT', { font: font, size: 0.025, height: 0.005 });
+  const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 });
+  const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
+  quitGeometry.computeBoundingBox();
+  const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
+  const quitOffset = -0.5 * quitWidth;
+  quitMesh.position.set(quitOffset + 0.15, 0.5, -0.75); // Positioned lower
+  scene.add(quitMesh);
+  gameCompletionMeshes.push(quitMesh);
+  keyboardMeshes.push(quitMesh);
 
-// Add Quit button
-const quitGeometry = new THREE.TextGeometry('QUIT', { font: font, size: 0.025, height: 0.005 });
-const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 });
-const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
-quitGeometry.computeBoundingBox();
-const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
-const quitOffset = -0.5 * quitWidth;
-quitMesh.position.set(quitOffset + 0.15, 1.0, -0.75);
-scene.add(quitMesh);
-
-// Create invisible box for quit button interaction
-const quitBox = new THREE.Mesh(
-  new THREE.BoxGeometry(quitWidth + 0.05, 0.05, 0.01),
-  new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-);
-quitBox.position.copy(quitMesh.position);
-quitBox.position.y += 0.01; // Slight offset for better interaction
-scene.add(quitBox);
-quitBox.userData.isButton = true;
-quitBox.userData.buttonType = 'quit';
-
-// Store references to these meshes to remove them if needed
-gameCompletionMeshes = [
-  gameCompleteMesh, level1Mesh, level2Mesh, level3Mesh, level4Mesh, level5Mesh, 
-  totalMesh, restartMesh, quitMesh, restartBox, quitBox
-];
-
-// Remove the original text mesh since we're replacing it with multiple meshes
-scene.remove(textMesh);
-
-// Hide the timer mesh
-if (timerMesh) timerMesh.visible = false;
+  // Create invisible box for quit button interaction
+  const quitBox = new THREE.Mesh(
+    new THREE.BoxGeometry(quitWidth + 0.05, 0.05, 0.01),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+  );
+  quitBox.position.copy(quitMesh.position);
+  quitBox.position.y += 0.01; // Slight offset for better interaction
+  scene.add(quitBox);
+  quitBox.userData.isButton = true;
+  quitBox.userData.buttonType = 'quit';
+  gameCompletionMeshes.push(quitBox);
+  keyboardMeshes.push(quitBox);
+}
 }
 }
 }
