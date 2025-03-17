@@ -1249,6 +1249,9 @@ const levelTime = Date.now() - startTime;
 levelTimes[currentLevel - 1] = levelTime;
 startTime = null;
 
+if (textMesh) textMesh.visible = false; 
+if (timerMesh) timerMesh.visible = false;
+
 // Play victory sounds
 victorySound.play().catch(error => console.log('Sound play error:', error));
 applauseSound.play().catch(error => console.log('Sound play error:', error));
@@ -1528,15 +1531,15 @@ const createVirtualKeyboard = () => {
   };
   
   // Create keyboard with three rows
-  createKeyboardRow(firstRow, 0.95);
-  createKeyboardRow(secondRow, 0.86, 0.02);  // Slight offset for second row
-  createKeyboardRow(thirdRow, 0.77, 0.04);  // Larger offset for third row
+  createKeyboardRow(firstRow, 1.15);
+  createKeyboardRow(secondRow, 1.06, 0.02);  // Slight offset for second row
+  createKeyboardRow(thirdRow, 0.97, 0.04);  // Larger offset for third row
   
   // Create spacebar
   const spacebarGeometry = new THREE.BoxGeometry(0.25, 0.04, 0.01);
   const spacebarMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
   const spacebar = new THREE.Mesh(spacebarGeometry, spacebarMaterial);
-  spacebar.position.set(0, 0.68, -0.75);
+  spacebar.position.set(0, 0.88, -0.75);
   scene.add(spacebar);
   gameCompletionMeshes.push(spacebar);
   keyboardMeshes.push(spacebar);
@@ -1550,7 +1553,7 @@ const createVirtualKeyboard = () => {
   const backspaceMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333 });
   const backspaceMesh = new THREE.Mesh(backspaceGeometry, backspaceMaterial);
   backspaceGeometry.computeBoundingBox();
-  backspaceMesh.position.set(0.25, 0.77, -0.75);
+  backspaceMesh.position.set(0.27, 0.97, -0.75);
   scene.add(backspaceMesh);
   gameCompletionMeshes.push(backspaceMesh);
   keyboardMeshes.push(backspaceMesh);
@@ -1571,7 +1574,7 @@ const createVirtualKeyboard = () => {
   const submitBtnGeometry = new THREE.TextGeometry('SUBMIT', { font: font, size: 0.035, height: 0.005 });
   const submitBtnMesh = new THREE.Mesh(submitBtnGeometry, new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
   submitBtnGeometry.computeBoundingBox();
-  submitBtnMesh.position.set(0, 0.59, -0.75);
+  submitBtnMesh.position.set(0, 0.79, -0.75);
   scene.add(submitBtnMesh);
   gameCompletionMeshes.push(submitBtnMesh);
   keyboardMeshes.push(submitBtnMesh);
@@ -1600,7 +1603,7 @@ function addGameControlButtons() {
   restartGeometry.computeBoundingBox();
   const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
   const restartOffset = -0.5 * restartWidth;
-  restartMesh.position.set(restartOffset - 0.1, 0.5, -0.75); // Positioned lower
+  restartMesh.position.set(restartOffset - 0.1, 0.7, -0.75); // Positioned lower
   scene.add(restartMesh);
   gameCompletionMeshes.push(restartMesh);
   keyboardMeshes.push(restartMesh);
@@ -1625,7 +1628,7 @@ function addGameControlButtons() {
   quitGeometry.computeBoundingBox();
   const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
   const quitOffset = -0.5 * quitWidth;
-  quitMesh.position.set(quitOffset + 0.15, 0.5, -0.75); // Positioned lower
+  quitMesh.position.set(quitOffset + 0.15, 0.7, -0.75); // Positioned lower
   scene.add(quitMesh);
   gameCompletionMeshes.push(quitMesh);
   keyboardMeshes.push(quitMesh);
