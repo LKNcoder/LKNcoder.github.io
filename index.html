@@ -454,7 +454,7 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
-if (level === 0) {
+if (level === 5) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
@@ -534,7 +534,7 @@ x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
 }
 
-else if (level === 5) {
+else if (level === 0) {
   // Level 5 - challenging but navigable
   // Use moderate frequency combinations
   waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
@@ -750,6 +750,7 @@ const ringBox = new THREE.Box3().setFromObject(ring);
 const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
 const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
 
+if (!gameCompleted) {
 if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
 grabbed = true;
 grabbingController = controller1;
@@ -765,6 +766,7 @@ grabOffset.copy(ring.position).sub(controller2.position);
 grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
 if (startTime === null) {
 startTime = Date.now() - elapsedTime;
+}
 }
 }
 }
@@ -1087,7 +1089,7 @@ allBlue = false;
 break;
 }
 }
-if (allBlue) {
+if (allBlue && !gameCompleted) {
 victory();
 }
 }
@@ -1243,11 +1245,13 @@ function displayScores(scores) {
 }
 
 function victory() {
-if (startTime !== null) {
+if (startTime !== null && (!gameCompleted || currentLevel < 5)) {
 // Store the completion time for this level
 const levelTime = Date.now() - startTime;
 levelTimes[currentLevel - 1] = levelTime;
 startTime = null;
+
+
 
 if (textMesh) textMesh.visible = false; 
 if (timerMesh) timerMesh.visible = false;
@@ -1426,25 +1430,6 @@ setTimeout(() => {
     showNameEntry();
   });
 }, 5000); // 5-second delay before animation starts
-
-
-// name input prompt
-const nameInputText = `Enter your name:`;
-const nameInputGeometry = new THREE.TextGeometry(nameInputText, { 
-  font: font, 
-  size: 0.02, 
-  height: 0.005 
-});
-const nameInputMesh = new THREE.Mesh(
-  nameInputGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xffffff })
-);
-nameInputGeometry.computeBoundingBox();
-const nameInputOffset = -0.5 * (nameInputGeometry.boundingBox.max.x - nameInputGeometry.boundingBox.min.x);
-nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
-scene.add(nameInputMesh);
-gameCompletionMeshes.push(nameInputMesh);
-
   
  // Function to animate score meshes moving away from player
 function animateScores(meshes, targetZ, duration, callback) {
