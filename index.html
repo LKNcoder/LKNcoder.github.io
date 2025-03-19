@@ -1557,9 +1557,12 @@ function showNameEntry(isNewRecord) {
     return;
   }
 
-  // If it's a new record, try to use a native keyboard
-  if (tryNativeKeyboard()) {
-    // Native keyboard initialized, show just a waiting message
+ // For new records, attempt to use native keyboard first
+ const useNativeKeyboard = tryNativeKeyboard();
+  console.log("Native keyboard available:", useNativeKeyboard);
+
+  if (useNativeKeyboard) {
+    // Native keyboard initialization succeeded, show waiting message
     const waitingGeometry = new THREE.TextGeometry("Enter your name on the keyboard", { 
       font: font, 
       size: 0.02, 
@@ -1614,28 +1617,22 @@ function showNameEntry(isNewRecord) {
 }
 
 // Add this function to try using the native Meta Quest keyboard
+
 function tryNativeKeyboard() {
-  // Check for Oculus Browser virtual keyboard or navigator.virtualKeyboard API
-  const nativeKeyboard = window.OculusVirtualKeyboard || navigator.virtualKeyboard;
+  console.log("Attempting to use native keyboard...");
   
-  if (nativeKeyboard) {
-    console.log("Native keyboard API detected!");
-    
-    // Set up keyboard handler
-    let inputText = "";
-    const maxLength = maxNameLength;
-    
-    // Handle keyboard input events
+  try {
+    // Check for Meta Quest (Oculus) keyboard API
     if (window.OculusVirtualKeyboard) {
-      // Oculus specific handling
+      console.log("Meta Quest keyboard API detected!");
+      
       window.addEventListener('oculuskeyboardshow', function() {
         console.log("Oculus keyboard shown");
       });
       
       window.addEventListener('oculuskeyboardhide', function() {
         console.log("Oculus keyboard hidden");
-        if (inputText.length > 0) {
-          playerName = inputText;
+        if (playerName.length > 0) {
           nameEntered = true;
           submitScore(playerName, levelTimes);
           fetchLeaderboard();
@@ -1643,51 +1640,36 @@ function tryNativeKeyboard() {
       });
       
       window.addEventListener('oculuskeyboardinput', function(e) {
-        inputText = e.detail.input.substring(0, maxLength);
-        playerName = inputText;
+        console.log("Keyboard input:", e.detail.input);
+        playerName = e.detail.input.substring(0, maxNameLength);
         updateNameDisplay();
       });
       
-      // Show the keyboard
-      window.OculusVirtualKeyboard.show();
-    } else if (navigator.virtualKeyboard) {
-      // Standard virtual keyboard API (future-proofing)
-      navigator.virtualKeyboard.addEventListener('inputchange', (event) => {
-        inputText = event.target.value.substring(0, maxLength);
-        playerName = inputText;
-        updateNameDisplay();
-      });
-      
-      navigator.virtualKeyboard.addEventListener('hide', () => {
-        if (inputText.length > 0) {
-          playerName = inputText;
-          nameEntered = true;
-          submitScore(playerName, levelTimes);
-          fetchLeaderboard();
-        }
-      });
-      
-      navigator.virtualKeyboard.show();
+      // Try to show keyboard
+      try {
+        console.log("Attempting to show Meta Quest keyboard");
+        window.OculusVirtualKeyboard.show();
+        return true;
+      } catch (err) {
+        console.error("Failed to show Meta Quest keyboard:", err);
+        return false;
+      }
     }
     
-    return true;
-  }
-  
-  // If XR Immersive is available, we could try the DOM Overlay approach
-  if (navigator.xr && navigator.xr.isSessionSupported('immersive-vr')) {
-    try {
-      // This is a simplified approach that would need more implementation
-      // to properly handle DOM overlay with XR sessions
-      console.log("Could implement DOM overlay approach for keyboard");
-      return false; // For now, still use our custom keyboard
-    } catch (err) {
-      console.error("Error with XR DOM overlay attempt:", err);
-      return false;
+    // Standard WebXR virtual keyboard (future API)
+    if (navigator.virtualKeyboard) {
+      console.log("Standard virtualKeyboard API detected");
+      // Implementation for standard virtualKeyboard
+      return true; 
     }
+    
+    // No native keyboard available
+    console.log("No native keyboard APIs available, using fallback keyboard");
+    return false;
+  } catch (err) {
+    console.error("Error in tryNativeKeyboard:", err);
+    return false; // Error occurred, use fallback keyboard
   }
-  
-  console.log("No native keyboard APIs available");
-  return false; // No native keyboard available
 }
 
 
