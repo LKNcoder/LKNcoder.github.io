@@ -1405,87 +1405,170 @@ const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', {
     gameCompletionMeshes.push(gameCompleteMesh);
     scoreSummaryMeshes = [gameCompleteMesh];
 
- // Level rows
- for (let i = 0; i < 5; i++) {
-      const levelTime = levelTimes[i] || 0;
-      const recordTime = bestTimes[`level${i+1}`];
-      
-      // Format player's time
-      const playerTimeText = formatTime(levelTime);
-      
-      // Format record time or show "N/A"
-      const recordTimeText = recordTime ? formatTime(recordTime) : "N/A";
-      
-      // Determine color based on comparison
-      const textColor = (levelTime > 0 && recordTime && levelTime <= recordTime) ? 0x00ff00 : 0xffffff;
-      
-      // Create the level text with both times
-      const levelText = `Level ${i+1}: ${playerTimeText}    ${recordTimeText}`;
-      const levelGeometry = new THREE.TextGeometry(levelText, { 
-        font: font, 
-        size: 0.02, 
-        height: 0.005 
-      });
-      const levelMesh = new THREE.Mesh(
-        levelGeometry, 
-        new THREE.MeshStandardMaterial({ color: textColor })
-      );
-      levelGeometry.computeBoundingBox();
-      const levelOffset = -0.5 * (levelGeometry.boundingBox.max.x - levelGeometry.boundingBox.min.x);
-      levelMesh.position.set(levelOffset, 1.40 - (i * 0.05), -0.75);
-      scene.add(levelMesh);
-      gameCompletionMeshes.push(levelMesh);
-      scoreSummaryMeshes.push(levelMesh);
-    }
-    
-    // Total time comparison
-    const totalRecordTime = bestTimes.total;
-    const totalTimeText = `Total: ${formatTime(totalTime)}    ${totalRecordTime ? formatTime(totalRecordTime) : "N/A"}`;
-    const totalGeometry = new THREE.TextGeometry(totalTimeText, { 
-      font: font, 
-      size: 0.025, 
-      height: 0.005 
-    });
-    
-    // Highlight if it's a new record
-    const isNewRecord = totalTime > 0 && totalRecordTime && totalTime <= totalRecordTime;
-    const totalMesh = new THREE.Mesh(
-      totalGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: isNewRecord ? 0x00ffff : 0x00ffff,
-        emissive: isNewRecord ? 0x00ffff : 0,
-        emissiveIntensity: isNewRecord ? 0.5 : 0
-      })
-    );
-    totalGeometry.computeBoundingBox();
-    const totalOffset = -0.5 * (totalGeometry.boundingBox.max.x - totalGeometry.boundingBox.min.x);
-    totalMesh.position.set(totalOffset, 1.15, -0.75);
-    scene.add(totalMesh);
-    gameCompletionMeshes.push(totalMesh);
-    scoreSummaryMeshes.push(totalMesh);
-    
-    // Add "NEW RECORD!" text if applicable
-    if (isNewRecord) {
-      const newRecordGeometry = new THREE.TextGeometry('NEW RECORD!', { 
-        font: font, 
-        size: 0.02, 
-        height: 0.005 
-      });
-      const newRecordMesh = new THREE.Mesh(
-        newRecordGeometry, 
-        new THREE.MeshStandardMaterial({ 
-          color: 0xffff00,
-          emissive: 0xffff00,
-          emissiveIntensity: 0.5
-        })
-      );
-      newRecordGeometry.computeBoundingBox();
-      const newRecordOffset = -0.5 * (newRecordGeometry.boundingBox.max.x - newRecordGeometry.boundingBox.min.x);
-      newRecordMesh.position.set(newRecordOffset, 1.1, -0.75);
-      scene.add(newRecordMesh);
-      gameCompletionMeshes.push(newRecordMesh);
-      scoreSummaryMeshes.push(newRecordMesh);
-    }
+// Add column headers
+const yourTimesGeometry = new THREE.TextGeometry('YOUR TIMES', { 
+  font: font, 
+  size: 0.025, 
+  height: 0.005 
+});
+const yourTimesMesh = new THREE.Mesh(
+  yourTimesGeometry, 
+  new THREE.MeshStandardMaterial({ color: 0x00ffff })
+);
+yourTimesMesh.position.set(-0.28, 1.4, -0.75);
+scene.add(yourTimesMesh);
+gameCompletionMeshes.push(yourTimesMesh);
+scoreSummaryMeshes.push(yourTimesMesh);
+
+const recordTimesGeometry = new THREE.TextGeometry('RECORD TIMES', { 
+  font: font, 
+  size: 0.025, 
+  height: 0.005 
+});
+const recordTimesMesh = new THREE.Mesh(
+  recordTimesGeometry, 
+  new THREE.MeshStandardMaterial({ color: 0xffff00 })
+);
+recordTimesMesh.position.set(0.18, 1.4, -0.75);
+scene.add(recordTimesMesh);
+gameCompletionMeshes.push(recordTimesMesh);
+scoreSummaryMeshes.push(recordTimesMesh);
+
+// Level rows
+for (let i = 0; i < 5; i++) {
+  const levelTime = levelTimes[i] || 0;
+  const recordTime = bestTimes[`level${i+1}`];
+  
+  // Create level number label
+  const levelLabelGeometry = new THREE.TextGeometry(`Level ${i+1}:`, { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const levelLabelMesh = new THREE.Mesh(
+    levelLabelGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0xffffff })
+  );
+  levelLabelMesh.position.set(-0.45, 1.35 - (i * 0.05), -0.75);
+  scene.add(levelLabelMesh);
+  gameCompletionMeshes.push(levelLabelMesh);
+  scoreSummaryMeshes.push(levelLabelMesh);
+  
+  // Format player's time
+  const playerTimeText = formatTime(levelTime);
+  
+  // Player time - left column
+  const playerTextColor = (levelTime > 0 && recordTime && levelTime <= recordTime) ? 0x00ff00 : 0x00ffff;
+  const playerTimeGeometry = new THREE.TextGeometry(playerTimeText, { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const playerTimeMesh = new THREE.Mesh(
+    playerTimeGeometry, 
+    new THREE.MeshStandardMaterial({ 
+      color: playerTextColor,
+      emissive: (levelTime > 0 && recordTime && levelTime <= recordTime) ? 0x00ff00 : 0,
+      emissiveIntensity: 0.3
+    })
+  );
+  playerTimeMesh.position.set(-0.28, 1.35 - (i * 0.05), -0.75);
+  scene.add(playerTimeMesh);
+  gameCompletionMeshes.push(playerTimeMesh);
+  scoreSummaryMeshes.push(playerTimeMesh);
+  
+  // Format record time or show "N/A"
+  const recordTimeText = recordTime ? formatTime(recordTime) : "N/A";
+  
+  // Record time - right column
+  const recordTimeGeometry = new THREE.TextGeometry(recordTimeText, { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const recordTimeMesh = new THREE.Mesh(
+    recordTimeGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  );
+  recordTimeMesh.position.set(0.18, 1.35 - (i * 0.05), -0.75);
+  scene.add(recordTimeMesh);
+  gameCompletionMeshes.push(recordTimeMesh);
+  scoreSummaryMeshes.push(recordTimeMesh);
+}
+
+// Total label
+const totalLabelGeometry = new THREE.TextGeometry("Total:", { 
+  font: font, 
+  size: 0.025, 
+  height: 0.005 
+});
+const totalLabelMesh = new THREE.Mesh(
+  totalLabelGeometry, 
+  new THREE.MeshStandardMaterial({ color: 0xffffff })
+);
+totalLabelMesh.position.set(-0.45, 1.15, -0.75);
+scene.add(totalLabelMesh);
+gameCompletionMeshes.push(totalLabelMesh);
+scoreSummaryMeshes.push(totalLabelMesh);
+
+// Player total time
+const totalRecordTime = bestTimes.total;
+const isNewRecord = totalTime > 0 && (!totalRecordTime || totalTime <= totalRecordTime);
+const playerTotalGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
+  font: font, 
+  size: 0.025, 
+  height: 0.005 
+});
+const playerTotalMesh = new THREE.Mesh(
+  playerTotalGeometry, 
+  new THREE.MeshStandardMaterial({ 
+    color: isNewRecord ? 0x00ff00 : 0x00ffff,
+    emissive: isNewRecord ? 0x00ff00 : 0,
+    emissiveIntensity: isNewRecord ? 0.5 : 0
+  })
+);
+playerTotalMesh.position.set(-0.28, 1.15, -0.75);
+scene.add(playerTotalMesh);
+gameCompletionMeshes.push(playerTotalMesh);
+scoreSummaryMeshes.push(playerTotalMesh);
+
+// Record total time
+const recordTotalGeometry = new THREE.TextGeometry(totalRecordTime ? formatTime(totalRecordTime) : "N/A", { 
+  font: font, 
+  size: 0.025, 
+  height: 0.005 
+});
+const recordTotalMesh = new THREE.Mesh(
+  recordTotalGeometry, 
+  new THREE.MeshStandardMaterial({ color: 0xffff00 })
+);
+recordTotalMesh.position.set(0.18, 1.15, -0.75);
+scene.add(recordTotalMesh);
+gameCompletionMeshes.push(recordTotalMesh);
+scoreSummaryMeshes.push(recordTotalMesh);
+
+// Add "NEW RECORD!" text if applicable
+if (isNewRecord) {
+  const newRecordGeometry = new THREE.TextGeometry('NEW RECORD!', { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  const newRecordMesh = new THREE.Mesh(
+    newRecordGeometry, 
+    new THREE.MeshStandardMaterial({ 
+      color: 0xffff00,
+      emissive: 0xffff00,
+      emissiveIntensity: 0.5
+    })
+  );
+  newRecordGeometry.computeBoundingBox();
+  const newRecordOffset = -0.5 * (newRecordGeometry.boundingBox.max.x - newRecordGeometry.boundingBox.min.x);
+  newRecordMesh.position.set(newRecordOffset, 1.05, -0.75);
+  scene.add(newRecordMesh);
+  gameCompletionMeshes.push(newRecordMesh);
+  scoreSummaryMeshes.push(newRecordMesh);
+}   
     
  // Schedule animation to happen after 5 seconds
 setTimeout(() => {
