@@ -50,6 +50,10 @@ import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import ThreeMeshUI from 'three-mesh-ui';
 
+// immediate debug logging to verify loading
+console.log("ThreeMeshUI loaded:", !!ThreeMeshUI);
+console.log("ThreeMeshUI methods:", Object.keys(ThreeMeshUI));
+
 let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
@@ -254,114 +258,140 @@ console.error('Failed to enter VR:', error);
 
 // create three mesh ui keyboard
 function createThreeMeshUIKeyboard() {
-  // Container to hold all keyboard components
-  const keyboardContainer = new THREE.Group();
-  keyboardContainer.position.set(0, 1.0, -0.75);
-  scene.add(keyboardContainer);
-  gameCompletionMeshes.push(keyboardContainer);
+  console.log("Creating simplified ThreeMeshUI keyboard");
   
-  // Create the keyboard
-  const keyboard = new ThreeMeshUI.Keyboard({
-    fontFamily: 'roboto',
-    fontTexture: 'roboto',
-    fontSize: 0.035,
-    backgroundColor: new THREE.Color(0x222222),
-    backgroundOpacity: 0.8,
-    backspaceTexture: null,
-    shiftTexture: null
-  });
+  // Create a container to hold our UI elements
+  const container = new THREE.Group();
+  container.position.set(0, 1.0, -0.75);
+  scene.add(container);
+  gameCompletionMeshes.push(container);
   
-  keyboard.position.set(0, 0, 0);
-  keyboardContainer.add(keyboard);
-  
-  // Create display panel for user input
-  const inputDisplay = new ThreeMeshUI.Block({
-    width: 0.5,
-    height: 0.1,
-    backgroundColor: new THREE.Color(0x000000),
-    backgroundOpacity: 0.7,
-    fontFamily: 'roboto',
-    fontTexture: 'roboto',
-    fontSize: 0.035
-  });
-  
-  inputDisplay.position.set(0, 0.15, 0);
-  keyboardContainer.add(inputDisplay);
-  
-  // Add text to display
-  const text = new ThreeMeshUI.Text({ 
-    content: playerName + "_",
-    fontColor: new THREE.Color(0x00ffff) 
-  });
-  
-  inputDisplay.add(text);
-  
-  // Set up keyboard behavior
-  keyboard.onInput = (input) => {
-    // Handle special keys
-    if (input === 'Backspace') {
-      if (playerName.length > 0) {
-        playerName = playerName.slice(0, -1);
-      }
-    } else if (input === 'Enter') {
-      if (playerName.length > 0) {
-        nameEntered = true;
-        submitScore(playerName, levelTimes);
-        fetchLeaderboard();
-        keyboardContainer.visible = false;
-      }
-    } else if (playerName.length < maxNameLength) {
-      playerName += input;
-    }
+  // Create a very basic keyboard with just a few elements
+  try {
+    // Create block for containing text
+    const keyboardContainer = new ThreeMeshUI.Block({
+      width: 0.6,
+      height: 0.4,
+      padding: 0.02,
+      backgroundColor: new THREE.Color(0x222222),
+      backgroundOpacity: 0.8
+    });
+    keyboardContainer.position.set(0, 0, 0);
+    container.add(keyboardContainer);
     
-    // Update display
-    text.set({ content: playerName + "_" });
+    console.log("Added basic keyboard container");
     
-    // Give haptic feedback
-    triggerHapticFeedbackByHandedness('left', 0.3, 50);
-    triggerHapticFeedbackByHandedness('right', 0.3, 50);
-  };
-  
-  // Add submit button
-  const submitButton = new ThreeMeshUI.Block({
-    width: 0.2,
-    height: 0.08,
-    backgroundColor: new THREE.Color(0x009900),
-    backgroundOpacity: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    offset: 0.01,
-    borderRadius: 0.02
-  });
-  
-  submitButton.position.set(0.2, -0.25, 0);
-  keyboardContainer.add(submitButton);
-  
-  submitButton.add(new ThreeMeshUI.Text({ 
-    content: "SUBMIT",
-    fontSize: 0.035
-  }));
-  
-  // Make submit button interactive
-  submitButton.setupState({
-    state: 'hovered',
-    attributes: { backgroundColor: new THREE.Color(0x00bb00) }
-  });
-  
-  submitButton.setupState({
-    state: 'selected',
-    attributes: { backgroundColor: new THREE.Color(0x00ff00) },
-    onSet: () => {
-      if (playerName.length > 0) {
-        nameEntered = true;
-        submitScore(playerName, levelTimes);
-        fetchLeaderboard();
-        keyboardContainer.visible = false;
-      }
-    }
-  });
-  
-  return keyboardContainer;
+    // Add a test text element to verify the library is working
+    const textBlock = new ThreeMeshUI.Block({
+      width: 0.5,
+      height: 0.05,
+      padding: 0.01,
+      justifyContent: 'center',
+      backgroundOpacity: 0.6
+    });
+    
+    // Load font directly
+    ThreeMeshUI.FontLibrary.addFont(
+      "roboto",
+      "https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.json",
+      "https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.png"
+    );
+    
+    // Create a test text element
+    const text = new ThreeMeshUI.Text({
+      content: "Keyboard Test",
+      fontFamily: "roboto",
+      fontSize: 0.035
+    });
+    
+    textBlock.add(text);
+    keyboardContainer.add(textBlock);
+    console.log("Added test text element");
+    
+    // Create a few simple buttons
+    const buttonsBlock = new ThreeMeshUI.Block({
+      width: 0.5,
+      height: 0.2,
+      padding: 0.01,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundOpacity: 0.0
+    });
+    
+    const keys = ["A", "B", "C", "Submit"];
+    keys.forEach((key, i) => {
+      const button = new ThreeMeshUI.Block({
+        width: 0.08,
+        height: 0.08,
+        padding: 0.01,
+        margin: 0.01,
+        justifyContent: "center",
+        backgroundColor: new THREE.Color(0x333333),
+        backgroundOpacity: 1
+      });
+      
+      const buttonText = new ThreeMeshUI.Text({
+        content: key,
+        fontFamily: "roboto",
+        fontSize: 0.04
+      });
+      
+      button.add(buttonText);
+      buttonsBlock.add(button);
+      
+      // Make button interactive
+      button.setupState({
+        state: 'hovered',
+        attributes: { backgroundColor: new THREE.Color(0x999999) }
+      });
+      
+      button.setupState({
+        state: 'selected',
+        attributes: { backgroundColor: new THREE.Color(0x55bb55) },
+        onSet: () => {
+          if (key === "Submit") {
+            if (playerName.length > 0) {
+              nameEntered = true;
+              submitScore(playerName, levelTimes);
+              fetchLeaderboard();
+              keyboardContainer.visible = false;
+            }
+          } else {
+            playerName += key;
+            text.set({ content: playerName });
+          }
+          
+          // Give haptic feedback
+          triggerHapticFeedbackByHandedness('left', 0.3, 50);
+          triggerHapticFeedbackByHandedness('right', 0.3, 50);
+        }
+      });
+    });
+    
+    keyboardContainer.add(buttonsBlock);
+    console.log("Added keyboard buttons");
+    
+    return container;
+  } catch (error) {
+    console.error("Error creating ThreeMeshUI keyboard:", error);
+    
+    // Fallback: create a simple text message if ThreeMeshUI fails
+    const errorGeometry = new THREE.TextGeometry("Keyboard failed to load", { 
+      font: font, 
+      size: 0.02, 
+      height: 0.005 
+    });
+    const errorMesh = new THREE.Mesh(
+      errorGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0xff0000 })
+    );
+    errorGeometry.computeBoundingBox();
+    const errorOffset = -0.5 * (errorGeometry.boundingBox.max.x - errorGeometry.boundingBox.min.x);
+    errorMesh.position.set(errorOffset, 0, 0);
+    container.add(errorMesh);
+    
+    return container;
+  }
 }
 
 const particlesGeometry = new THREE.BufferGeometry();
@@ -1930,9 +1960,18 @@ function showNameEntry(isNewRecord) {
     // Add restart and quit buttons
     addGameControlButtons();
   } else {
-    // Use three-mesh-ui keyboard instead of our custom keyboard
-    console.log("Using three-mesh-ui keyboard");
-    createThreeMeshUIKeyboard();
+      // Try to use three-mesh-ui keyboard
+      console.log("Attempting to use three-mesh-ui keyboard");
+    try {
+      const keyboard = createThreeMeshUIKeyboard();
+      if (!keyboard) throw new Error("Keyboard creation failed");
+      console.log("ThreeMeshUI keyboard created successfully");
+    } catch (error) {
+      console.error("ThreeMeshUI keyboard failed:", error);
+      // Fallback to your custom keyboard implementation
+      console.log("Falling back to custom keyboard");
+      createVirtualKeyboard();
+    }
     
     // Add restart and quit buttons
     addGameControlButtons();
