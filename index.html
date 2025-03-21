@@ -335,7 +335,8 @@ function createImprovedVirtualKeyboard() {
   
   // Keyboard container to group all elements
   const keyboardContainer = new THREE.Group();
-  keyboardContainer.position.set(0, 1.1, -0.75);
+  keyboardContainer.name = "keyboardContainer"; 
+  keyboardContainer.position.set(0, 1.2, -0.75);
   keyboardContainer.scale.set(0.4, 0.4, 0.4);
   scene.add(keyboardContainer);
   gameCompletionMeshes.push(keyboardContainer);
@@ -764,14 +765,38 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
-if (level === 0) {
+if (level === 1) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
+  if (level === 2) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
+  if (level === 3) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
+  if (level === 4) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
+  if (level === 5) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
       z = Math.sin(angle) * radius;
     }
 
-if (level === 1) {
+if (level === 67) {
 // Level 1 wire pattern
 waveX = Math.sin(angle * 8) * 0.05;
 waveY = Math.cos(angle * 6) * 0.05;
@@ -779,7 +804,7 @@ x = (Math.cos(angle) * radius) + waveX;
 y = 1.4 + waveY;
 z = (Math.sin(angle) * radius) + waveX;
 } 
-else if (level === 2) {
+else if (level === 9) {
 // Level 2 wire pattern 
 waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
 waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
@@ -794,7 +819,7 @@ x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
 y = 1.4 + waveY + heightVar;
 z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
 }
-else if (level === 3) {
+else if (level === 6) {
 // Level 3 wire pattern
 waveX = Math.sin(angle * 10) * 0.08;
 waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
@@ -805,7 +830,7 @@ x = (Math.cos(rotatedAngle) * radius) + waveX;
 y = 1.4 + waveY;
 z = (Math.sin(rotatedAngle) * radius) + waveZ;
 }
-else if (level === 4) {
+else if (level === 8) {
 // Level 4 wire pattern - most complex but still navigable
 
 // Use prime number frequencies for less predictable patterns
@@ -844,7 +869,7 @@ x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
 }
 
-else if (level === 5) {
+else if (level === 0) {
   // Level 5 - challenging but navigable
   // Use moderate frequency combinations
   waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
@@ -1167,27 +1192,116 @@ renderer.setAnimationLoop(render);
       triggerHapticFeedbackByHandedness('right', 0.2, 40);
     }
   }
+
   else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
-    // Submit score to leaderboard
-    nameEntered = true;
+  // Submit score to leaderboard
+  nameEntered = true;
+  
+  if (gameCompleted) {
+    // If game is complete, submit full game score
     submitScore(playerName, levelTimes);
     fetchLeaderboard();
-    
-    // Clear any cursor blink interval
-    if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
-      clearInterval(initialsDisplayMesh.userData.blinkInterval);
-      initialsDisplayMesh.userData.blinkInterval = null;
-    }
-    
-    triggerHapticFeedbackByHandedness('left', 0.5, 100);
-    triggerHapticFeedbackByHandedness('right', 0.5, 100);
-    
-    // Hide keyboard after submission
-    button.parent.visible = false;
-    hideControllerRays();
-    keyboardActive = false;
+  } else {
+    // If individual level, save just that level record
+    saveLevelRecord(currentLevel, levelTimes[currentLevel-1], playerName);
+  }
+  
+  // Clear any cursor blink interval
+  if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
+    clearInterval(initialsDisplayMesh.userData.blinkInterval);
+    initialsDisplayMesh.userData.blinkInterval = null;
+  }
+  
+  triggerHapticFeedbackByHandedness('left', 0.5, 100);
+  triggerHapticFeedbackByHandedness('right', 0.5, 100);
+  
+  // Hide keyboard after submission
+  button.parent.visible = false;
+  hideControllerRays();
+  keyboardActive = false;
+  
+  // If mid-game, continue to next level
+  if (!gameCompleted) {
+    proceedToNextLevel();
   }
 }
+}
+
+// Function to check if a level time is a record
+function checkIfNewRecord(levelIndex, levelTime, callback) {
+  // Get current best time from database
+  const levelRef = firebase.database().ref(`records/level${levelIndex + 1}`);
+  levelRef.once('value', snapshot => {
+    const record = snapshot.val();
+    // If no record exists or new time is better, it's a record
+    const isRecord = !record || levelTime < record.time;
+    callback(isRecord);
+  });
+}
+
+// Function to save individual level records
+function saveLevelRecord(levelNumber, time, playerName) {
+  // Save to the database
+  const levelRef = firebase.database().ref(`records/level${levelNumber}`);
+  levelRef.set({
+    playerName: playerName,
+    time: time,
+    date: Date.now()
+  });
+}
+
+// Function to proceed to next level (extracted from victory function)
+function proceedToNextLevel() {
+  // Clean up any notification meshes
+  gameCompletionMeshes.forEach(mesh => {
+    if (mesh.userData && mesh.userData.isNotification) {
+      scene.remove(mesh);
+    }
+  });
+  
+  ring.visible = false;
+  transitionImmunity = true;
+  setTimeout(() => {
+    currentLevel++;
+    // Update the level text
+    if (textMesh && font) {
+      textMesh.geometry.dispose();
+      textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, 
+        { font: font, size: 0.02, height: 0.005 });
+      textMesh.geometry.computeBoundingBox();
+    }
+
+    // Create the new wire
+    wire = createWire(currentLevel);
+
+    // Reset the ring position
+    ring.position.copy(ringStartPosition);
+    ring.rotation.set(0, Math.PI / 2, 0);
+
+    // Keep ring invisible until we're sure it's safe
+    setTimeout(() => {
+      ring.visible = true;
+      transitionImmunity = false;
+    }, 100);
+
+    // Reset timer for next level
+    elapsedTime = 0;
+    grabbed = false;
+    grabbingController = null;
+
+    // Reset timer display
+    if (timerMesh && timerFont) {
+      timerMesh.geometry.dispose();
+      timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+        font: timerFont, size: 0.02, height: 0.005,
+      });
+      timerMesh.geometry.computeBoundingBox();
+      const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+    }
+  }, 2000);
+}
+
 
 // implement keyboard hover effects
 function updateKeyboardHoverState() {
@@ -1522,6 +1636,72 @@ function createConfetti() {
   }
 }
 
+function showNewRecordNotification(recordTime) {
+  // Create record notification text
+  const recordGeometry = new THREE.TextGeometry('NEW RECORD!', { 
+    font: font, 
+    size: 0.05, // Slightly larger
+    height: 0.008 
+  });
+  const recordMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffff00,
+    emissive: 0xffff00,
+    emissiveIntensity: 0.7 // Brighter
+  });
+  const recordMesh = new THREE.Mesh(recordGeometry, recordMaterial);
+  recordGeometry.computeBoundingBox();
+  const recordOffset = -0.5 * (recordGeometry.boundingBox.max.x - recordGeometry.boundingBox.min.x);
+  recordMesh.position.set(recordOffset, 1.5, -0.75);
+  scene.add(recordMesh);
+  
+  // Show the time
+  const timeGeometry = new THREE.TextGeometry(`Time: ${formatTime(recordTime)}`, { 
+    font: font, 
+    size: 0.035, 
+    height: 0.005 
+  });
+  const timeMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00ffff,
+    emissive: 0x00ffff, 
+    emissiveIntensity: 0.3 
+  });
+  const timeMesh = new THREE.Mesh(timeGeometry, timeMaterial);
+  timeGeometry.computeBoundingBox();
+  const timeOffset = -0.5 * (timeGeometry.boundingBox.max.x - timeGeometry.boundingBox.min.x);
+  timeMesh.position.set(timeOffset, 1.4, -0.75);
+  scene.add(timeMesh);
+  
+  // Add "Enter your name:" text
+  const promptGeometry = new THREE.TextGeometry('Enter your name:', { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  const promptMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
+  promptGeometry.computeBoundingBox();
+  const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
+  promptMesh.position.set(promptOffset, 1.3, -0.75);
+  scene.add(promptMesh);
+  
+  // Store these for later cleanup and mark them as notifications
+  recordMesh.userData.isNotification = true;
+  timeMesh.userData.isNotification = true;
+  promptMesh.userData.isNotification = true;
+  gameCompletionMeshes.push(recordMesh, timeMesh, promptMesh);
+  
+  // Make the record text blink
+  let blinkCount = 0;
+  const blinkInterval = setInterval(() => {
+    recordMesh.visible = !recordMesh.visible;
+    blinkCount++;
+    if (blinkCount >= 10) {
+      clearInterval(blinkInterval);
+      recordMesh.visible = true;
+    }
+  }, 250);
+}
+
 // Submit score to Leaderboard 
 function submitScore(playerName, levelTimes) {
   const totalTime = levelTimes.reduce((total, time) => total + time, 0);
@@ -1645,25 +1825,56 @@ function fetchBestTimes(callback) {
 }
 
 function victory() {
-if (startTime !== null && (!gameCompleted || currentLevel < 5)) {
-// Store the completion time for this level
-const levelTime = Date.now() - startTime;
-levelTimes[currentLevel - 1] = levelTime;
-startTime = null;
+  if (startTime !== null && (!gameCompleted || currentLevel < 5)) {
+    // Store the completion time for this level
+    const levelTime = Date.now() - startTime;
+    levelTimes[currentLevel - 1] = levelTime;
+    startTime = null;
 
-if (textMesh) textMesh.visible = false; 
-if (timerMesh) timerMesh.visible = false;
+    if (textMesh) textMesh.visible = false; 
+    if (timerMesh) timerMesh.visible = false;
 
-// Play victory sounds
-victorySound.play().catch(error => console.log('Sound play error:', error));
-applauseSound.play().catch(error => console.log('Sound play error:', error));
-triggerHapticFeedbackByHandedness('left', 0.5, 500); 
-triggerHapticFeedbackByHandedness('right', 0.5, 500);
+    // Play victory sounds
+    victorySound.play().catch(error => console.log('Sound play error:', error));
+    applauseSound.play().catch(error => console.log('Sound play error:', error));
+    triggerHapticFeedbackByHandedness('left', 0.5, 500); 
+    triggerHapticFeedbackByHandedness('right', 0.5, 500);
 
-// Flash the wire white and blue
-flashWire(3, false);
+    // Flash the wire white and blue
+    flashWire(3, false);
 
-console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+    console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+    
+    // Check if this is a new record for this level
+    checkIfNewRecord(currentLevel - 1, levelTime, function(isRecord) {
+      if (isRecord) {
+        // Create "NEW RECORD!" notification
+        showNewRecordNotification(levelTime);
+        
+        // Create confetti effect
+        createConfetti();
+        
+        // Show the keyboard for name entry
+        playerName = ""; // Reset player name for new entry
+        nameEntered = false;
+        
+        // Add slight delay before showing keyboard
+        setTimeout(() => {
+          const keyboard = createImprovedVirtualKeyboard();
+          // Position keyboard appropriately
+          if (keyboard) {
+            keyboard.position.set(0, 1.2, -0.75);
+          }
+        }, 1500);
+        
+        // The game will continue after name submission in the handleKeyPress function
+      } else {
+        // If no record, continue normally
+        proceedToNextLevel();
+      }
+    });
+  }
+}
 
 // Advance to the next level - CHANGED to support four levels
 if (currentLevel < 5) {  // Updated to go to level 5
