@@ -41,18 +41,20 @@ transform: translate(-50%, -50%);
 "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
 "three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
 "three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js"
+"three-mesh-ui": "https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/build/three-mesh-ui.module.js"
 }
 }
 </script>
 <script type="module">
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import ThreeMeshUI from 'three-mesh-ui';
 
 let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 5; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 let explosionFragments = [];
@@ -126,6 +128,15 @@ scene.add(textMesh);
 const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json';
 loader.load(timerFontURL, function (loadedTimerFont) {
 timerFont = loadedTimerFont;
+
+// Load font for ThreeMeshUI
+const fontFamily = { 
+  'roboto': 'https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.json' 
+};
+const fontTexture = { 
+  'roboto': 'https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.png' 
+};
+
 // Use the loaded font for the timer with shorter format
 const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
 const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
@@ -240,6 +251,118 @@ vrButton.style.display = 'none';
 console.error('Failed to enter VR:', error);
 }
 });
+
+// create three mesh ui keyboard
+function createThreeMeshUIKeyboard() {
+  // Container to hold all keyboard components
+  const keyboardContainer = new THREE.Group();
+  keyboardContainer.position.set(0, 1.0, -0.75);
+  scene.add(keyboardContainer);
+  gameCompletionMeshes.push(keyboardContainer);
+  
+  // Create the keyboard
+  const keyboard = new ThreeMeshUI.Keyboard({
+    fontFamily: 'roboto',
+    fontTexture: 'roboto',
+    fontSize: 0.035,
+    backgroundColor: new THREE.Color(0x222222),
+    backgroundOpacity: 0.8,
+    backspaceTexture: null,
+    shiftTexture: null
+  });
+  
+  keyboard.position.set(0, 0, 0);
+  keyboardContainer.add(keyboard);
+  
+  // Create display panel for user input
+  const inputDisplay = new ThreeMeshUI.Block({
+    width: 0.5,
+    height: 0.1,
+    backgroundColor: new THREE.Color(0x000000),
+    backgroundOpacity: 0.7,
+    fontFamily: 'roboto',
+    fontTexture: 'roboto',
+    fontSize: 0.035
+  });
+  
+  inputDisplay.position.set(0, 0.15, 0);
+  keyboardContainer.add(inputDisplay);
+  
+  // Add text to display
+  const text = new ThreeMeshUI.Text({ 
+    content: playerName + "_",
+    fontColor: new THREE.Color(0x00ffff) 
+  });
+  
+  inputDisplay.add(text);
+  
+  // Set up keyboard behavior
+  keyboard.onInput = (input) => {
+    // Handle special keys
+    if (input === 'Backspace') {
+      if (playerName.length > 0) {
+        playerName = playerName.slice(0, -1);
+      }
+    } else if (input === 'Enter') {
+      if (playerName.length > 0) {
+        nameEntered = true;
+        submitScore(playerName, levelTimes);
+        fetchLeaderboard();
+        keyboardContainer.visible = false;
+      }
+    } else if (playerName.length < maxNameLength) {
+      playerName += input;
+    }
+    
+    // Update display
+    text.set({ content: playerName + "_" });
+    
+    // Give haptic feedback
+    triggerHapticFeedbackByHandedness('left', 0.3, 50);
+    triggerHapticFeedbackByHandedness('right', 0.3, 50);
+  };
+  
+  // Add submit button
+  const submitButton = new ThreeMeshUI.Block({
+    width: 0.2,
+    height: 0.08,
+    backgroundColor: new THREE.Color(0x009900),
+    backgroundOpacity: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    offset: 0.01,
+    borderRadius: 0.02
+  });
+  
+  submitButton.position.set(0.2, -0.25, 0);
+  keyboardContainer.add(submitButton);
+  
+  submitButton.add(new ThreeMeshUI.Text({ 
+    content: "SUBMIT",
+    fontSize: 0.035
+  }));
+  
+  // Make submit button interactive
+  submitButton.setupState({
+    state: 'hovered',
+    attributes: { backgroundColor: new THREE.Color(0x00bb00) }
+  });
+  
+  submitButton.setupState({
+    state: 'selected',
+    attributes: { backgroundColor: new THREE.Color(0x00ff00) },
+    onSet: () => {
+      if (playerName.length > 0) {
+        nameEntered = true;
+        submitScore(playerName, levelTimes);
+        fetchLeaderboard();
+        keyboardContainer.visible = false;
+      }
+    }
+  });
+  
+  return keyboardContainer;
+}
 
 const particlesGeometry = new THREE.BufferGeometry();
 const particlesCount = 3000;
@@ -503,7 +626,7 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
-if (level === 5) {
+if (level === 0) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
@@ -583,7 +706,7 @@ x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
 }
 
-else if (level === 0) {
+else if (level === 5) {
   // Level 5 - challenging but navigable
   // Use moderate frequency combinations
   waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
@@ -1130,6 +1253,9 @@ if (isExploding) {
 if (gameCompleted) {
   updateKeyboardHoverState();
 }
+
+ThreeMeshUI.update();
+
 renderer.render(scene, camera);
 }
 
@@ -1750,8 +1876,7 @@ setTimeout(() => {
 }
 }
 
-// Replace the showNameEntry function with this updated version:
-
+// use new keyboard 
 function showNameEntry(isNewRecord) {
   // Only show keyboard if it's a new record
   if (!isNewRecord) {
@@ -1775,6 +1900,8 @@ function showNameEntry(isNewRecord) {
     addGameControlButtons();
     return;
   }
+
+
 
  // For new records, attempt to use native keyboard first
  const useNativeKeyboard = tryNativeKeyboard();
@@ -1803,32 +1930,9 @@ function showNameEntry(isNewRecord) {
     // Add restart and quit buttons
     addGameControlButtons();
   } else {
-    // Fall back to our custom keyboard
-    console.log("Using custom keyboard - native keyboard not available");
-    
-    // Create name input prompt
-    const nameInputText = `Enter your name:`;
-    const nameInputGeometry = new THREE.TextGeometry(nameInputText, { 
-      font: font, 
-      size: 0.02, 
-      height: 0.005 
-    });
-    const nameInputMesh = new THREE.Mesh(
-      nameInputGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xffffff })
-    );
-    nameInputGeometry.computeBoundingBox();
-    const nameInputOffset = -0.5 * (nameInputGeometry.boundingBox.max.x - nameInputGeometry.boundingBox.min.x);
-    nameInputMesh.position.set(nameInputOffset, 1.1, -0.75);
-    scene.add(nameInputMesh);
-    gameCompletionMeshes.push(nameInputMesh);
-    keyboardMeshes.push(nameInputMesh);
-    
-    // Create initial empty name display
-    updateNameDisplay();
-    
-    // Create the virtual keyboard
-    createVirtualKeyboard();
+    // Use three-mesh-ui keyboard instead of our custom keyboard
+    console.log("Using three-mesh-ui keyboard");
+    createThreeMeshUIKeyboard();
     
     // Add restart and quit buttons
     addGameControlButtons();
