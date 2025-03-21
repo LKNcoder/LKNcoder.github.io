@@ -342,14 +342,14 @@ function createImprovedVirtualKeyboard() {
   keyboardMeshes.push(keyboardContainer);
   
   // Keyboard background panel
-  const panelGeometry = new THREE.BoxGeometry(0.8, 0.55, 0.01);
+  const panelGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.01);
   const panelMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x222222, 
     transparent: true, 
     opacity: 0.8 
   });
   const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-  panel.position.set(0, -0.05, -0.01);
+  panel.position.set(0, -0.1, -0.01);
   keyboardContainer.add(panel);
   keyboardMeshes.push(panel);
   
