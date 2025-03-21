@@ -202,49 +202,7 @@ vrButton.style.display = 'none';
       if (!firstFrameRendered) {
         firstFrameRendered = true;
         console.log('Waiting for controllers to initialize...');
-        setTimeout(initControllerHaptics, 1000);
-
-            // Create keyboard test button in VR
-            if (font) {
-          const [testButtonMesh, testButtonBox] = createKeyboardTestButton();
-          gameCompletionMeshes.push(testButtonMesh);
-          gameCompletionMeshes.push(testButtonBox);
-        } else {
-          // Font not loaded yet, wait for it
-          const checkFont = setInterval(() => {
-            if (font) {
-              const [testButtonMesh, testButtonBox] = createKeyboardTestButton();
-              gameCompletionMeshes.push(testButtonMesh);
-              gameCompletionMeshes.push(testButtonBox);
-              clearInterval(checkFont);
-            }
-          }, 500);
-        }
-// Test our custom keyboard shortly after entering VR
-setTimeout(() => {
-  console.log("Testing custom keyboard at startup...");
-  createImprovedVirtualKeyboard();
-  
-  // Create a visual indicator to show keyboard creation
-  const statusMessage = "Custom keyboard initialized!";
-  const statusGeometry = new THREE.TextGeometry(statusMessage, { 
-    font: font, 
-    size: 0.02, 
-    height: 0.005 
-  });
-  const statusMesh = new THREE.Mesh(
-    statusGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-  );
-  statusGeometry.computeBoundingBox();
-  const statusOffset = -0.5 * (statusGeometry.boundingBox.max.x - statusGeometry.boundingBox.min.x);
-  statusMesh.position.set(statusOffset, 2.2, -0.75);
-  scene.add(statusMesh);
-  
-  // Remove the message after 10 seconds
-  setTimeout(() => scene.remove(statusMesh), 10000);
-}, 3000);
-        
+        setTimeout(initControllerHaptics, 1000);        
       }
     });
     
@@ -261,7 +219,6 @@ setTimeout(forceShowKeyboard, 5000);
 console.error('Failed to enter VR:', error);
 }
 });
-
 
 
 const particlesGeometry = new THREE.BufferGeometry();
@@ -954,15 +911,7 @@ function onSelectStart(event) {
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
-    // Debug visual - create a small sphere at raycast origin
-    const debugSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.01, 8, 8),
-      new THREE.MeshBasicMaterial({color: 0xff0000})
-    );
-    debugSphere.position.copy(controllerPosition);
-    scene.add(debugSphere);
-    setTimeout(() => scene.remove(debugSphere), 1000); // Remove after 1 second
-    
+      
     // Filter only interactive objects
     const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes.filter(mesh => 
       mesh.userData && mesh.userData.isButton));
@@ -994,92 +943,7 @@ function onSelectStart(event) {
       triggerHapticFeedbackByHandedness('right', 0.6, 150);
     }
   }
-  else if (button.userData.buttonType === 'keyboardTest') {
-  console.log("User triggered keyboard test - launching custom keyboard");
   
-  try {
-    // Remove any existing keyboard first
-    keyboardMeshes.forEach(mesh => {
-      scene.remove(mesh);
-      if (mesh.geometry) mesh.geometry.dispose();
-      if (mesh.material) mesh.material.dispose();
-    });
-    keyboardMeshes = [];
-    
-    // Create and position custom keyboard
-    const keyboard = createImprovedVirtualKeyboard();
-    if (keyboard) {
-      // Position the keyboard in a good viewing position
-      keyboard.position.set(0, 1.4, -0.75);
-      console.log("Custom keyboard created successfully");
-      
-      // Show success message
-      const resultGeometry = new THREE.TextGeometry(
-        "Custom keyboard launched!", 
-        { font: font, size: 0.02, height: 0.005 }
-      );
-      } else {
-      console.error("Failed to create custom keyboard");
-      
-      // Show failure message
-      const resultGeometry = new THREE.TextGeometry(
-        "Failed to create custom keyboard", 
-        { font: font, size: 0.02, height: 0.005 }
-      );
-      const resultMesh = new THREE.Mesh(
-        resultGeometry, 
-        new THREE.MeshStandardMaterial({ color: 0xff0000 })
-      );
-      resultGeometry.computeBoundingBox();
-      const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
-      resultMesh.position.set(resultOffset, 1.7, -0.75);
-      scene.add(resultMesh);
-      
-      // Remove the result text after 5 seconds
-      setTimeout(() => scene.remove(resultMesh), 5000);
-    }
-  } catch (error) {
-    console.error("Error creating custom keyboard:", error);
-    
-    // Show error message
-    const resultGeometry = new THREE.TextGeometry(
-      "Error: " + error.message, 
-      { font: font, size: 0.02, height: 0.005 }
-    );
-    const resultMesh = new THREE.Mesh(
-      resultGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xff0000 })
-    );
-    resultGeometry.computeBoundingBox();
-    const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
-    resultMesh.position.set(resultOffset, 1.7, -0.75);
-    scene.add(resultMesh);
-    
-    // Remove the result text after 5 seconds
-    setTimeout(() => scene.remove(resultMesh), 5000);
-  }
-}
-
-    const resultMesh = new THREE.Mesh(
-      resultGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: result ? 0x00ff00 : 0xff0000 
-      })
-    );
-    resultGeometry.computeBoundingBox();
-    const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
-    resultMesh.position.set(resultOffset, 1.7, -0.75);
-    scene.add(resultMesh);
-    
-    // Remove the result text after 5 seconds
-    setTimeout(() => scene.remove(resultMesh), 5000);
-    
-    triggerHapticFeedbackByHandedness('left', 0.3, 100);
-    triggerHapticFeedbackByHandedness('right', 0.3, 100);
-  }
-}
-}
-
 const ringBox = new THREE.Box3().setFromObject(ring);
 const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
 const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
@@ -1103,8 +967,6 @@ startTime = Date.now() - elapsedTime;
 }
 }
 }
-
-
 
 function onSelectEnd(event) {
 if (event.target === grabbingController) {
@@ -2091,38 +1953,6 @@ function showNameEntry(isNewRecord) {
   addGameControlButtons();
 } 
 
-function createKeyboardTestButton() {
-  // Create test button
-  const testGeometry = new THREE.TextGeometry('TEST KEYBOARD', { 
-    font: font, 
-    size: 0.025, 
-    height: 0.005 
-  });
-  const testMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00ffff, 
-    emissive: 0x00ffff, 
-    emissiveIntensity: 0.3 
-  });
-  const testMesh = new THREE.Mesh(testGeometry, testMaterial);
-  testGeometry.computeBoundingBox();
-  const testWidth = testGeometry.boundingBox.max.x - testGeometry.boundingBox.min.x;
-  const testOffset = -0.5 * testWidth;
-  testMesh.position.set(testOffset, 1.8, -0.75);
-  scene.add(testMesh);
-  
-  // Create invisible box for button interaction
-  const testBox = new THREE.Mesh(
-    new THREE.BoxGeometry(testWidth + 0.05, 0.05, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  testBox.position.copy(testMesh.position);
-  testBox.position.z = -0.74; // Slightly in front
-  scene.add(testBox);
-  testBox.userData.isButton = true;
-  testBox.userData.buttonType = 'keyboardTest';
-  
-  return [testMesh, testBox];
-}
 
 // Create virtual keyboard layout
 const createVirtualKeyboard = () => {
@@ -2263,7 +2093,9 @@ function addGameControlButtons() {
   gameCompletionMeshes.push(quitBox);
   keyboardMeshes.push(quitBox);
 }
-
+    }
+}
+}
           
      
 </script>
