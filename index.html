@@ -48,11 +48,6 @@ transform: translate(-50%, -50%);
 <script type="module">
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-import ThreeMeshUI from 'three-mesh-ui';
-
-// immediate debug logging to verify loading
-console.log("ThreeMeshUI loaded:", !!ThreeMeshUI);
-console.log("ThreeMeshUI methods:", Object.keys(ThreeMeshUI));
 
 let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
@@ -133,23 +128,24 @@ const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typefa
 loader.load(timerFontURL, function (loadedTimerFont) {
 timerFont = loadedTimerFont;
 
-// Load font for ThreeMeshUI
-const fontFamily = { 
-  'roboto': 'https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.json' 
-};
-const fontTexture = { 
-  'roboto': 'https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.png' 
-};
 
 // testing keyboard
 function forceShowKeyboard() {
   console.log("Forcing keyboard to appear for testing");
   if (font) {
-    const keyboard = createImprovedVirtualKeyboard();
-    keyboard.position.set(0, 1.4, -0.75); // Position it in front of the user
+    try {
+      const keyboard = createImprovedVirtualKeyboard();
+      if (keyboard) {
+        keyboard.position.set(0, 1.4, -0.75);
+        console.log("Keyboard created successfully");
+      } else {
+        console.error("Keyboard creation returned null");
+      }
+    } catch (error) {
+      console.error("Error creating keyboard:", error);
+    }
   } else {
     console.error("Font not loaded yet, can't create keyboard");
-    // Try again in a second
     setTimeout(forceShowKeyboard, 1000);
   }
 }
@@ -224,37 +220,31 @@ vrButton.style.display = 'none';
             }
           }, 500);
         }
+// Test our custom keyboard shortly after entering VR
+setTimeout(() => {
+  console.log("Testing custom keyboard at startup...");
+  createImprovedVirtualKeyboard();
+  
+  // Create a visual indicator to show keyboard creation
+  const statusMessage = "Custom keyboard initialized!";
+  const statusGeometry = new THREE.TextGeometry(statusMessage, { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const statusMesh = new THREE.Mesh(
+    statusGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+  );
+  statusGeometry.computeBoundingBox();
+  const statusOffset = -0.5 * (statusGeometry.boundingBox.max.x - statusGeometry.boundingBox.min.x);
+  statusMesh.position.set(statusOffset, 2.2, -0.75);
+  scene.add(statusMesh);
+  
+  // Remove the message after 10 seconds
+  setTimeout(() => scene.remove(statusMesh), 10000);
+}, 3000);
         
-        // Test Meta Quest keyboard shortly after entering VR
-        setTimeout(() => {
-          console.log("Testing Meta Quest keyboard at startup...");
-          const keyboardResult = tryNativeKeyboard();
-          console.log("Keyboard test result:", keyboardResult);
-          
-          // Create a visual indicator to show if keyboard was detected
-          const statusMessage = keyboardResult ? 
-            "Meta Quest keyboard detected!" : 
-            "Meta Quest keyboard not available";
-          
-          const statusGeometry = new THREE.TextGeometry(statusMessage, { 
-            font: font, 
-            size: 0.02, 
-            height: 0.005 
-          });
-          const statusMesh = new THREE.Mesh(
-            statusGeometry, 
-            new THREE.MeshStandardMaterial({ 
-              color: keyboardResult ? 0x00ff00 : 0xff0000 
-            })
-          );
-          statusGeometry.computeBoundingBox();
-          const statusOffset = -0.5 * (statusGeometry.boundingBox.max.x - statusGeometry.boundingBox.min.x);
-          statusMesh.position.set(statusOffset, 2.2, -0.75);
-          scene.add(statusMesh);
-          
-          // Remove the message after 10 seconds
-          setTimeout(() => scene.remove(statusMesh), 10000);
-        }, 3000); // Wait 3 seconds after entering VR before testing keyboard
       }
     });
     
@@ -272,143 +262,7 @@ console.error('Failed to enter VR:', error);
 }
 });
 
-// create three mesh ui keyboard
-function createThreeMeshUIKeyboard() {
-  console.log("Creating simplified ThreeMeshUI keyboard");
-  
-  // Create a container to hold our UI elements
-  const container = new THREE.Group();
-  container.position.set(0, 1.0, -0.75);
-  scene.add(container);
-  gameCompletionMeshes.push(container);
-  
-  // Create a very basic keyboard with just a few elements
-  try {
-    // Create block for containing text
-    const keyboardContainer = new ThreeMeshUI.Block({
-      width: 0.6,
-      height: 0.4,
-      padding: 0.02,
-      backgroundColor: new THREE.Color(0x222222),
-      backgroundOpacity: 0.8
-    });
-    keyboardContainer.position.set(0, 0, 0);
-    container.add(keyboardContainer);
-    
-    console.log("Added basic keyboard container");
-    
-    // Add a test text element to verify the library is working
-    const textBlock = new ThreeMeshUI.Block({
-      width: 0.5,
-      height: 0.05,
-      padding: 0.01,
-      justifyContent: 'center',
-      backgroundOpacity: 0.6
-    });
-    
-    // Load font directly
-    ThreeMeshUI.FontLibrary.addFont(
-      "roboto",
-      "https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.json",
-      "https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.png"
-    );
-    
-    // Create a test text element
-    const text = new ThreeMeshUI.Text({
-      content: "Keyboard Test",
-      fontFamily: "roboto",
-      fontSize: 0.035
-    });
-    
-    textBlock.add(text);
-    keyboardContainer.add(textBlock);
-    console.log("Added test text element");
-    
-    // Create a few simple buttons
-    const buttonsBlock = new ThreeMeshUI.Block({
-      width: 0.5,
-      height: 0.2,
-      padding: 0.01,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundOpacity: 0.0
-    });
-    
-    const keys = ["A", "B", "C", "Submit"];
-    keys.forEach((key, i) => {
-      const button = new ThreeMeshUI.Block({
-        width: 0.08,
-        height: 0.08,
-        padding: 0.01,
-        margin: 0.01,
-        justifyContent: "center",
-        backgroundColor: new THREE.Color(0x333333),
-        backgroundOpacity: 1
-      });
-      
-      const buttonText = new ThreeMeshUI.Text({
-        content: key,
-        fontFamily: "roboto",
-        fontSize: 0.04
-      });
-      
-      button.add(buttonText);
-      buttonsBlock.add(button);
-      
-      // Make button interactive
-      button.setupState({
-        state: 'hovered',
-        attributes: { backgroundColor: new THREE.Color(0x999999) }
-      });
-      
-      button.setupState({
-        state: 'selected',
-        attributes: { backgroundColor: new THREE.Color(0x55bb55) },
-        onSet: () => {
-          if (key === "Submit") {
-            if (playerName.length > 0) {
-              nameEntered = true;
-              submitScore(playerName, levelTimes);
-              fetchLeaderboard();
-              keyboardContainer.visible = false;
-            }
-          } else {
-            playerName += key;
-            text.set({ content: playerName });
-          }
-          
-          // Give haptic feedback
-          triggerHapticFeedbackByHandedness('left', 0.3, 50);
-          triggerHapticFeedbackByHandedness('right', 0.3, 50);
-        }
-      });
-    });
-    
-    keyboardContainer.add(buttonsBlock);
-    console.log("Added keyboard buttons");
-    
-    return container;
-  } catch (error) {
-    console.error("Error creating ThreeMeshUI keyboard:", error);
-    
-    // Fallback: create a simple text message if ThreeMeshUI fails
-    const errorGeometry = new THREE.TextGeometry("Keyboard failed to load", { 
-      font: font, 
-      size: 0.02, 
-      height: 0.005 
-    });
-    const errorMesh = new THREE.Mesh(
-      errorGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xff0000 })
-    );
-    errorGeometry.computeBoundingBox();
-    const errorOffset = -0.5 * (errorGeometry.boundingBox.max.x - errorGeometry.boundingBox.min.x);
-    errorMesh.position.set(errorOffset, 0, 0);
-    container.add(errorMesh);
-    
-    return container;
-  }
-}
+
 
 const particlesGeometry = new THREE.BufferGeometry();
 const particlesCount = 3000;
@@ -1141,14 +995,71 @@ function onSelectStart(event) {
     }
   }
   else if (button.userData.buttonType === 'keyboardTest') {
-    console.log("User triggered keyboard test");
-    const result = tryNativeKeyboard();
+  console.log("User triggered keyboard test - launching custom keyboard");
+  
+  try {
+    // Remove any existing keyboard first
+    keyboardMeshes.forEach(mesh => {
+      scene.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) mesh.material.dispose();
+    });
+    keyboardMeshes = [];
     
-    // Show result as floating text
+    // Create and position custom keyboard
+    const keyboard = createImprovedVirtualKeyboard();
+    if (keyboard) {
+      // Position the keyboard in a good viewing position
+      keyboard.position.set(0, 1.4, -0.75);
+      console.log("Custom keyboard created successfully");
+      
+      // Show success message
+      const resultGeometry = new THREE.TextGeometry(
+        "Custom keyboard launched!", 
+        { font: font, size: 0.02, height: 0.005 }
+      );
+      } else {
+      console.error("Failed to create custom keyboard");
+      
+      // Show failure message
+      const resultGeometry = new THREE.TextGeometry(
+        "Failed to create custom keyboard", 
+        { font: font, size: 0.02, height: 0.005 }
+      );
+      const resultMesh = new THREE.Mesh(
+        resultGeometry, 
+        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+      );
+      resultGeometry.computeBoundingBox();
+      const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
+      resultMesh.position.set(resultOffset, 1.7, -0.75);
+      scene.add(resultMesh);
+      
+      // Remove the result text after 5 seconds
+      setTimeout(() => scene.remove(resultMesh), 5000);
+    }
+  } catch (error) {
+    console.error("Error creating custom keyboard:", error);
+    
+    // Show error message
     const resultGeometry = new THREE.TextGeometry(
-      result ? "Keyboard launched!" : "Keyboard failed to launch", 
+      "Error: " + error.message, 
       { font: font, size: 0.02, height: 0.005 }
     );
+    const resultMesh = new THREE.Mesh(
+      resultGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0xff0000 })
+    );
+    resultGeometry.computeBoundingBox();
+    const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
+    resultMesh.position.set(resultOffset, 1.7, -0.75);
+    scene.add(resultMesh);
+    
+    // Remove the result text after 5 seconds
+    setTimeout(() => scene.remove(resultMesh), 5000);
+  }
+}
+
     const resultMesh = new THREE.Mesh(
       resultGeometry, 
       new THREE.MeshStandardMaterial({ 
@@ -1192,9 +1103,6 @@ startTime = Date.now() - elapsedTime;
 }
 }
 }
-}
-
-
 
 
 
@@ -1529,8 +1437,6 @@ if (isExploding) {
 if (gameCompleted) {
   updateKeyboardHoverState();
 }
-
-ThreeMeshUI.update();
 
 renderer.render(scene, camera);
 }
@@ -2177,198 +2083,13 @@ function showNameEntry(isNewRecord) {
     return;
   }
 
- // For new records, attempt to use native keyboard first
- const useNativeKeyboard = tryNativeKeyboard();
-  console.log("Native keyboard available:", useNativeKeyboard);
-
-  if (useNativeKeyboard) {
-    // Native keyboard initialization succeeded, show waiting message
-    const waitingGeometry = new THREE.TextGeometry("Enter your name on the keyboard", { 
-      font: font, 
-      size: 0.02, 
-      height: 0.005 
-    });
-    const waitingMesh = new THREE.Mesh(
-      waitingGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0x00ffff })
-    );
-    waitingGeometry.computeBoundingBox();
-    const waitingOffset = -0.5 * (waitingGeometry.boundingBox.max.x - waitingGeometry.boundingBox.min.x);
-    waitingMesh.position.set(waitingOffset, 1.1, -0.75);
-    scene.add(waitingMesh);
-    gameCompletionMeshes.push(waitingMesh);
-    
-    // Create initial empty name display
-    updateNameDisplay();
-    
-    // Add restart and quit buttons
-    addGameControlButtons();
-
-  } else {
-      // Use our new improved keyboard
-      console.log("Using custom 3D keyboard");
-    createImprovedVirtualKeyboard();
-  }
-    
-    // Add restart and quit buttons
-    addGameControlButtons();
-  }
-
-
-// Add this function near your other keyboard functions
-function enhancedKeyboardTest() {
-  console.log("Enhanced keyboard test starting...");
+  // Create custom keyboard
+  console.log("Using custom 3D keyboard");
+  createImprovedVirtualKeyboard();
   
-  // Check all possible API paths
-  const apis = {
-    'OculusVirtualKeyboard': window.OculusVirtualKeyboard,
-    'oculus': window.oculus,
-    'Oculus': window.Oculus,
-    'Meta': window.Meta,
-    'MetaVirtualKeyboard': window.MetaVirtualKeyboard,
-    'navigator.xr.virtualKeyboard': navigator.xr && navigator.xr.virtualKeyboard
-  };
-  
-  console.log("Available keyboard APIs:", JSON.stringify(apis, (key, value) => 
-    value === undefined ? 'undefined' : 
-    (typeof value === 'object' && value !== null ? '[object]' : value)
-  ));
-  
-  // Try different API variations
-  let keyboardAPI = window.OculusVirtualKeyboard;
-  
-  if (!keyboardAPI && window.oculus) {
-    console.log("Trying oculus.VirtualKeyboard");
-    keyboardAPI = window.oculus.VirtualKeyboard;
-  }
-  
-  if (!keyboardAPI && window.Meta) {
-    console.log("Trying Meta.VirtualKeyboard");
-    keyboardAPI = window.Meta.VirtualKeyboard;
-  }
-  
-  if (keyboardAPI) {
-    console.log("Found keyboard API:", keyboardAPI);
-    
-    // Test all available methods
-    const methods = Object.getOwnPropertyNames(keyboardAPI);
-    console.log("Available methods:", methods);
-    
-    // Add event listeners
-    window.addEventListener('oculuskeyboardshow', (e) => console.log("Keyboard show event:", e));
-    window.addEventListener('oculuskeyboardhide', (e) => console.log("Keyboard hide event:", e));
-    window.addEventListener('oculuskeyboardinput', (e) => console.log("Keyboard input event:", e));
-    
-    // Also try Meta prefix events
-    window.addEventListener('metakeyboardshow', (e) => console.log("Meta keyboard show event:", e));
-    window.addEventListener('metakeyboardhide', (e) => console.log("Meta keyboard hide event:", e));
-    window.addEventListener('metakeyboardinput', (e) => console.log("Meta keyboard input event:", e));
-    
-    return true;
-  }
-  
-  console.warn("No keyboard API found after enhanced check");
-  return false;
-}
-
-
-function tryNativeKeyboard() {
-  console.log("Attempting to use native keyboard...");
-  
-  try {
-    // Run enhanced test first
-    enhancedKeyboardTest();
-    
-    // Try multiple possible API paths
-    let keyboardAPI = window.OculusVirtualKeyboard || 
-                      (window.oculus && window.oculus.VirtualKeyboard) ||
-                      (window.Meta && window.Meta.VirtualKeyboard) ||
-                      (navigator.xr && navigator.xr.virtualKeyboard);
-    
-    if (keyboardAPI) {
-      console.log("Meta Quest keyboard API detected!");
-      
-      // Set up event listeners for both oculus and meta prefixes
-      const eventPrefixes = ['oculus', 'meta'];
-      eventPrefixes.forEach(prefix => {
-        window.addEventListener(`${prefix}keyboardshow`, function(e) {
-          console.log(`${prefix} keyboard shown:`, e);
-        });
-        
-        window.addEventListener(`${prefix}keyboardhide`, function(e) {
-          console.log(`${prefix} keyboard hidden:`, e);
-          if (playerName.length > 0) {
-            nameEntered = true;
-            submitScore(playerName, levelTimes);
-            fetchLeaderboard();
-          }
-        });
-        
-        window.addEventListener(`${prefix}keyboardinput`, function(e) {
-          console.log(`${prefix} keyboard input:`, e);
-          const input = e.detail?.input || e.input || "";
-          playerName = input.substring(0, maxNameLength);
-          updateNameDisplay();
-        });
-      });
-      
-      // Try to show keyboard with options
-      try {
-        console.log("Attempting to show Meta Quest keyboard");
-        
-        // Use specific options for the keyboard
-        const keyboardOptions = {
-          header: "Enter your name:",
-          text: playerName,
-          numeric: false,
-          predictive: true,
-          multiline: false,
-          locale: 'en_US',
-          scenario: 'username',
-          maxLength: maxNameLength
-        };
-        
-        // Try all possible show methods
-        let showSuccess = false;
-        
-        // Try with options
-        if (typeof keyboardAPI.show === 'function') {
-          console.log("Using keyboardAPI.show(options)");
-          keyboardAPI.show(keyboardOptions);
-          showSuccess = true;
-        }
-        else if (typeof keyboardAPI.showWithOptions === 'function') {
-          console.log("Using keyboardAPI.showWithOptions(options)");
-          keyboardAPI.showWithOptions(keyboardOptions);
-          showSuccess = true;
-        }
-        // Try without options as last resort
-        else if (typeof keyboardAPI.show === 'function') {
-          console.log("Using keyboardAPI.show() without options");
-          keyboardAPI.show();
-          showSuccess = true;
-        }
-        
-        if (showSuccess) {
-          console.log("Keyboard show method called successfully");
-          return true;
-        } else {
-          console.error("No valid show method found on keyboard API");
-          return false;
-        }
-      } catch (err) {
-        console.error("Failed to show Meta Quest keyboard:", err);
-        return false;
-      }
-    }
-    
-    console.log("Meta Quest keyboard API not available");
-    return false;
-  } catch (err) {
-    console.error("Error in tryNativeKeyboard:", err);
-    return false;
-  }
-}
+  // Add restart and quit buttons
+  addGameControlButtons();
+} 
 
 function createKeyboardTestButton() {
   // Create test button
