@@ -1793,6 +1793,7 @@ function showNameEntry(isNewRecord) {
 
 // Add this function to try using the native Meta Quest keyboard
 
+// Replace your tryNativeKeyboard function with this improved version
 function tryNativeKeyboard() {
   console.log("Attempting to use native keyboard...");
   
@@ -1801,6 +1802,7 @@ function tryNativeKeyboard() {
     if (window.OculusVirtualKeyboard) {
       console.log("Meta Quest keyboard API detected!");
       
+      // Set up event listeners
       window.addEventListener('oculuskeyboardshow', function() {
         console.log("Oculus keyboard shown");
       });
@@ -1820,10 +1822,55 @@ function tryNativeKeyboard() {
         updateNameDisplay();
       });
       
-      // Try to show keyboard
+      // Try to show keyboard with options
       try {
         console.log("Attempting to show Meta Quest keyboard");
-        window.OculusVirtualKeyboard.show();
+        
+        // Use specific options for the keyboard
+        const keyboardOptions = {
+          header: "Enter your name:", // Header text
+          text: playerName,           // Initial text
+          numeric: false,             // Use alphabetic keyboard
+          predictive: true,           // Enable predictive text
+          multiline: false,           // Single line input
+          locale: 'en_US',            // English US keyboard
+          scenario: 'username',       // Keyboard type for username entry
+          maxLength: maxNameLength    // Maximum text length
+        };
+        
+        // Try calling the show method with options
+        if (typeof window.OculusVirtualKeyboard.show === 'function') {
+          window.OculusVirtualKeyboard.show(keyboardOptions);
+        } 
+        // Some versions use this alternate method
+        else if (typeof window.OculusVirtualKeyboard.showWithOptions === 'function') {
+          window.OculusVirtualKeyboard.showWithOptions(keyboardOptions);
+        }
+        // Last resort - try calling without options
+        else {
+          window.OculusVirtualKeyboard.show();
+        }
+        
+        console.log("Keyboard show method called successfully");
+        
+        // Add a timeout to check if keyboard appears
+        setTimeout(() => {
+          const warningGeometry = new THREE.TextGeometry("If keyboard doesn't appear, use controller to press buttons", { 
+            font: font, 
+            size: 0.015, 
+            height: 0.005 
+          });
+          const warningMesh = new THREE.Mesh(
+            warningGeometry, 
+            new THREE.MeshStandardMaterial({ color: 0xffff00 })
+          );
+          warningGeometry.computeBoundingBox();
+          const warningOffset = -0.5 * (warningGeometry.boundingBox.max.x - warningGeometry.boundingBox.min.x);
+          warningMesh.position.set(warningOffset, 0.95, -0.75);
+          scene.add(warningMesh);
+          gameCompletionMeshes.push(warningMesh);
+        }, 3000);
+        
         return true;
       } catch (err) {
         console.error("Failed to show Meta Quest keyboard:", err);
@@ -1831,19 +1878,11 @@ function tryNativeKeyboard() {
       }
     }
     
-    // Standard WebXR virtual keyboard (future API)
-    if (navigator.virtualKeyboard) {
-      console.log("Standard virtualKeyboard API detected");
-      // Implementation for standard virtualKeyboard
-      return true; 
-    }
-    
-    // No native keyboard available
-    console.log("No native keyboard APIs available, using fallback keyboard");
+    console.log("Meta Quest keyboard API not available");
     return false;
   } catch (err) {
     console.error("Error in tryNativeKeyboard:", err);
-    return false; // Error occurred, use fallback keyboard
+    return false;
   }
 }
 
