@@ -771,148 +771,33 @@ if (level === 1) {
       y = 1.4; // Fixed height
       z = Math.sin(angle) * radius;
     }
-  if (level === 2) {
+
+if (level === 2) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
       z = Math.sin(angle) * radius;
     }
-  if (level === 3) {
-      // Test level - perfectly smooth circular wire
-      x = Math.cos(angle) * radius;
-      y = 1.4; // Fixed height
-      z = Math.sin(angle) * radius;
-    }
-  if (level === 4) {
-      // Test level - perfectly smooth circular wire
-      x = Math.cos(angle) * radius;
-      y = 1.4; // Fixed height
-      z = Math.sin(angle) * radius;
-    }
-  if (level === 5) {
+else if (level === 3) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
       z = Math.sin(angle) * radius;
     }
 
-if (level === 67) {
-// Level 1 wire pattern
-waveX = Math.sin(angle * 8) * 0.05;
-waveY = Math.cos(angle * 6) * 0.05;
-x = (Math.cos(angle) * radius) + waveX;
-y = 1.4 + waveY;
-z = (Math.sin(angle) * radius) + waveX;
-} 
-else if (level === 9) {
-// Level 2 wire pattern 
-waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
-waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
-waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 4) * 0.05;
+else if (level === 4) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
 
-// Create gentle undulations in height
-const heightVar = Math.sin(angle * 3) * 0.06;
-
-const rotatedAngle = angle + rotationOffset;
-// Create an elliptical path 
-x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
-y = 1.4 + waveY + heightVar;
-z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
-}
-else if (level === 6) {
-// Level 3 wire pattern
-waveX = Math.sin(angle * 10) * 0.08;
-waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
-waveZ = Math.sin(angle * 12) * 0.06;
-
-const rotatedAngle = angle + rotationOffset;
-x = (Math.cos(rotatedAngle) * radius) + waveX;
-y = 1.4 + waveY;
-z = (Math.sin(rotatedAngle) * radius) + waveZ;
-}
-else if (level === 8) {
-// Level 4 wire pattern - most complex but still navigable
-
-// Use prime number frequencies for less predictable patterns
-waveX = Math.sin(angle * 11) * 0.07 + Math.cos(angle * 5) * 0.05;
-waveY = Math.cos(angle * 7) * 0.09 + Math.sin(angle * 13) * 0.04;
-waveZ = Math.sin(angle * 17) * 0.06 + Math.cos(angle * 3) * 0.07;
-
-// Add some controlled chaos with sectional variations
-// Divide the wire into sections with different behaviors
-const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
-
-// Base Y position that's consistent across all sections
-y = 1.4 + waveY + Math.sin(angle * 2) * 0.07;
-
-// Apply section-specific modifications to y-coordinate
-const sectionFactor = section === 0 ? t * 4 : 
-section === 1 ? (t - 0.25) * 4 :
-section === 2 ? (t - 0.5) * 4 :
-(t - 0.75) * 4;
-
-if (section === 0) {
-// First quarter - spiral up - add to base y
-y += (sectionFactor * 0.15);
-} else if (section === 3) {
-// Fourth quarter - smooth transition back
-// Use a sine curve for smooth transition
-y += Math.sin(sectionFactor * Math.PI) * 0.08;
-}
-
-// Create smooth transition variations in radius
-const radiusVar = 1 + 0.15 * Math.sin(angle * 2) - 0.05 * Math.cos(angle * 5);
-
-const rotatedAngle = angle + rotationOffset;
-x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
-// y is already set above
-z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
-}
-
-else if (level === 0) {
-  // Level 5 - challenging but navigable
-  // Use moderate frequency combinations
-  waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
-  waveY = Math.cos(angle * 7) * 0.08 + Math.sin(angle * 4) * 0.06;
-  waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 3) * 0.05;
-
-  // Create gentle undulation with variable height
-  const heightFactor = Math.sin(angle * 2) * 0.15;
-  y = 1.4 + waveY + heightFactor;
-  
-  // Create interesting path with 4 distinct sections
-  const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
-  const sectionFactor = section === 0 ? t * 4 : 
-                        section === 1 ? (t - 0.25) * 4 :
-                        section === 2 ? (t - 0.5) * 4 : 
-                        (t - 0.75) * 4;
-  
-  // Section-specific modifications
-  if (section === 0) {
-    // First quarter - gradual ascent
-    y += Math.sin(sectionFactor * Math.PI * 0.5) * 0.12;
-  } else if (section === 1) {
-    // Second quarter - oscillating path
-    waveX += Math.sin(sectionFactor * Math.PI * 3) * 0.06;
-    waveZ += Math.cos(sectionFactor * Math.PI * 3) * 0.06;
-  } else if (section === 2) {
-    // Third quarter - gentle descent with wider radius
-    y -= Math.sin(sectionFactor * Math.PI * 0.5) * 0.12;
-    waveX *= 1.2;
-    waveZ *= 1.2;
-  } else {
-    // Fourth quarter - smooth transition back to start
-    waveX *= (1.2 - sectionFactor * 0.2);
-    waveZ *= (1.2 - sectionFactor * 0.2);
-  }
-
-  // Add some controlled radius variation
-  const radiusVar = 1 + Math.sin(angle * 2) * 0.1;
-  
-  const rotatedAngle = angle + rotationOffset;
-  x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
-  // y is already set above
-  z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+else if (level === 5) {
+      // Test level - perfectly smooth circular wire
+      x = Math.cos(angle) * radius;
+      y = 1.4; // Fixed height
+      z = Math.sin(angle) * radius;
+    }
 }
 
 points.push(new THREE.Vector3(x, y, z));
