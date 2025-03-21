@@ -74,6 +74,8 @@ let nameEntered = false;
 let playerName = ""; // Empty string to start
 let maxNameLength = 10;
 let hoveredButton = null;
+let keyboardActive = false;
+let controllerRays = [];
 const keyboardRaycaster = new THREE.Raycaster();
 const tempVector = new THREE.Vector3();
 
@@ -312,6 +314,8 @@ function initControllerHaptics() {
 }
 
 function createImprovedVirtualKeyboard() {
+    keyboardActive = true;
+    createControllerRays();
   // Remove any existing keyboard elements
   keyboardMeshes.forEach(mesh => {
     scene.remove(mesh);
@@ -625,6 +629,48 @@ function triggerHapticFeedback(controller, intensity, duration) {
   // Determine handedness from controller index
   const handedness = controller === controller1 ? 'left' : 'right';
   return triggerHapticFeedbackByHandedness(handedness, intensity, duration);
+}
+
+// create visible controller rays while keyboard is active
+function createControllerRays() {
+  // Clear any existing rays
+  controllerRays.forEach(ray => {
+    if (ray.parent) ray.parent.remove(ray);
+    if (ray.geometry) ray.geometry.dispose();
+    if (ray.material) ray.material.dispose();
+  });
+  controllerRays = [];
+  
+  // Create a ray for each controller
+  [controller1, controller2].forEach((controller, index) => {
+    // Create ray geometry (a thin, long cylinder)
+    const rayGeometry = new THREE.CylinderGeometry(0.001, 0.001, 3, 8);
+    rayGeometry.rotateX(Math.PI / 2); // Point forward
+    rayGeometry.translate(0, 0, -1.5); // Center ray with origin at controller
+    
+    // Create material with appropriate color
+    const rayMaterial = new THREE.MeshBasicMaterial({
+      color: index === 0 ? 0x0088ff : 0xff8800,
+      transparent: true,
+      opacity: 0.7
+    });
+    
+    // Create mesh and add to controller
+    const rayMesh = new THREE.Mesh(rayGeometry, rayMaterial);
+    controller.add(rayMesh);
+    controllerRays.push(rayMesh);
+  });
+}
+
+// Function to remove rays when keyboard is dismissed
+function hideControllerRays() {
+  controllerRays.forEach(ray => {
+    if (ray.parent) ray.parent.remove(ray);
+    if (ray.geometry) ray.geometry.dispose();
+    if (ray.material) ray.material.dispose();
+  });
+  controllerRays = [];
+  keyboardActive = false;
 }
 
 // Function to make the wire flash
@@ -1098,15 +1144,17 @@ renderer.setAnimationLoop(render);
     
     // Hide keyboard after submission
     button.parent.visible = false;
+    hideControllerRays();
+    keyboardActive = false;
   }
 }
 
 // implement keyboard hover effects
 function updateKeyboardHoverState() {
-  // Only check for hover if game is completed and we have controllers
-  if (!gameCompleted || !controller1 || !controller2) return;
+  // Only check if keyboard is active
+  if (!keyboardActive) return;
   
-  // Reset previously hovered button if any
+  // Reset previously hovered button
   if (hoveredButton) {
     if (hoveredButton.material && hoveredButton.userData.defaultColor) {
       hoveredButton.material.color.setHex(hoveredButton.userData.defaultColor);
@@ -1116,36 +1164,47 @@ function updateKeyboardHoverState() {
 
   // Check both controllers
   [controller1, controller2].forEach(controller => {
+    if (!controller) return;
+    
     const raycaster = new THREE.Raycaster();
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(controller.quaternion);
     raycaster.set(controller.position, direction);
     
-    // Only check objects that are buttons
-    const buttonObjects = gameCompletionMeshes.filter(mesh => 
+    // Get all keyboard button objects
+    const buttonObjects = keyboardMeshes.filter(mesh => 
       mesh.userData && mesh.userData.isButton);
     
-    const intersects = raycaster.intersectObjects(buttonObjects);
+    const intersects = raycaster.intersectObjects(buttonObjects, true);
     
     if (intersects.length > 0) {
-      const button = intersects[0].object;
-      if (button.material) {
-        // Apply hover color based on button type
-        if (button.userData.buttonType === 'letter') {
-          button.material.color.set(0x4477ff); // Blue hover
-        } else if (button.userData.buttonType === 'backspace') {
-          button.material.color.set(0xff5555); // Lighter red
-        } else if (button.userData.buttonType === 'submit') {
-          button.material.color.set(0x55ff55); // Lighter green
-        } else if (button.userData.buttonType === 'restart') {
-          button.material.color.set(0x55ff55); // Lighter green
-        } else if (button.userData.buttonType === 'quit') {
-          button.material.color.set(0xff5555); // Lighter red
+      // Get the actual button (might be a child of a group)
+      const intersectedObj = intersects[0].object;
+      const button = intersectedObj.userData.isButton ? 
+                    intersectedObj : 
+                    findButtonParent(intersectedObj);
+      
+      if (button && button.material) {
+        // Apply hover color based on userData
+        if (button.userData.hoverColor) {
+          button.material.color.setHex(button.userData.hoverColor);
+        } else {
+          // Default hover color
+          button.material.color.set(0x4477ff);
         }
         hoveredButton = button;
       }
     }
   });
+}
+
+// Helper function to find button parent
+function findButtonParent(obj) {
+  let current = obj;
+  while (current && !current.userData.isButton) {
+    current = current.parent;
+  }
+  return current;
 }
 
 function render() {
@@ -1303,6 +1362,10 @@ if (isExploding) {
   }
   // Check for keyboard button hover states
 if (gameCompleted) {
+  updateKeyboardHoverState();
+}
+
+if (keyboardActive) {
   updateKeyboardHoverState();
 }
 
