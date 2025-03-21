@@ -121,7 +121,7 @@ function forceShowKeyboard() {
     try {
       const keyboard = createImprovedVirtualKeyboard();
       if (keyboard) {
-        keyboard.position.set(0, 1.2, -0.75);
+        keyboard.position.set(0, 1.4, -0.75);
         console.log("Keyboard created successfully");
       } else {
         console.error("Keyboard creation returned null");
@@ -336,7 +336,7 @@ function createImprovedVirtualKeyboard() {
   // Keyboard container to group all elements
   const keyboardContainer = new THREE.Group();
   keyboardContainer.position.set(0, 1.1, -0.75);
-  keyboardContainer.scale.set(0.3, 0.3, 0.3);
+  keyboardContainer.scale.set(0.4, 0.4, 0.4);
   scene.add(keyboardContainer);
   gameCompletionMeshes.push(keyboardContainer);
   keyboardMeshes.push(keyboardContainer);
@@ -955,29 +955,34 @@ return false;
 function onSelectStart(event) {
   const controllerPosition = event.target.position;
   
-  // Check for button interactions first if game is completed
-  if (gameCompletionMeshes.length > 0) {
+  // Check for button interactions first if game is completed OR keyboard is active
+  if (gameCompletionMeshes.length > 0 || keyboardActive) {
     const raycaster = new THREE.Raycaster();
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
-      
-    // Filter only interactive objects
-    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes.filter(mesh => 
-      mesh.userData && mesh.userData.isButton));
-    
+       // Use BOTH arrays for detection
+       const interactiveObjects = [
+      ...gameCompletionMeshes.filter(mesh => mesh.userData && mesh.userData.isButton),
+      ...keyboardMeshes.filter(mesh => mesh.userData && mesh.userData.isButton)
+    ];
+     
+    const buttonIntersects = raycaster.intersectObjects(interactiveObjects, true); // Added true to check children
+
     console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
   const buttonObject = buttonIntersects[0].object;
   // Make sure we're working with the button itself, not a child (like text)
-  const button = buttonObject.userData.isButton ? buttonObject : buttonObject.parent;
-  
-  if (button.userData.buttonType === 'letter' || 
-      button.userData.buttonType === 'space' || 
-      button.userData.buttonType === 'backspace' || 
-      button.userData.buttonType === 'submit') {
+ const button = buttonObject.userData.isButton ? buttonObject : 
+                     buttonObject.parent && buttonObject.parent.userData && 
+                     buttonObject.parent.userData.isButton ? buttonObject.parent : null;
+      
+      if (button && (button.userData.buttonType === 'letter' || 
+          button.userData.buttonType === 'space' || 
+          button.userData.buttonType === 'backspace' || 
+          button.userData.buttonType === 'submit')) {
     // Use the centralized handler for keyboard buttons
     handleKeyPress(button);
   }
