@@ -481,65 +481,254 @@ function initControllerHaptics() {
   });
 }
 
-  // Helper functions for the virtual keyboard
-  function updateNameDisplay() {
-  if (initialsDisplayMesh) scene.remove(initialsDisplayMesh);
+function createImprovedVirtualKeyboard() {
+  // Remove any existing keyboard elements
+  keyboardMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  keyboardMeshes = [];
   
-  const displayText = playerName + (playerName.length < maxNameLength ? "_" : "");
-  const nameGeometry = new THREE.TextGeometry(displayText, { 
+  // Keyboard container to group all elements
+  const keyboardContainer = new THREE.Group();
+  keyboardContainer.position.set(0, 1.1, -0.75);
+  scene.add(keyboardContainer);
+  gameCompletionMeshes.push(keyboardContainer);
+  keyboardMeshes.push(keyboardContainer);
+  
+  // Keyboard background panel
+  const panelGeometry = new THREE.BoxGeometry(0.8, 0.45, 0.01);
+  const panelMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x222222, 
+    transparent: true, 
+    opacity: 0.8 
+  });
+  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+  panel.position.set(0, 0, -0.01);
+  keyboardContainer.add(panel);
+  keyboardMeshes.push(panel);
+  
+  // Display area for input
+  const displayGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.01);
+  const displayMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x333333, 
+    transparent: true, 
+    opacity: 0.9 
+  });
+  const displayPanel = new THREE.Mesh(displayGeometry, displayMaterial);
+  displayPanel.position.set(0, 0.15, 0);
+  keyboardContainer.add(displayPanel);
+  keyboardMeshes.push(displayPanel);
+  
+  // Create initial text display
+  updateNameDisplay(keyboardContainer);
+  
+  // Define key rows
+  const rows = [
+    "1234567890",
+    "QWERTYUIOP",
+    "ASDFGHJKL",
+    "ZXCVBNM"
+  ];
+  
+  // Config
+  const keySize = 0.06;
+  const keyMargin = 0.01;
+  const keyHeight = 0.06;
+  const startY = 0.05;
+  
+  // Create all keys
+  rows.forEach((row, rowIndex) => {
+    const rowWidth = row.length * (keySize + keyMargin) - keyMargin;
+    const startX = -rowWidth / 2;
+    
+    row.split('').forEach((letter, colIndex) => {
+      const x = startX + colIndex * (keySize + keyMargin) + keySize/2;
+      const y = startY - rowIndex * (keyHeight + keyMargin);
+      
+      const keyGeometry = new THREE.BoxGeometry(keySize, keyHeight, 0.01);
+      const keyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x444444,
+        emissive: 0x222222,
+        emissiveIntensity: 0.2
+      });
+      const key = new THREE.Mesh(keyGeometry, keyMaterial);
+      key.position.set(x, y, 0);
+      keyboardContainer.add(key);
+      keyboardMeshes.push(key);
+      
+      // Add letter text
+      const textGeometry = new THREE.TextGeometry(letter, { 
+        font: font, 
+        size: 0.025, 
+        height: 0.001 
+      });
+      const textMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffffff 
+      });
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textGeometry.computeBoundingBox();
+      const textOffset = new THREE.Vector3(
+        -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+        -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+        0
+      );
+      textMesh.position.copy(textOffset);
+      textMesh.position.z = 0.006;
+      key.add(textMesh);
+      
+      // Make key interactive
+      key.userData.isButton = true;
+      key.userData.buttonType = 'letter';
+      key.userData.letter = letter;
+      key.userData.defaultColor = 0x444444;
+      key.userData.hoverColor = 0x666666;
+      key.userData.pressColor = 0x888888;
+    });
+  });
+  
+  // Special keys - common row
+  const specialRow = [
+    { label: "Space", width: 0.25, action: 'space', x: -0.15 },
+    { label: "Back", width: 0.15, action: 'backspace', x: 0.15, color: 0x884444 }
+  ];
+  
+  const specialY = startY - 4 * (keyHeight + keyMargin);
+  
+  specialRow.forEach(key => {
+    const keyGeometry = new THREE.BoxGeometry(key.width, keyHeight, 0.01);
+    const keyMaterial = new THREE.MeshStandardMaterial({ 
+      color: key.color || 0x444444,
+      emissive: key.color ? 0x220000 : 0x222222,
+      emissiveIntensity: 0.2
+    });
+    const keyMesh = new THREE.Mesh(keyGeometry, keyMaterial);
+    keyMesh.position.set(key.x, specialY, 0);
+    keyboardContainer.add(keyMesh);
+    keyboardMeshes.push(keyMesh);
+    
+    // Add text label
+    const textGeometry = new THREE.TextGeometry(key.label, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.001 
+    });
+    const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textGeometry.computeBoundingBox();
+    const textOffset = new THREE.Vector3(
+      -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+      -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+      0
+    );
+    textMesh.position.copy(textOffset);
+    textMesh.position.z = 0.006;
+    keyMesh.add(textMesh);
+    
+    // Set button data
+    keyMesh.userData.isButton = true;
+    keyMesh.userData.buttonType = key.action;
+    keyMesh.userData.defaultColor = key.color || 0x444444;
+    keyMesh.userData.hoverColor = key.color ? 0xbb5555 : 0x666666;
+    keyMesh.userData.pressColor = key.color ? 0xff6666 : 0x888888;
+  });
+  
+  // Submit button
+  const submitGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.01);
+  const submitMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x008800,
+    emissive: 0x004400,
+    emissiveIntensity: 0.3
+  });
+  const submitButton = new THREE.Mesh(submitGeometry, submitMaterial);
+  submitButton.position.set(0, specialY - keyHeight - keyMargin*2, 0);
+  keyboardContainer.add(submitButton);
+  keyboardMeshes.push(submitButton);
+  
+  // Add submit text
+  const submitTextGeometry = new THREE.TextGeometry("SUBMIT NAME", { 
     font: font, 
     size: 0.03, 
-    height: 0.005 
+    height: 0.001 
   });
+  const submitTextMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const submitTextMesh = new THREE.Mesh(submitTextGeometry, submitTextMaterial);
+  submitTextGeometry.computeBoundingBox();
+  const submitTextOffset = new THREE.Vector3(
+    -(submitTextGeometry.boundingBox.max.x - submitTextGeometry.boundingBox.min.x) / 2,
+    -(submitTextGeometry.boundingBox.max.y - submitTextGeometry.boundingBox.min.y) / 2,
+    0
+  );
+  submitTextMesh.position.copy(submitTextOffset);
+  submitTextMesh.position.z = 0.006;
+  submitButton.add(submitTextMesh);
+  
+  submitButton.userData.isButton = true;
+  submitButton.userData.buttonType = 'submit';
+  submitButton.userData.defaultColor = 0x008800;
+  submitButton.userData.hoverColor = 0x00aa00;
+  submitButton.userData.pressColor = 0x00cc00;
+  
+  return keyboardContainer;
+}
+
+// Updated name display function to work with the new keyboard
+function updateNameDisplay(container) {
+  // Remove existing display if any
+  if (initialsDisplayMesh) {
+    if (container) {
+      container.remove(initialsDisplayMesh);
+    } else {
+      scene.remove(initialsDisplayMesh);
+    }
+    
+    if (initialsDisplayMesh.geometry) {
+      initialsDisplayMesh.geometry.dispose();
+    }
+  }
+  
+  // Create cursor character to show typing position
+  const cursorChar = playerName.length < maxNameLength ? "|" : "";
+  const displayText = playerName + cursorChar;
+  
+  const nameGeometry = new THREE.TextGeometry(displayText, { 
+    font: font, 
+    size: 0.04, 
+    height: 0.001 
+  });
+  
   initialsDisplayMesh = new THREE.Mesh(
     nameGeometry, 
     new THREE.MeshStandardMaterial({ color: 0x00ffff })
   );
+  
   nameGeometry.computeBoundingBox();
-  const nameOffset = -0.5 * (nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x);
-  initialsDisplayMesh.position.set(nameOffset, 1.05, -0.75);
-  scene.add(initialsDisplayMesh);
-  gameCompletionMeshes.push(initialsDisplayMesh);
+  const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
+  const nameOffset = -nameWidth / 2;
+  
+  if (container) {
+    initialsDisplayMesh.position.set(nameOffset, 0.15, 0.006);
+    container.add(initialsDisplayMesh);
+  } else {
+    initialsDisplayMesh.position.set(nameOffset, 1.05, -0.75);
+    scene.add(initialsDisplayMesh);
+    gameCompletionMeshes.push(initialsDisplayMesh);
+  }
+  
+  // Make cursor blink
+  if (cursorChar && !initialsDisplayMesh.userData.blinkInterval) {
+    initialsDisplayMesh.userData.blinkInterval = setInterval(() => {
+      if (initialsDisplayMesh) {
+        initialsDisplayMesh.visible = !initialsDisplayMesh.visible;
+      } else {
+        clearInterval(initialsDisplayMesh.userData.blinkInterval);
+      }
+    }, 500);
+  }
 }
 
-// Function to create letter buttons for the virtual keyboard
-function createLetterButton(letter, x, y) {
-  // Create the letter text
-  const letterGeometry = new THREE.TextGeometry(letter, { 
-    font: font, 
-    size: 0.03, 
-    height: 0.005 
-  });
-  const letterMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-  const letterMesh = new THREE.Mesh(letterGeometry, letterMaterial);
-  letterGeometry.computeBoundingBox();
-  
-  // Center the text horizontally
-  const width = letterGeometry.boundingBox.max.x - letterGeometry.boundingBox.min.x;
-  const centerOffset = -width / 2;
-  
-  // Position the letter
-  letterMesh.position.set(x + centerOffset, y, -0.75);
-  scene.add(letterMesh);
-  gameCompletionMeshes.push(letterMesh);
-  
-  // Create invisible box for button interaction (slightly larger than the letter)
-  const buttonBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.04, 0.04, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  buttonBox.position.set(x, y, -0.74); // Slightly in front
-  scene.add(buttonBox);
-  gameCompletionMeshes.push(buttonBox);
-  
-  // Add button metadata
-  buttonBox.userData.isButton = true;
-  buttonBox.userData.buttonType = 'letter';
-  buttonBox.userData.letter = letter;
-  buttonBox.userData.visualMesh = letterMesh; // Reference to visual part
-  
-  return buttonBox;
-}
+
 
 // Function to trigger haptics by controller handedness
 function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
@@ -903,75 +1092,57 @@ function onSelectStart(event) {
     console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
-      const button = buttonIntersects[0].object;
-      
-      if (button.userData.buttonType === 'letter' && !nameEntered) {
-        // Only add letter if under max length
-        if (playerName.length < maxNameLength) {
-          playerName += button.userData.letter;
-          updateNameDisplay();
-          triggerHapticFeedbackByHandedness('left', 0.3, 50);
-          triggerHapticFeedbackByHandedness('right', 0.3, 50);
-        }
-      } 
-      else if (button.userData.buttonType === 'backspace' && !nameEntered) {
-        // Remove the last letter
-        if (playerName.length > 0) {
-          playerName = playerName.slice(0, -1);
-          updateNameDisplay();
-          triggerHapticFeedbackByHandedness('left', 0.2, 40);
-          triggerHapticFeedbackByHandedness('right', 0.2, 40);
-        }
-      }
-      else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
-        // Submit score to leaderboard
-        nameEntered = true;
-        submitScore(playerName, levelTimes);
-        fetchLeaderboard();
-        triggerHapticFeedbackByHandedness('left', 0.5, 100);
-        triggerHapticFeedbackByHandedness('right', 0.5, 100);
-      }
-      else if (button.userData.buttonType === 'restart') {
-        restartGame();
-        triggerHapticFeedbackByHandedness('left', 0.4, 100);
-        triggerHapticFeedbackByHandedness('right', 0.4, 100);
-      }
-      else if (button.userData.buttonType === 'quit') {
-        // Exit VR session
-        if (renderer.xr.isPresenting) {
-          renderer.xr.getSession().end();
-          triggerHapticFeedbackByHandedness('left', 0.6, 150);
-          triggerHapticFeedbackByHandedness('right', 0.6, 150);
-        }
-      }
-      else if (button.userData.buttonType === 'keyboardTest') {
-  console.log("User triggered keyboard test");
-  const result = tryNativeKeyboard();
+  const buttonObject = buttonIntersects[0].object;
+  // Make sure we're working with the button itself, not a child (like text)
+  const button = buttonObject.userData.isButton ? buttonObject : buttonObject.parent;
   
-  // Show result as floating text
-  const resultGeometry = new THREE.TextGeometry(
-    result ? "Keyboard launched!" : "Keyboard failed to launch", 
-    { font: font, size: 0.02, height: 0.005 }
-  );
-  const resultMesh = new THREE.Mesh(
-    resultGeometry, 
-    new THREE.MeshStandardMaterial({ 
-      color: result ? 0x00ff00 : 0xff0000 
-    })
-  );
-  resultGeometry.computeBoundingBox();
-  const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
-  resultMesh.position.set(resultOffset, 1.7, -0.75);
-  scene.add(resultMesh);
-  
-  // Remove the result text after 5 seconds
-  setTimeout(() => scene.remove(resultMesh), 5000);
-  
-  triggerHapticFeedbackByHandedness('left', 0.3, 100);
-  triggerHapticFeedbackByHandedness('right', 0.3, 100);
-}
+  if (button.userData.buttonType === 'letter' || 
+      button.userData.buttonType === 'space' || 
+      button.userData.buttonType === 'backspace' || 
+      button.userData.buttonType === 'submit') {
+    // Use the centralized handler for keyboard buttons
+    handleKeyPress(button);
+  }
+  else if (button.userData.buttonType === 'restart') {
+    restartGame();
+    triggerHapticFeedbackByHandedness('left', 0.4, 100);
+    triggerHapticFeedbackByHandedness('right', 0.4, 100);
+  }
+  else if (button.userData.buttonType === 'quit') {
+    // Exit VR session
+    if (renderer.xr.isPresenting) {
+      renderer.xr.getSession().end();
+      triggerHapticFeedbackByHandedness('left', 0.6, 150);
+      triggerHapticFeedbackByHandedness('right', 0.6, 150);
     }
-
+  }
+  else if (button.userData.buttonType === 'keyboardTest') {
+    console.log("User triggered keyboard test");
+    const result = tryNativeKeyboard();
+    
+    // Show result as floating text
+    const resultGeometry = new THREE.TextGeometry(
+      result ? "Keyboard launched!" : "Keyboard failed to launch", 
+      { font: font, size: 0.02, height: 0.005 }
+    );
+    const resultMesh = new THREE.Mesh(
+      resultGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: result ? 0x00ff00 : 0xff0000 
+      })
+    );
+    resultGeometry.computeBoundingBox();
+    const resultOffset = -0.5 * (resultGeometry.boundingBox.max.x - resultGeometry.boundingBox.min.x);
+    resultMesh.position.set(resultOffset, 1.7, -0.75);
+    scene.add(resultMesh);
+    
+    // Remove the result text after 5 seconds
+    setTimeout(() => scene.remove(resultMesh), 5000);
+    
+    triggerHapticFeedbackByHandedness('left', 0.3, 100);
+    triggerHapticFeedbackByHandedness('right', 0.3, 100);
+  }
+}
 }
 
 const ringBox = new THREE.Box3().setFromObject(ring);
@@ -1067,6 +1238,68 @@ function restartGame() {
 function animate() {
 renderer.setAnimationLoop(render);
 }
+ 
+  function handleKeyPress(button) {
+  // Visual feedback
+  if (button.material && button.userData.pressColor) {
+    const originalColor = button.material.color.getHex();
+    button.material.color.setHex(button.userData.pressColor);
+    
+    // Reset color after short delay
+    setTimeout(() => {
+      if (button.material) {
+        button.material.color.setHex(button.userData.hoverColor || button.userData.defaultColor);
+      }
+    }, 150);
+  }
+  
+  // Process button action
+  if (button.userData.buttonType === 'letter' && !nameEntered) {
+    // Add letter if under max length
+    if (playerName.length < maxNameLength) {
+      playerName += button.userData.letter;
+      updateNameDisplay(button.parent);
+      triggerHapticFeedbackByHandedness('left', 0.3, 50);
+      triggerHapticFeedbackByHandedness('right', 0.3, 50);
+    }
+  } 
+  else if (button.userData.buttonType === 'space' && !nameEntered) {
+    // Add space if under max length
+    if (playerName.length < maxNameLength) {
+      playerName += ' ';
+      updateNameDisplay(button.parent);
+      triggerHapticFeedbackByHandedness('left', 0.2, 40);
+      triggerHapticFeedbackByHandedness('right', 0.2, 40);
+    }
+  }
+  else if (button.userData.buttonType === 'backspace' && !nameEntered) {
+    // Remove the last letter
+    if (playerName.length > 0) {
+      playerName = playerName.slice(0, -1);
+      updateNameDisplay(button.parent);
+      triggerHapticFeedbackByHandedness('left', 0.2, 40);
+      triggerHapticFeedbackByHandedness('right', 0.2, 40);
+    }
+  }
+  else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
+    // Submit score to leaderboard
+    nameEntered = true;
+    submitScore(playerName, levelTimes);
+    fetchLeaderboard();
+    
+    // Clear any cursor blink interval
+    if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
+      clearInterval(initialsDisplayMesh.userData.blinkInterval);
+      initialsDisplayMesh.userData.blinkInterval = null;
+    }
+    
+    triggerHapticFeedbackByHandedness('left', 0.5, 100);
+    triggerHapticFeedbackByHandedness('right', 0.5, 100);
+    
+    // Hide keyboard after submission
+    button.parent.visible = false;
+  }
+}
 
 // implement keyboard hover effects
 function updateKeyboardHoverState() {
@@ -1075,23 +1308,12 @@ function updateKeyboardHoverState() {
   
   // Reset previously hovered button if any
   if (hoveredButton) {
-    if (hoveredButton.material) {
-      // Reset to original color based on button type
-      if (hoveredButton.userData.buttonType === 'letter') {
-        hoveredButton.material.color.set(0x333333);
-      } else if (hoveredButton.userData.buttonType === 'backspace') {
-        hoveredButton.material.color.set(0xff3333);
-      } else if (hoveredButton.userData.buttonType === 'submit') {
-        hoveredButton.material.color.set(0x00ff00);
-      } else if (hoveredButton.userData.buttonType === 'restart') {
-        hoveredButton.material.color.set(0x00ff00);
-      } else if (hoveredButton.userData.buttonType === 'quit') {
-        hoveredButton.material.color.set(0xff0000);
-      }
+    if (hoveredButton.material && hoveredButton.userData.defaultColor) {
+      hoveredButton.material.color.setHex(hoveredButton.userData.defaultColor);
     }
     hoveredButton = null;
   }
-  
+
   // Check both controllers
   [controller1, controller2].forEach(controller => {
     const raycaster = new THREE.Raycaster();
@@ -1931,8 +2153,6 @@ function showNameEntry(isNewRecord) {
     return;
   }
 
-
-
  // For new records, attempt to use native keyboard first
  const useNativeKeyboard = tryNativeKeyboard();
   console.log("Native keyboard available:", useNativeKeyboard);
@@ -1959,24 +2179,17 @@ function showNameEntry(isNewRecord) {
     
     // Add restart and quit buttons
     addGameControlButtons();
+
   } else {
-      // Try to use three-mesh-ui keyboard
-      console.log("Attempting to use three-mesh-ui keyboard");
-    try {
-      const keyboard = createThreeMeshUIKeyboard();
-      if (!keyboard) throw new Error("Keyboard creation failed");
-      console.log("ThreeMeshUI keyboard created successfully");
-    } catch (error) {
-      console.error("ThreeMeshUI keyboard failed:", error);
-      // Fallback to your custom keyboard implementation
-      console.log("Falling back to custom keyboard");
-      createVirtualKeyboard();
-    }
+      // Use our new improved keyboard
+      console.log("Using custom 3D keyboard");
+    createImprovedVirtualKeyboard();
+  }
     
     // Add restart and quit buttons
     addGameControlButtons();
   }
-}
+
 
 // Add this function near your other keyboard functions
 function enhancedKeyboardTest() {
