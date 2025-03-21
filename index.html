@@ -141,6 +141,19 @@ const fontTexture = {
   'roboto': 'https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/examples/assets/fonts/roboto/Roboto-msdf.png' 
 };
 
+// testing keyboard
+function forceShowKeyboard() {
+  console.log("Forcing keyboard to appear for testing");
+  if (font) {
+    const keyboard = createImprovedVirtualKeyboard();
+    keyboard.position.set(0, 1.4, -0.75); // Position it in front of the user
+  } else {
+    console.error("Font not loaded yet, can't create keyboard");
+    // Try again in a second
+    setTimeout(forceShowKeyboard, 1000);
+  }
+}
+
 // Use the loaded font for the timer with shorter format
 const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
 const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
@@ -250,6 +263,9 @@ vrButton.style.display = 'none';
       console.log('Input sources changed:', event);
       setTimeout(initControllerHaptics, 500); // Small delay after change
     });
+
+// testing keyboard    
+setTimeout(forceShowKeyboard, 5000);
 
 } catch (error) {
 console.error('Failed to enter VR:', error);
@@ -489,6 +505,14 @@ function createImprovedVirtualKeyboard() {
     if (mesh.material) mesh.material.dispose();
   });
   keyboardMeshes = [];
+
+  //check for font
+  if (!font) {
+    console.error("Font not loaded, cannot create keyboard");
+    // Try again in a second
+    setTimeout(createImprovedVirtualKeyboard, 1000);
+    return null;
+  }
   
   // Keyboard container to group all elements
   const keyboardContainer = new THREE.Group();
