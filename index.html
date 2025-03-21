@@ -121,7 +121,7 @@ function forceShowKeyboard() {
     try {
       const keyboard = createImprovedVirtualKeyboard();
       if (keyboard) {
-        keyboard.position.set(0, 1.4, -0.75);
+        keyboard.position.set(0, 1.2, -0.75);
         console.log("Keyboard created successfully");
       } else {
         console.error("Keyboard creation returned null");
@@ -316,6 +316,7 @@ function initControllerHaptics() {
 function createImprovedVirtualKeyboard() {
     keyboardActive = true;
     createControllerRays();
+
   // Remove any existing keyboard elements
   keyboardMeshes.forEach(mesh => {
     scene.remove(mesh);
@@ -335,6 +336,7 @@ function createImprovedVirtualKeyboard() {
   // Keyboard container to group all elements
   const keyboardContainer = new THREE.Group();
   keyboardContainer.position.set(0, 1.1, -0.75);
+  keyboardContainer.scale.set(0.3, 0.3, 0.3);
   scene.add(keyboardContainer);
   gameCompletionMeshes.push(keyboardContainer);
   keyboardMeshes.push(keyboardContainer);
