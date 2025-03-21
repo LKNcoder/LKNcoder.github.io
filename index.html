@@ -518,8 +518,9 @@ function createImprovedVirtualKeyboard() {
 }
 
 // Updated name display function to work with the new keyboard
+// Updated name display function to have a separate cursor mesh
 function updateNameDisplay(container) {
-  // Remove existing display if any
+  // Remove existing display elements
   if (initialsDisplayMesh) {
     if (container) {
       container.remove(initialsDisplayMesh);
@@ -532,47 +533,79 @@ function updateNameDisplay(container) {
     }
   }
   
-  // Create cursor character to show typing position
-  const cursorChar = playerName.length < maxNameLength ? "|" : "";
-  const displayText = playerName + cursorChar;
+  // Clear any existing cursor blink interval
+  if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
+    clearInterval(initialsDisplayMesh.userData.blinkInterval);
+  }
   
-  const nameGeometry = new THREE.TextGeometry(displayText, { 
+  // Create a group to hold both name and cursor
+  const textGroup = new THREE.Group();
+  
+  // Create the name text (without cursor)
+  const nameGeometry = new THREE.TextGeometry(playerName, { 
     font: font, 
     size: 0.04, 
     height: 0.001 
   });
   
-  initialsDisplayMesh = new THREE.Mesh(
+  const nameMesh = new THREE.Mesh(
     nameGeometry, 
     new THREE.MeshStandardMaterial({ color: 0x00ffff })
   );
   
   nameGeometry.computeBoundingBox();
   const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
-  const nameOffset = -nameWidth / 2;
   
-  if (container) {
-    initialsDisplayMesh.position.set(nameOffset, 0.15, 0.006);
-    container.add(initialsDisplayMesh);
-  } else {
-    initialsDisplayMesh.position.set(nameOffset, 1.05, -0.75);
-    scene.add(initialsDisplayMesh);
-    gameCompletionMeshes.push(initialsDisplayMesh);
-  }
+  // Position name text at left side of the centered group
+  nameMesh.position.set(0, 0, 0.006);
+  textGroup.add(nameMesh);
   
-  // Make cursor blink
-  if (cursorChar && !initialsDisplayMesh.userData.blinkInterval) {
-    initialsDisplayMesh.userData.blinkInterval = setInterval(() => {
-      if (initialsDisplayMesh) {
-        initialsDisplayMesh.visible = !initialsDisplayMesh.visible;
+  // Create separate cursor mesh only if we haven't reached max length
+  let cursorMesh = null;
+  if (playerName.length < maxNameLength) {
+    const cursorGeometry = new THREE.TextGeometry("|", { 
+      font: font, 
+      size: 0.04, 
+      height: 0.001 
+    });
+    
+    cursorMesh = new THREE.Mesh(
+      cursorGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0x00ffff })
+    );
+    
+    // Position cursor right after the name text
+    cursorMesh.position.set(nameWidth, 0, 0.006);
+    textGroup.add(cursorMesh);
+    
+    // Set up blinking for cursor only
+    const blinkInterval = setInterval(() => {
+      if (cursorMesh && cursorMesh.parent) {
+        cursorMesh.visible = !cursorMesh.visible;
       } else {
-        clearInterval(initialsDisplayMesh.userData.blinkInterval);
+        clearInterval(blinkInterval);
       }
     }, 500);
+    
+    textGroup.userData.blinkInterval = blinkInterval;
   }
+  
+  // Center the entire text group
+  textGroup.position.set(-nameWidth/2, 0, 0);
+  
+  // Add the group to the container or scene
+  if (container) {
+    textGroup.position.y = 0.15;
+    container.add(textGroup);
+  } else {
+    textGroup.position.set(-nameWidth/2, 1.05, -0.75);
+    scene.add(textGroup);
+    gameCompletionMeshes.push(textGroup);
+  }
+  
+  // Store reference to the text group
+  initialsDisplayMesh = textGroup;
 }
-
-
 
 // Function to trigger haptics by controller handedness
 function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
