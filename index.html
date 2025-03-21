@@ -112,23 +112,6 @@ ring.position.copy(ringStartPosition);
 ring.rotation.y = Math.PI / 2;
 scene.add(ring);
 
-const loader = new THREE.FontLoader();
-loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
-font = loadedFont;
-const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
-const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-textMesh = new THREE.Mesh(textGeometry, textMaterial);
-textGeometry.computeBoundingBox();
-const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-textMesh.position.set(centerOffset, 2.0, -0.75);
-scene.add(textMesh);
-
-// Load a monospaced font for the timer
-const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json';
-loader.load(timerFontURL, function (loadedTimerFont) {
-timerFont = loadedTimerFont;
-
-
 // testing keyboard
 function forceShowKeyboard() {
   console.log("Forcing keyboard to appear for testing");
@@ -150,6 +133,25 @@ function forceShowKeyboard() {
   }
 }
 
+const loader = new THREE.FontLoader();
+loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+font = loadedFont;
+console.log('Font loaded successfully!', font);
+  // Test keyboard immediately after font is loaded
+  setTimeout(forceShowKeyboard, 1000);
+const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
+const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+textMesh = new THREE.Mesh(textGeometry, textMaterial);
+textGeometry.computeBoundingBox();
+const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+textMesh.position.set(centerOffset, 2.0, -0.75);
+scene.add(textMesh);
+
+// Load a monospaced font for the timer
+const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json';
+loader.load(timerFontURL, function (loadedTimerFont) {
+timerFont = loadedTimerFont;
+
 // Use the loaded font for the timer with shorter format
 const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
 const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
@@ -160,6 +162,7 @@ timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
 scene.add(timerMesh);
 });
 });
+
 
 const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
