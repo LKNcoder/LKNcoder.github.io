@@ -1790,12 +1790,16 @@ function fetchBestTimes(callback) {
 }
 
 function victory() {
-  if (startTime !== null && currentLevel < 5) {
-    // Store the completion time for this level
+  // First, always record the completion time for the current level
+  if (startTime !== null) {
     const levelTime = Date.now() - startTime;
     levelTimes[currentLevel - 1] = levelTime;
     startTime = null;
+    console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+  }
 
+  if (currentLevel < 5) {
+    // Handle regular level completion
     if (textMesh) textMesh.visible = false; 
     if (timerMesh) timerMesh.visible = false;
 
@@ -1808,10 +1812,8 @@ function victory() {
     // Flash the wire white and blue
     flashWire(3, false);
 
-    console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
-
-      //timeout to ensure we proceed even if the record check fails
-      let recordCheckCompleted = false;
+    //timeout to ensure we proceed even if the record check fails
+    let recordCheckCompleted = false;
     const fallbackTimer = setTimeout(() => {
       if (!recordCheckCompleted) {
         console.warn('Record check timed out - proceeding to next level');
@@ -1820,14 +1822,14 @@ function victory() {
     }, 5000); // 5 second fallback
     
     // Check if this is a new record for this level
-    checkIfNewRecord(currentLevel - 1, levelTime, function(isRecord) {
+    checkIfNewRecord(currentLevel - 1, levelTimes[currentLevel - 1], function(isRecord) {
       recordCheckCompleted = true;
       clearTimeout(fallbackTimer);
 
       if (isRecord) {
         console.log("New record detected! Showing notification.");
         // Create "NEW RECORD!" notification
-        showNewRecordNotification(levelTime);
+        showNewRecordNotification(levelTimes[currentLevel - 1]);
         
         // Create confetti effect
         createConfetti();
@@ -1852,36 +1854,34 @@ function victory() {
         proceedToNextLevel();
       }
     });
-  }
+  } 
+  else {
+    // Game complete! Show summary of times
+    gameCompleted = true;
+    const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+    console.log("Game completed! Total time:", totalTime);
 
-else if (currentLevel >= 5) {
-// Game complete! Show summary of times
-gameCompleted = true;
-startTime = null;
-const totalTime = levelTimes.reduce((total, time) => total + time, 0);
-console.log("Game completed! Total time:", totalTime);
+    // Hide the ring and wire when game is complete
+    ring.visible = false;
+    wire.visible = false;
+    if (textMesh) textMesh.visible = false;
+    if (timerMesh) timerMesh.visible = false;
 
-// Hide the ring and wire when game is complete
-ring.visible = false;
-wire.visible = false;
-if (textMesh) textMesh.visible = false;
-if (timerMesh) timerMesh.visible = false;
+    // Play grand finale sounds
+    longHornsSound.play().catch(error => console.log('Sound play error:', error));
+    longApplauseSound.play().catch(error => console.log('Sound play error:', error));
 
-// Play grand finale sounds
-longHornsSound.play().catch(error => console.log('Sound play error:', error));
-longApplauseSound.play().catch(error => console.log('Sound play error:', error));
-
- // special game completion haptic pattern - alternating pulses
- const celebratePulses = () => {
-    let count = 0;
-    const interval = setInterval(() => {
-      triggerHapticFeedbackByHandedness('left', 0.7, 100);
-      triggerHapticFeedbackByHandedness('right', 0.7, 100);
-      count++;
-      if (count >= 5) clearInterval(interval);
-    }, 300);
-  };
-  celebratePulses();
+    // special game completion haptic pattern - alternating pulses
+    const celebratePulses = () => {
+      let count = 0;
+      const interval = setInterval(() => {
+        triggerHapticFeedbackByHandedness('left', 0.7, 100);
+        triggerHapticFeedbackByHandedness('right', 0.7, 100);
+        count++;
+        if (count >= 5) clearInterval(interval);
+      }, 300);
+    };
+    celebratePulses();
 
 createConfetti(); // Add confetti effect
 
