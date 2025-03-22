@@ -994,11 +994,13 @@ function onSelectStart(event) {
           button.userData.buttonType === 'submit')) {
     // Use the centralized handler for keyboard buttons
     handleKeyPress(button);
+    return;
   }
   else if (button.userData.buttonType === 'restart') {
     restartGame();
     triggerHapticFeedbackByHandedness('left', 0.4, 100);
     triggerHapticFeedbackByHandedness('right', 0.4, 100);
+    return;
   }
   else if (button.userData.buttonType === 'quit') {
     // Exit VR session
@@ -1007,11 +1009,13 @@ function onSelectStart(event) {
       triggerHapticFeedbackByHandedness('left', 0.6, 150);
       triggerHapticFeedbackByHandedness('right', 0.6, 150);
     }
+    return;
   }
 }
 }
 }
-  
+
+// handle ring grabbing if no UI element was interacted with
 const ringBox = new THREE.Box3().setFromObject(ring);
 const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
 const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
@@ -2223,94 +2227,6 @@ function showNameEntry(isNewRecord) {
   // Add restart and quit buttons
   addGameControlButtons();
 } 
-
-
-// Create virtual keyboard layout
-const createVirtualKeyboard = () => {
-  // First row: QWERTYUIOP
-  const firstRow = "QWERTYUIOP";
-  const secondRow = "ASDFGHJKL";
-  const thirdRow = "ZXCVBNM";
-  
-  // Create keyboard rows
-  const createKeyboardRow = (letters, y, xOffset = 0) => {
-    let buttonWidth = 0.05;
-    let spacing = 0.025;
-    let totalWidth = letters.length * (buttonWidth + spacing) - spacing;
-    let startX = -totalWidth / 2 + xOffset;
-    
-    for (let i = 0; i < letters.length; i++) {
-      createLetterButton(
-        letters[i], 
-        startX + i * (buttonWidth + spacing), 
-        y
-      );
-    }
-  };
-  
-  // Create keyboard with three rows
-  createKeyboardRow(firstRow, 1.15);
-  createKeyboardRow(secondRow, 1.06, 0.02);  // Slight offset for second row
-  createKeyboardRow(thirdRow, 0.97, 0.04);  // Larger offset for third row
-  
-  // Create spacebar
-  const spacebarGeometry = new THREE.BoxGeometry(0.25, 0.04, 0.01);
-  const spacebarMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-  const spacebar = new THREE.Mesh(spacebarGeometry, spacebarMaterial);
-  spacebar.position.set(0, 0.88, -0.75);
-  scene.add(spacebar);
-  gameCompletionMeshes.push(spacebar);
-  keyboardMeshes.push(spacebar);
-
-  spacebar.userData.isButton = true;
-  spacebar.userData.buttonType = 'letter';
-  spacebar.userData.letter = ' ';
-  
-  // Create backspace button
-  const backspaceGeometry = new THREE.TextGeometry("Back", { font: font, size: 0.025, height: 0.005 });
-  const backspaceMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333 });
-  const backspaceMesh = new THREE.Mesh(backspaceGeometry, backspaceMaterial);
-  backspaceGeometry.computeBoundingBox();
-  backspaceMesh.position.set(0.27, 0.97, -0.75);
-  scene.add(backspaceMesh);
-  gameCompletionMeshes.push(backspaceMesh);
-  keyboardMeshes.push(backspaceMesh);
-  
-  const backspaceBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.07, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  backspaceBox.position.copy(backspaceMesh.position);
-  backspaceBox.position.z = -0.74; // Slightly in front
-  scene.add(backspaceBox);
-  gameCompletionMeshes.push(backspaceBox);
-  keyboardMeshes.push(backspaceBox);
-  backspaceBox.userData.isButton = true;
-  backspaceBox.userData.buttonType = 'backspace';
-  
-  // Create submit button
-  const submitBtnGeometry = new THREE.TextGeometry('SUBMIT', { font: font, size: 0.035, height: 0.005 });
-  const submitBtnMesh = new THREE.Mesh(submitBtnGeometry, new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
-  submitBtnGeometry.computeBoundingBox();
-  submitBtnMesh.position.set(0, 0.79, -0.75);
-  scene.add(submitBtnMesh);
-  gameCompletionMeshes.push(submitBtnMesh);
-  keyboardMeshes.push(submitBtnMesh);
-  
-  // Create invisible box for submit button
-  const submitBtnBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.05, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  submitBtnBox.position.copy(submitBtnMesh.position);
-  submitBtnBox.position.z = -0.74; // Slightly in front
-  scene.add(submitBtnBox);
-  gameCompletionMeshes.push(submitBtnBox);
-  keyboardMeshes.push(submitBtnBox);
-  submitBtnBox.userData.isButton = true;
-  submitBtnBox.userData.buttonType = 'submit';
-};
-
 
 // create the restart and quit buttons
 function addGameControlButtons() {
