@@ -1184,25 +1184,30 @@ renderer.setAnimationLoop(render);
 
 // Function to check if a level time is a record
 function checkIfNewRecord(levelIndex, levelTime, callback) {
-  // Get current best time from database
-  const levelRef = firebase.database().ref(`records/level${levelIndex + 1}`);
-  levelRef.once('value', snapshot => {
-    const record = snapshot.val();
-    // If no record exists or new time is better, it's a record
-    const isRecord = !record || levelTime < record.time;
-    callback(isRecord);
-  });
-}
-
-// Function to save individual level records
-function saveLevelRecord(levelNumber, time, playerName) {
-  // Save to the database
-  const levelRef = firebase.database().ref(`records/level${levelNumber}`);
-  levelRef.set({
-    playerName: playerName,
-    time: time,
-    date: Date.now()
-  });
+  try {
+    // Get current best time from database
+    const levelRef = firebase.database().ref(`records/level${levelIndex + 1}`);
+    levelRef.once('value', 
+      // Success handler
+      snapshot => {
+        const record = snapshot.val();
+        // If no record exists or new time is better, it's a record
+        const isRecord = !record || levelTime < record.time;
+        console.log(`Level ${levelIndex + 1} time: ${levelTime}ms, Record: ${record ? record.time : 'none'}, Is new record: ${isRecord}`);
+        callback(isRecord);
+      }, 
+      // Error handler
+      error => {
+        console.error('Error checking for record:', error);
+        // If there's an error, we'll assume it's not a record and proceed normally
+        callback(false);
+      }
+    );
+  } catch (error) {
+    console.error('Exception in checkIfNewRecord:', error);
+    // If there's an exception, assume it's not a record and proceed
+    callback(false);
+  }
 }
 
 // Function to proceed to next level (extracted from victory function)
@@ -1224,6 +1229,9 @@ function proceedToNextLevel() {
       textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, 
         { font: font, size: 0.02, height: 0.005 });
       textMesh.geometry.computeBoundingBox();
+      const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+      textMesh.position.set(centerOffset, 2.0, -0.75);
+      textMesh.visible = true;
     }
 
     // Create the new wire
@@ -1241,6 +1249,7 @@ function proceedToNextLevel() {
 
     // Reset timer for next level
     elapsedTime = 0;
+    startTime = null;
     grabbed = false;
     grabbingController = null;
 
@@ -1780,7 +1789,7 @@ function fetchBestTimes(callback) {
 }
 
 function victory() {
-  if (startTime !== null && (!gameCompleted || currentLevel < 5)) {
+  if (startTime !== null && currentLevel < 5) {
     // Store the completion time for this level
     const levelTime = Date.now() - startTime;
     levelTimes[currentLevel - 1] = levelTime;
@@ -1799,10 +1808,23 @@ function victory() {
     flashWire(3, false);
 
     console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+
+      //timeout to ensure we proceed even if the record check fails
+      let recordCheckCompleted = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!recordCheckCompleted) {
+        console.warn('Record check timed out - proceeding to next level');
+        proceedToNextLevel();
+      }
+    }, 5000); // 5 second fallback
     
     // Check if this is a new record for this level
     checkIfNewRecord(currentLevel - 1, levelTime, function(isRecord) {
+      recordCheckCompleted = true;
+      clearTimeout(fallbackTimer);
+
       if (isRecord) {
+        console.log("New record detected! Showing notification.");
         // Create "NEW RECORD!" notification
         showNewRecordNotification(levelTime);
         
@@ -1824,17 +1846,18 @@ function victory() {
         
         // The game will continue after name submission in the handleKeyPress function
       } else {
+        console.log("No new record, proceeding to next level directly.");
         // If no record, continue normally
         proceedToNextLevel();
       }
     });
   }
 
-else {
+else if (currentLevel >= 5) {
 // Game complete! Show summary of times
 gameCompleted = true;
 const totalTime = levelTimes.reduce((total, time) => total + time, 0);
-
+console.log("Game completed! Total time:", totalTime);
 // Hide the ring and wire when game is complete
 ring.visible = false;
 wire.visible = false;
