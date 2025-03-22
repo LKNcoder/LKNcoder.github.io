@@ -114,33 +114,10 @@ ring.position.copy(ringStartPosition);
 ring.rotation.y = Math.PI / 2;
 scene.add(ring);
 
-// testing keyboard
-function forceShowKeyboard() {
-  console.log("Forcing keyboard to appear for testing");
-  if (font) {
-    try {
-      const keyboard = createImprovedVirtualKeyboard();
-      if (keyboard) {
-        keyboard.position.set(0, 1.4, -0.75);
-        console.log("Keyboard created successfully");
-      } else {
-        console.error("Keyboard creation returned null");
-      }
-    } catch (error) {
-      console.error("Error creating keyboard:", error);
-    }
-  } else {
-    console.error("Font not loaded yet, can't create keyboard");
-    setTimeout(forceShowKeyboard, 1000);
-  }
-}
-
 const loader = new THREE.FontLoader();
 loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
 font = loadedFont;
 console.log('Font loaded successfully!', font);
-  // Test keyboard immediately after font is loaded
-  setTimeout(forceShowKeyboard, 1000);
 const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
 const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 textMesh = new THREE.Mesh(textGeometry, textMaterial);
@@ -217,8 +194,6 @@ vrButton.style.display = 'none';
       setTimeout(initControllerHaptics, 500); // Small delay after change
     });
 
-// testing keyboard    
-setTimeout(forceShowKeyboard, 5000);
 
 } catch (error) {
 console.error('Failed to enter VR:', error);
