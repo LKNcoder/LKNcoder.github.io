@@ -747,7 +747,7 @@ if (level === 5) {
       z = Math.sin(angle) * radius;
     }
 
-if (level === 0) {
+if (level === 1) {
 // Level 1 wire pattern
 waveX = Math.sin(angle * 8) * 0.05;
 waveY = Math.cos(angle * 6) * 0.05;
@@ -820,7 +820,7 @@ x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
 }
 
-else if (level === 1) {
+else if (level === 0) {
   // Level 5 - challenging but navigable
   // Use moderate frequency combinations
   waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
@@ -1351,6 +1351,7 @@ sphere1.visible = true;
 sphere2.visible = true;
 }
 
+if (!gameCompleted) {
 // Keep the text and timer above the ring and billboarded to face the player
 if (textMesh) {
 textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
@@ -1391,7 +1392,7 @@ const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMe
 timerMesh.position.x += timerCenterOffset;
 timerMesh.lookAt(camera.position);
 }
-
+}
 // Check for wire collision and update wire color
 updateWireColor();
 
@@ -1856,11 +1857,15 @@ function victory() {
 else if (currentLevel >= 5) {
 // Game complete! Show summary of times
 gameCompleted = true;
+startTime = null;
 const totalTime = levelTimes.reduce((total, time) => total + time, 0);
 console.log("Game completed! Total time:", totalTime);
+
 // Hide the ring and wire when game is complete
 ring.visible = false;
 wire.visible = false;
+if (textMesh) textMesh.visible = false;
+if (timerMesh) timerMesh.visible = false;
 
 // Play grand finale sounds
 longHornsSound.play().catch(error => console.log('Sound play error:', error));
