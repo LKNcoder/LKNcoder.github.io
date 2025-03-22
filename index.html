@@ -1988,7 +1988,7 @@ const recordTimesGeometry = new THREE.TextGeometry('RECORD TIMES', {
 });
 const recordTimesMesh = new THREE.Mesh(
   recordTimesGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
 recordTimesMesh.position.set(0, 1.4, -0.75);
 scene.add(recordTimesMesh);
@@ -2003,7 +2003,7 @@ const recordHoldersGeometry = new THREE.TextGeometry('RECORD HOLDERS', {
 });
 const recordHoldersMesh = new THREE.Mesh(
   recordHoldersGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
 recordHoldersMesh.position.set(0.35, 1.4, -0.75); // Right column
 scene.add(recordHoldersMesh);
@@ -2065,7 +2065,7 @@ for (let i = 0; i < 5; i++) {
   });
   const recordTimeMesh = new THREE.Mesh(
     recordTimeGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0xffff00 })
+    new THREE.MeshStandardMaterial({ color: 0xff8000 })
   );
   recordTimeMesh.position.set(0, 1.35 - (i * 0.05), -0.75);
   scene.add(recordTimeMesh);
@@ -2086,7 +2086,7 @@ for (let i = 0; i < 5; i++) {
   });
   const recordHolderMesh = new THREE.Mesh(
     recordHolderGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0xffff00 })
+    new THREE.MeshStandardMaterial({ color: 0xff8000 })
   );
   recordHolderMesh.position.set(0.35, 1.35 - (i * 0.05), -0.75);
   scene.add(recordHolderMesh);
@@ -2138,7 +2138,7 @@ const recordTotalGeometry = new THREE.TextGeometry(totalRecordTime ? formatTime(
 });
 const recordTotalMesh = new THREE.Mesh(
   recordTotalGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
 recordTotalMesh.position.set(0, 1.1, -0.75);
 scene.add(recordTotalMesh);
@@ -2158,12 +2158,21 @@ const totalHolderGeometry = new THREE.TextGeometry(displayTotalHolder, {
 });
 const totalHolderMesh = new THREE.Mesh(
   totalHolderGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xffff00 })
+  new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
 totalHolderMesh.position.set(0.35, 1.1, -0.75);
 scene.add(totalHolderMesh);
 gameCompletionMeshes.push(totalHolderMesh);
 scoreSummaryMeshes.push(totalHolderMesh);
+
+// Add a divider line
+const dividerGeometry = new THREE.BoxGeometry(0.8, 0.002, 0.001);
+const dividerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+const dividerMesh = new THREE.Mesh(dividerGeometry, dividerMaterial);
+dividerMesh.position.set(0, 1.05, -0.75);
+scene.add(dividerMesh);
+gameCompletionMeshes.push(dividerMesh);
+scoreSummaryMeshes.push(dividerMesh);
 
 const newRecordMeshes = [];
 
@@ -2192,6 +2201,8 @@ if (isNewRecord) {
   // Add both player and new record meshes to blink array
   newRecordMeshes.push(playerTotalMesh, newRecordTextMesh);
 }   
+
+addGameControlButtons(); // Add restart and quit buttons
 
 // Function to make new record meshes blink
 function blinkNewRecords(meshes, times = 5) {
@@ -2223,10 +2234,11 @@ setTimeout(() => {
   blinkNewRecords(newRecordMeshes);
 }, 1000);
 
-// Show keyboard only if it's a new record
-setTimeout(() => {
-  showNameEntry(isNewRecord);
-}, 3000); // Short delay to let player see the scores first
+if (isNewRecord) {
+  setTimeout(() => {
+    createImprovedVirtualKeyboard();
+  }, 2000);
+}
 
 });
 }
@@ -2266,56 +2278,80 @@ function showNameEntry(isNewRecord) {
 } 
 
 // create the restart and quit buttons
+
 function addGameControlButtons() {
-  // Add Restart button
-  const restartGeometry = new THREE.TextGeometry('RESTART', { font: font, size: 0.025, height: 0.005 });
-  const restartMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
+  // Create button container to help with positioning
+  const buttonContainer = new THREE.Group();
+  buttonContainer.position.set(0, 0.88, -0.75);
+  scene.add(buttonContainer);
+  gameCompletionMeshes.push(buttonContainer);
+  
+  // Add Restart button with background
+  const restartBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
+  const restartBgMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00aa00,
+    emissive: 0x005500,
+    emissiveIntensity: 0.3
+  });
+  const restartBg = new THREE.Mesh(restartBgGeometry, restartBgMaterial);
+  restartBg.position.set(-0.15, 0, 0);
+  buttonContainer.add(restartBg);
+  
+  const restartGeometry = new THREE.TextGeometry('RESTART', { 
+    font: font, 
+    size: 0.025, 
+    height: 0.005 
+  });
+  const restartMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
   const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
   restartGeometry.computeBoundingBox();
   const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
   const restartOffset = -0.5 * restartWidth;
-  restartMesh.position.set(restartOffset - 0.1, 0.7, -0.75); // Positioned lower
-  scene.add(restartMesh);
-  gameCompletionMeshes.push(restartMesh);
-  keyboardMeshes.push(restartMesh);
-
-  // Create invisible box for restart button interaction
-  const restartBox = new THREE.Mesh(
-    new THREE.BoxGeometry(restartWidth + 0.05, 0.05, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  restartBox.position.copy(restartMesh.position);
-  restartBox.position.y += 0.01; // Slight offset for better interaction
-  scene.add(restartBox);
-  restartBox.userData.isButton = true;
-  restartBox.userData.buttonType = 'restart';
-  gameCompletionMeshes.push(restartBox);
-  keyboardMeshes.push(restartBox);
-
-  // Add Quit button
-  const quitGeometry = new THREE.TextGeometry('QUIT', { font: font, size: 0.025, height: 0.005 });
-  const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 });
+  restartMesh.position.set(restartOffset - 0.15, 0, 0.006);
+  buttonContainer.add(restartMesh);
+  
+  // Make the background button interactive
+  restartBg.userData.isButton = true;
+  restartBg.userData.buttonType = 'restart';
+  restartBg.userData.defaultColor = 0x00aa00;
+  restartBg.userData.hoverColor = 0x00cc00;
+  restartBg.userData.pressColor = 0x00ff00;
+  
+  // Add Quit button with background
+  const quitBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
+  const quitBgMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xaa0000,
+    emissive: 0x550000,
+    emissiveIntensity: 0.3
+  });
+  const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
+  quitBg.position.set(0.15, 0, 0);
+  buttonContainer.add(quitBg);
+  
+  const quitGeometry = new THREE.TextGeometry('QUIT', { 
+    font: font, 
+    size: 0.025, 
+    height: 0.005 
+  });
+  const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
   const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
   quitGeometry.computeBoundingBox();
   const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
   const quitOffset = -0.5 * quitWidth;
-  quitMesh.position.set(quitOffset + 0.15, 0.7, -0.75); // Positioned lower
-  scene.add(quitMesh);
-  gameCompletionMeshes.push(quitMesh);
-  keyboardMeshes.push(quitMesh);
-
-  // Create invisible box for quit button interaction
-  const quitBox = new THREE.Mesh(
-    new THREE.BoxGeometry(quitWidth + 0.05, 0.05, 0.01),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
-  );
-  quitBox.position.copy(quitMesh.position);
-  quitBox.position.y += 0.01; // Slight offset for better interaction
-  scene.add(quitBox);
-  quitBox.userData.isButton = true;
-  quitBox.userData.buttonType = 'quit';
-  gameCompletionMeshes.push(quitBox);
-  keyboardMeshes.push(quitBox);
+  quitMesh.position.set(quitOffset + 0.15, 0, 0.006);
+  buttonContainer.add(quitMesh);
+  
+  // Make the background button interactive
+  quitBg.userData.isButton = true;
+  quitBg.userData.buttonType = 'quit';
+  quitBg.userData.defaultColor = 0xaa0000;
+  quitBg.userData.hoverColor = 0xcc0000;
+  quitBg.userData.pressColor = 0xff0000;
+  
+  // Add controller rays if not already visible
+  if (controllerRays.length === 0) {
+    createControllerRays();
+  }
 }
 
      
