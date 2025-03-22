@@ -1013,7 +1013,6 @@ function onSelectStart(event) {
   }
 }
 }
-}
 
 // handle ring grabbing if no UI element was interacted with
 const ringBox = new THREE.Box3().setFromObject(ring);
@@ -1039,7 +1038,7 @@ startTime = Date.now() - elapsedTime;
 }
 }
 }
-
+}
 
 function onSelectEnd(event) {
 if (event.target === grabbingController) {
