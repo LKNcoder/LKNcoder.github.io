@@ -765,14 +765,14 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
-if (level === 0) {
+if (level === 1) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
       z = Math.sin(angle) * radius;
     }
 
-if (level === 1) {
+if (level === 0) {
 // Level 1 wire pattern
 waveX = Math.sin(angle * 8) * 0.05;
 waveY = Math.cos(angle * 6) * 0.05;
