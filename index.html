@@ -66,6 +66,7 @@ let gameCompletionMeshes = [];
 let transitionImmunity = false;
 let xrInputSources = [];
 
+let levelCompleted = false;
 let gameCompleted = false;
 let scoreSummaryMeshes = []; 
 let keyboardMeshes = [];
@@ -1074,6 +1075,7 @@ grabbingController = null;
 
 // Add the restartGame function
 function restartGame() {
+  levelCompleted = false;
   // Clean up game completion meshes
   gameCompletionMeshes.forEach(mesh => {
     scene.remove(mesh);
@@ -1235,7 +1237,7 @@ function checkIfNewRecord(levelIndex, levelTime, callback) {
   }
 }
 
-// Function to proceed to next level (extracted from victory function)
+// Function to proceed to next level 
 function proceedToNextLevel() {
   // Clean up any notification meshes
   gameCompletionMeshes.forEach(mesh => {
@@ -1248,6 +1250,7 @@ function proceedToNextLevel() {
   transitionImmunity = true;
   setTimeout(() => {
     currentLevel++;
+    levelCompleted = false;
     // Update the level text
     if (textMesh && font) {
       textMesh.geometry.dispose();
@@ -1517,6 +1520,7 @@ renderer.render(scene, camera);
 }
 
 function updateWireColor() {
+if (levelCompleted) return;
 const ringBox = new THREE.Box3().setFromObject(ring);
 const colors = wire.geometry.attributes.color.array;
 
@@ -1838,6 +1842,9 @@ function saveLevelRecord(levelNumber, levelTime, playerName) {
 }
 
 function victory() {
+  if (levelCompleted) return;
+  levelCompleted = true;
+
   // First, always record the completion time for the current level
   if (startTime !== null) {
     const levelTime = Date.now() - startTime;
