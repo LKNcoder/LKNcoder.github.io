@@ -2014,6 +2014,7 @@ scoreSummaryMeshes.push(recordHoldersMesh);
 for (let i = 0; i < 5; i++) {
   const levelTime = levelTimes[i] || 0;
   const recordTime = bestTimes[`level${i+1}`];
+  const recordHolder = bestTimes[`level${i+1}`].name;
   
   // Create level number label
   const levelLabelGeometry = new THREE.TextGeometry(`Level ${i+1}:`, { 
