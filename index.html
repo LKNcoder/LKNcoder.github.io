@@ -1830,52 +1830,7 @@ function victory() {
     });
   }
 
-
-// Advance to the next level - CHANGED to support four levels
-if (currentLevel < 5) {  // Updated to go to level 5
-  ring.visible = false;
-  transitionImmunity = true;
-  setTimeout(() => {
-currentLevel++;
-// Update the level text
-if (textMesh && font) {
-textMesh.geometry.dispose();
-textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
-textMesh.geometry.computeBoundingBox();
-}
-
-// create the new wire
-wire = createWire(currentLevel);
-
-// Reset the ring position and create the new wire
-ring.position.copy(ringStartPosition);
-ring.rotation.set(0, Math.PI / 2, 0);
-
- // Keep ring invisible until we're sure it's safe
- setTimeout(() => {
-      ring.visible = true;
-      transitionImmunity = false; // Disable immunity after ring is safely positioned
-    }, 100); // Short delay before showing ring
-
-// Reset timer for next level
-elapsedTime = 0;
-grabbed = false;
-grabbingController = null;
-
-// Reset the timer display to 0:00:000
-if (timerMesh && timerFont) {
-timerMesh.geometry.dispose();
-timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
-font: timerFont,
-size: 0.02,
-height: 0.005,
-});
-timerMesh.geometry.computeBoundingBox();
-const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-}
-}, 2000); // Wait 2 seconds before starting next level
-} else {
+else {
 // Game complete! Show summary of times
 gameCompleted = true;
 const totalTime = levelTimes.reduce((total, time) => total + time, 0);
