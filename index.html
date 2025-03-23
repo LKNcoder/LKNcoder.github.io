@@ -289,6 +289,43 @@ function initControllerHaptics() {
   });
 }
 
+//testing keyboard again
+function forceShowKeyboard() {
+  // First make sure keyboard is not already visible
+  if (keyboardMeshes.length > 0) {
+    return; // Keyboard already exists
+  }
+  
+  console.log("Force showing keyboard");
+  
+  // Reset state variables
+  playerName = "";
+  nameEntered = false;
+  keyboardActive = true;
+  
+  // Create keyboard
+  const keyboard = createImprovedVirtualKeyboard();
+  
+  // Position keyboard in front of player
+  if (keyboard) {
+    keyboard.position.set(0, 1.2, -0.75);
+    keyboard.visible = true;
+    
+    // Make sure keyboard is added to appropriate arrays
+    gameCompletionMeshes.push(keyboard);
+    
+    // Ensure controller rays are visible
+    createControllerRays();
+  }
+  
+  // Make sure game UI buttons are also visible
+  setTimeout(addGameControlButtons, 200);
+  
+  return keyboard;
+}
+
+
+
 //reset leaderboard for testing
 function resetLeaderboard() {
   // Clear main leaderboard
@@ -1191,6 +1228,10 @@ renderer.setAnimationLoop(render);
   if (gameCompleted) {
     // If game is complete, submit full game score
     submitScore(playerName, levelTimes);
+    // check if we need to save level 5 record separately
+    if (window.pendingRecords && window.pendingRecords.level5) {
+      saveLevelRecord(5, levelTimes[4], playerName);
+    }
     fetchLeaderboard();
   } else {
     // If individual level, save just that level record
@@ -1202,6 +1243,7 @@ renderer.setAnimationLoop(render);
     clearInterval(initialsDisplayMesh.userData.blinkInterval);
     initialsDisplayMesh.userData.blinkInterval = null;
   }
+  window.pendingRecords = null; // Clear pending records
   
   triggerHapticFeedbackByHandedness('left', 0.5, 100);
   triggerHapticFeedbackByHandedness('right', 0.5, 100);
@@ -2328,21 +2370,19 @@ if (isNewRecord) {
     playerName = ""; // Reset player name
     nameEntered = false;
     keyboardActive = true;
+
+      // Store information about which records were set
+      window.pendingRecords = {
+      totalGame: true
+    };
     
-    // Create and position keyboard with better error handling
-    const keyboard = createImprovedVirtualKeyboard();
-    if (keyboard) {
-      keyboard.position.set(0, 1.2, -0.75);
-      console.log("Keyboard created successfully for game completion");
-    } else {
-      console.error("Failed to create keyboard for game completion");
-    }
+    // Also check if level 5 was a record
+    checkIfNewRecord(4, levelTimes[4], function(isLevel5Record) {
+      window.pendingRecords.level5 = isLevel5Record;
+      console.log("Level 5 record check:", isLevel5Record);
     
-    // Add restart and quit buttons AFTER keyboard is created
-    setTimeout(() => {
-      addGameControlButtons();
-      console.log("Game control buttons added");
-    }, 200);
+    forceShowKeyboard();
+    });
   }, 2000); // Give more time (2 seconds)
 }
 
