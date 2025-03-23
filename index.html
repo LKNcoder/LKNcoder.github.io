@@ -1784,38 +1784,65 @@ function fetchBestTimes(callback) {
     total: { time: Number.MAX_VALUE, name: "" }
   };
   
-  // Get all leaderboard entries
-  leaderboardRef.once('value', snapshot => {
-    snapshot.forEach(child => {
-      const entry = child.val();
-      
-      // Check for total time record
-      if (entry.totalTime && entry.totalTime < bestTimes.total.time) {
-        bestTimes.total.time = entry.totalTime;
-        bestTimes.total.name = entry.playerName || "Anonymous";
-      }
-      
-      // Check each level time
-      if (entry.levelTimes) {
-        for (let i = 0; i < 5; i++) {
-          if (entry.levelTimes[i] && entry.levelTimes[i] < bestTimes[`level${i+1}`].time) {
-            bestTimes[`level${i+1}`].time = entry.levelTimes[i];
-            bestTimes[`level${i+1}`].name = entry.playerName || "Anonymous";
+  try {
+    // Get all leaderboard entries with timeout protection
+    const timeoutId = setTimeout(() => {
+      console.warn("Firebase query timed out, using default values");
+      // Make sure we call the callback even if Firebase times out
+      if (callback) callback(bestTimes);
+      // Set callback to null to prevent multiple calls
+      callback = null;
+    }, 5000);
+    
+    leaderboardRef.once('value', 
+      // Success handler
+      snapshot => {
+        clearTimeout(timeoutId); // Clear the timeout
+        
+        // Process the data...
+        snapshot.forEach(child => {
+          const entry = child.val();
+          
+          // Check for total time record
+          if (entry.totalTime && entry.totalTime < bestTimes.total.time) {
+            bestTimes.total.time = entry.totalTime;
+            bestTimes.total.name = entry.playerName || "Anonymous";
+          }
+          
+          // Check each level time
+          if (entry.levelTimes) {
+            for (let i = 0; i < 5; i++) {
+              if (entry.levelTimes[i] && entry.levelTimes[i] < bestTimes[`level${i+1}`].time) {
+                bestTimes[`level${i+1}`].time = entry.levelTimes[i];
+                bestTimes[`level${i+1}`].name = entry.playerName || "Anonymous";
+              }
+            }
+          }
+        });
+        
+        // Replace MAX_VALUE with null for any levels without records
+        for (const key in bestTimes) {
+          if (bestTimes[key].time === Number.MAX_VALUE) {
+            bestTimes[key].time = null;
+            bestTimes[key].name = "N/A";
           }
         }
+        
+        if (callback) callback(bestTimes);
+      },
+      // Error handler
+      error => {
+        clearTimeout(timeoutId); // Clear the timeout
+        console.error("Error fetching best times:", error);
+        // Still call the callback with default values
+        if (callback) callback(bestTimes);
       }
-    });
-    
-    // Replace MAX_VALUE with null for any levels without records
-    for (const key in bestTimes) {
-      if (bestTimes[key].time === Number.MAX_VALUE) {
-        bestTimes[key].time = null;
-        bestTimes[key].name = "N/A";
-      }
-    }
-    
+    );
+  } catch (e) {
+    console.error("Exception in fetchBestTimes:", e);
+    // Call callback even if there's an exception
     if (callback) callback(bestTimes);
-  });
+  }
 }
 
 function saveLevelRecord(levelNumber, levelTime, playerName) {
@@ -1839,6 +1866,84 @@ function saveLevelRecord(levelNumber, levelTime, playerName) {
       console.log(`Not a new record for level ${levelNumber}`);
     }
   });
+}
+
+// Move the addGameControlButtons function outside of any nested functions
+// Place this somewhere before line 2302 where it's first called
+
+function addGameControlButtons() {
+  // Create button container to help with positioning
+  const buttonContainer = new THREE.Group();
+  buttonContainer.position.set(0, 0.88, -0.75);
+  scene.add(buttonContainer);
+  gameCompletionMeshes.push(buttonContainer);
+  
+  // Add Restart button with background
+  const restartBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
+  const restartBgMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00aa00,
+    emissive: 0x005500,
+    emissiveIntensity: 0.3
+  });
+  const restartBg = new THREE.Mesh(restartBgGeometry, restartBgMaterial);
+  restartBg.position.set(-0.15, 0, 0);
+  buttonContainer.add(restartBg);
+  
+  const restartGeometry = new THREE.TextGeometry('RESTART', { 
+    font: font, 
+    size: 0.025, 
+    height: 0.005 
+  });
+  const restartMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
+  restartGeometry.computeBoundingBox();
+  const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
+  const restartOffset = -0.5 * restartWidth;
+  restartMesh.position.set(restartOffset - 0.15, 0, 0.006);
+  buttonContainer.add(restartMesh);
+  
+  // Make the background button interactive
+  restartBg.userData.isButton = true;
+  restartBg.userData.buttonType = 'restart';
+  restartBg.userData.defaultColor = 0x00aa00;
+  restartBg.userData.hoverColor = 0x00cc00;
+  restartBg.userData.pressColor = 0x00ff00;
+  
+  // Add Quit button with background
+  const quitBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
+  const quitBgMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xaa0000,
+    emissive: 0x550000,
+    emissiveIntensity: 0.3
+  });
+  const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
+  quitBg.position.set(0.15, 0, 0);
+  buttonContainer.add(quitBg);
+  
+  const quitGeometry = new THREE.TextGeometry('QUIT', { 
+    font: font, 
+    size: 0.025, 
+    height: 0.005 
+  });
+  const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
+  quitGeometry.computeBoundingBox();
+  const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
+  const quitOffset = -0.5 * quitWidth;
+  quitMesh.position.set(quitOffset + 0.15, 0, 0.006);
+  buttonContainer.add(quitMesh);
+  
+  // Make the background button interactive
+  quitBg.userData.isButton = true;
+  quitBg.userData.buttonType = 'quit';
+  quitBg.userData.defaultColor = 0xaa0000;
+  quitBg.userData.hoverColor = 0xcc0000;
+  quitBg.userData.pressColor = 0xff0000;
+  
+  // Add controller rays if not already visible
+  if (controllerRays.length === 0) {
+    createControllerRays();
+  }
 }
 
 function victory() {
@@ -2072,7 +2177,6 @@ for (let i = 0; i < 5; i++) {
   scene.add(recordTimeMesh);
   gameCompletionMeshes.push(recordTimeMesh);
   scoreSummaryMeshes.push(recordTimeMesh);
-}
 
 // record holders - right column
   // Truncate name if too long
@@ -2205,32 +2309,7 @@ if (isNewRecord) {
 
 addGameControlButtons(); // Add restart and quit buttons
 
-// Function to make new record meshes blink
-function blinkNewRecords(meshes, times = 5) {
-  if (meshes.length === 0) return;
-  
-  let count = 0;
-  const interval = setInterval(() => {
-    // Toggle visibility for blink effect
-    meshes.forEach(mesh => {
-      if (mesh.material) {
-        mesh.visible = !mesh.visible;
-      }
-    });
-    
-    count++;
-    if (count >= times * 2) { // Each blink is two state changes (on/off)
-      clearInterval(interval);
-      // Make sure meshes are visible when done
-      meshes.forEach(mesh => {
-        if (mesh.material) {
-          mesh.visible = true;
-        }
-      });
-    }
-  }, 250); // Blink interval in ms
-}
-    
+ 
 setTimeout(() => {
   blinkNewRecords(newRecordMeshes);
 }, 1000);
@@ -2240,13 +2319,35 @@ if (isNewRecord) {
     createImprovedVirtualKeyboard();
   }, 2000);
 }
-}
-});
-}
+
+
+// Function to make new record meshes blink
+function blinkNewRecords(meshes, times = 5) {
+  if (!meshes || meshes.length === 0) return;
+  
+  let count = 0;
+  const interval = setInterval(function() {
+    // Toggle visibility using traditional for loop instead of forEach
+    for (let i = 0; i < meshes.length; i++) {
+      if (meshes[i] && meshes[i].material) {
+        meshes[i].visible = !meshes[i].visible;
+      }
+    }
+    
+    count++;
+    if (count >= times * 2) {
+      clearInterval(interval);
+      // Make sure all are visible at the end
+      for (let i = 0; i < meshes.length; i++) {
+        if (meshes[i] && meshes[i].material) {
+          meshes[i].visible = true;
+        }
+      }
+    }
+  }, 250);
 }
 
-// use new keyboard 
-function showNameEntry(isNewRecord) {
+
   // Only show keyboard if it's a new record
   if (!isNewRecord) {
     // If no record was set, just show a simple message and the restart/quit buttons
@@ -2276,85 +2377,11 @@ function showNameEntry(isNewRecord) {
   
   // Add restart and quit buttons
   addGameControlButtons();
-} 
-
-// create the restart and quit buttons
-
-function addGameControlButtons() {
-  // Create button container to help with positioning
-  const buttonContainer = new THREE.Group();
-  buttonContainer.position.set(0, 0.88, -0.75);
-  scene.add(buttonContainer);
-  gameCompletionMeshes.push(buttonContainer);
-  
-  // Add Restart button with background
-  const restartBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
-  const restartBgMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00aa00,
-    emissive: 0x005500,
-    emissiveIntensity: 0.3
-  });
-  const restartBg = new THREE.Mesh(restartBgGeometry, restartBgMaterial);
-  restartBg.position.set(-0.15, 0, 0);
-  buttonContainer.add(restartBg);
-  
-  const restartGeometry = new THREE.TextGeometry('RESTART', { 
-    font: font, 
-    size: 0.025, 
-    height: 0.005 
-  });
-  const restartMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
-  restartGeometry.computeBoundingBox();
-  const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
-  const restartOffset = -0.5 * restartWidth;
-  restartMesh.position.set(restartOffset - 0.15, 0, 0.006);
-  buttonContainer.add(restartMesh);
-  
-  // Make the background button interactive
-  restartBg.userData.isButton = true;
-  restartBg.userData.buttonType = 'restart';
-  restartBg.userData.defaultColor = 0x00aa00;
-  restartBg.userData.hoverColor = 0x00cc00;
-  restartBg.userData.pressColor = 0x00ff00;
-  
-  // Add Quit button with background
-  const quitBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
-  const quitBgMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xaa0000,
-    emissive: 0x550000,
-    emissiveIntensity: 0.3
-  });
-  const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
-  quitBg.position.set(0.15, 0, 0);
-  buttonContainer.add(quitBg);
-  
-  const quitGeometry = new THREE.TextGeometry('QUIT', { 
-    font: font, 
-    size: 0.025, 
-    height: 0.005 
-  });
-  const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
-  quitGeometry.computeBoundingBox();
-  const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
-  const quitOffset = -0.5 * quitWidth;
-  quitMesh.position.set(quitOffset + 0.15, 0, 0.006);
-  buttonContainer.add(quitMesh);
-  
-  // Make the background button interactive
-  quitBg.userData.isButton = true;
-  quitBg.userData.buttonType = 'quit';
-  quitBg.userData.defaultColor = 0xaa0000;
-  quitBg.userData.hoverColor = 0xcc0000;
-  quitBg.userData.pressColor = 0xff0000;
-  
-  // Add controller rays if not already visible
-  if (controllerRays.length === 0) {
-    createControllerRays();
-  }
 }
-
+  
+});
+}
+}
      
 </script>
 </body>
