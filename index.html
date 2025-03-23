@@ -2400,6 +2400,9 @@ function blinkNewRecords(meshes, times = 5) {
     noRecordMesh.position.set(noRecordOffset, 1.0, -0.75);
     scene.add(noRecordMesh);
     gameCompletionMeshes.push(noRecordMesh);
+
+    keyboardActive = true; // This was missing - add it
+    createControllerRays();
     
     // Just add restart and quit buttons
     addGameControlButtons();
