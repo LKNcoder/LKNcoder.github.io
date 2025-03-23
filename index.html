@@ -551,7 +551,7 @@ function createImprovedVirtualKeyboard() {
 
   submitTextMesh.userData.isNonInteractive = true;
   submitTextMesh.position.copy(submitTextOffset);
-  submitTextMesh.position.z = 0.005;
+  submitTextMesh.position.z = 0.008;
   submitButton.add(submitTextMesh);
   
   submitButton.userData.isButton = true;
@@ -1178,7 +1178,7 @@ function restartGame() {
   // Reset the level text
   if (textMesh && font) {
     textMesh.geometry.dispose();
-    textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
+    textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.008 });
     textMesh.geometry.computeBoundingBox();
     const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
     textMesh.position.set(centerOffset, 2.0, -0.75);
@@ -1403,10 +1403,21 @@ function updateKeyboardHoverState() {
     
     if (intersects.length > 0) {
       // Get the actual button (might be a child of a group)
-      const intersectedObj = intersects[0].object;
-      const button = intersectedObj.userData.isButton ? 
-                    intersectedObj : 
-                    findButtonParent(intersectedObj);
+      let button = null;
+         // Check if it's a non-interactive element (like text on a button)
+      if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
+        // If it's text, check its parent for a button
+        let parent = intersectedObj.parent;
+        if (parent && parent.userData && parent.userData.isButton) {
+          button = parent;
+        }
+      } else if (intersectedObj.userData && intersectedObj.userData.isButton) {
+        // It's directly a button
+        button = intersectedObj;
+      } else {
+        // Check parent hierarchy for a button
+        button = findButtonParent(intersectedObj);
+      }
       
       if (button && button.material) {
         // Apply hover color based on userData
@@ -1976,7 +1987,7 @@ function addGameControlButtons() {
   const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
   const restartOffset = -0.5 * restartWidth;
   restartMesh.userData.isNonInteractive = true;
-  restartMesh.position.set(restartOffset - 0.15, 0, 0.005);
+  restartMesh.position.set(restartOffset - 0.15, 0, 0.008);
   buttonContainer.add(restartMesh);
   
   // Make the background button interactive
@@ -2009,7 +2020,7 @@ function addGameControlButtons() {
   const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
   const quitOffset = -0.5 * quitWidth;
   quitMesh.userData.isNonInteractive = true; 
-  quitMesh.position.set(quitOffset + 0.15, 0, 0.005);
+  quitMesh.position.set(quitOffset + 0.15, 0, 0.008);
   buttonContainer.add(quitMesh);
   
   // Make the background button interactive
