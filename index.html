@@ -187,7 +187,7 @@ vrButton.style.display = 'none';
         console.log('Waiting for controllers to initialize...');
         setTimeout(() => {
           initControllerHaptics();
-          
+
           // show test keyboard after controller initialization
           setTimeout(forceShowKeyboard, 1000);
         }, 1000);           
@@ -1041,24 +1041,28 @@ function onSelectStart(event) {
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
-    // Use BOTH arrays for detection
-    const interactiveObjects = [
-      ...gameCompletionMeshes.filter(mesh => mesh && mesh.userData && mesh.userData.isButton),
-      ...keyboardMeshes.filter(mesh => mesh && mesh.userData && mesh.userData.isButton)
-    ];
-    
-    // Optional debug info
-    console.log(`Found ${interactiveObjects.length} interactive objects to test`);
-    
-    const buttonIntersects = raycaster.intersectObjects(interactiveObjects, true);
+    // Use recursive intersection to properly detect buttons in hierarchies
+    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes, true);
     console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
-      const buttonObject = buttonIntersects[0].object;
-      // Make sure we're working with the button itself, not a child (like text)
-      const button = buttonObject.userData && buttonObject.userData.isButton ? buttonObject : 
-                    buttonObject.parent && buttonObject.parent.userData && 
-                    buttonObject.parent.userData.isButton ? buttonObject.parent : null;
+      // Find the actual button - either the intersected object or one of its parents
+      let buttonObject = buttonIntersects[0].object;
+      let button = null;
+      
+      // Check if the object itself is a button
+      if (buttonObject.userData && buttonObject.userData.isButton) {
+        button = buttonObject;
+      } else {
+        // Check parent hierarchy for a button
+        let parent = buttonObject.parent;
+        while (parent && !button) {
+          if (parent.userData && parent.userData.isButton) {
+            button = parent;
+          }
+          parent = parent.parent;
+        }
+      }
       
       if (button) {
         console.log('Button interaction:', button.userData.buttonType);
@@ -1073,12 +1077,14 @@ function onSelectStart(event) {
           return;
         }
         else if (button.userData.buttonType === 'restart') {
+          console.log('Restarting game...');
           restartGame();
           triggerHapticFeedbackByHandedness('left', 0.4, 100);
           triggerHapticFeedbackByHandedness('right', 0.4, 100);
           return;
         }
         else if (button.userData.buttonType === 'quit') {
+          console.log('Quitting game...');
           // Exit VR session
           if (renderer.xr.isPresenting) {
             renderer.xr.getSession().end();
@@ -1943,7 +1949,8 @@ function addGameControlButtons() {
   const restartBg = new THREE.Mesh(restartBgGeometry, restartBgMaterial);
   restartBg.position.set(-0.15, 0, 0);
   buttonContainer.add(restartBg);
-  
+  gameCompletionMeshes.push(restartBg);
+
   const restartGeometry = new THREE.TextGeometry('RESTART', { 
     font: font, 
     size: 0.025, 
@@ -1974,6 +1981,7 @@ function addGameControlButtons() {
   const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
   quitBg.position.set(0.15, 0, 0);
   buttonContainer.add(quitBg);
+  gameCompletionMeshes.push(quitBg);
   
   const quitGeometry = new THREE.TextGeometry('QUIT', { 
     font: font, 
