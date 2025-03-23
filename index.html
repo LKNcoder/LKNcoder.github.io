@@ -185,7 +185,12 @@ vrButton.style.display = 'none';
       if (!firstFrameRendered) {
         firstFrameRendered = true;
         console.log('Waiting for controllers to initialize...');
-        setTimeout(initControllerHaptics, 1000);        
+        setTimeout(() => {
+          initControllerHaptics();
+          
+          // show test keyboard after controller initialization
+          setTimeout(forceShowKeyboard, 1000);
+        }, 1000);           
       }
     });
     
