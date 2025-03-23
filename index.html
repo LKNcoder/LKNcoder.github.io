@@ -1379,11 +1379,13 @@ function updateKeyboardHoverState() {
     direction.applyQuaternion(controller.quaternion);
     raycaster.set(controller.position, direction);
     
-    // Get all button objects
-    const allButtonObjects = gameCompletionMeshes.filter(mesh => 
-      mesh.userData && mesh.userData.isButton);
+    let allInteractableObjects = [...gameCompletionMeshes];
+    if (keyboardActive) {
+      allInteractableObjects = [...allInteractableObjects, ...keyboardMeshes];
+    }
     
-    const intersects = raycaster.intersectObjects(allButtonObjects, true);
+    // Use recursive intersection to check all child objects too
+    const intersects = raycaster.intersectObjects(allInteractableObjects, true);
     
     if (intersects.length > 0) {
       // Get the actual button (might be a child of a group)
@@ -2370,8 +2372,6 @@ if (isNewRecord) {
   newRecordMeshes.push(playerTotalMesh, newRecordTextMesh);
 }   
 
-addGameControlButtons(); // Add restart and quit buttons
-
  
 setTimeout(() => {
   blinkNewRecords(newRecordMeshes);
@@ -2448,10 +2448,10 @@ function blinkNewRecords(meshes, times = 5) {
     keyboardActive = true; // This was missing - add it
     createControllerRays();
     
-    // Just add restart and quit buttons
+    // add restart and quit buttons
     addGameControlButtons();
   } else {
-  // Only add keyboard if it's a new record - FIXED LOGIC
+  // Only add keyboard if it's a new record 
   console.log("New record detected! Creating keyboard...");
   setTimeout(() => {
     console.log("Creating custom 3D keyboard");
