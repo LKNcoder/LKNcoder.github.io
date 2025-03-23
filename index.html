@@ -992,52 +992,87 @@ function onSelectStart(event) {
   
   // Check for button interactions first if game is completed OR keyboard is active
   if (gameCompletionMeshes.length > 0 || keyboardActive) {
+    console.log('Checking for UI interactions, keyboard active:', keyboardActive);
+    
     const raycaster = new THREE.Raycaster();
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
-       // Use BOTH arrays for detection
-       const interactiveObjects = [
-      ...gameCompletionMeshes.filter(mesh => mesh.userData && mesh.userData.isButton),
-      ...keyboardMeshes.filter(mesh => mesh.userData && mesh.userData.isButton)
+    // Use BOTH arrays for detection
+    const interactiveObjects = [
+      ...gameCompletionMeshes.filter(mesh => mesh && mesh.userData && mesh.userData.isButton),
+      ...keyboardMeshes.filter(mesh => mesh && mesh.userData && mesh.userData.isButton)
     ];
-     
-    const buttonIntersects = raycaster.intersectObjects(interactiveObjects, true); // Added true to check children
-
+    
+    // Optional debug info
+    console.log(`Found ${interactiveObjects.length} interactive objects to test`);
+    
+    const buttonIntersects = raycaster.intersectObjects(interactiveObjects, true);
     console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
-  const buttonObject = buttonIntersects[0].object;
-  // Make sure we're working with the button itself, not a child (like text)
- const button = buttonObject.userData.isButton ? buttonObject : 
-                     buttonObject.parent && buttonObject.parent.userData && 
-                     buttonObject.parent.userData.isButton ? buttonObject.parent : null;
+      const buttonObject = buttonIntersects[0].object;
+      // Make sure we're working with the button itself, not a child (like text)
+      const button = buttonObject.userData && buttonObject.userData.isButton ? buttonObject : 
+                    buttonObject.parent && buttonObject.parent.userData && 
+                    buttonObject.parent.userData.isButton ? buttonObject.parent : null;
       
-      if (button && (button.userData.buttonType === 'letter' || 
-          button.userData.buttonType === 'space' || 
-          button.userData.buttonType === 'backspace' || 
-          button.userData.buttonType === 'submit')) {
-    // Use the centralized handler for keyboard buttons
-    handleKeyPress(button);
-    return;
-  }
-  else if (button.userData.buttonType === 'restart') {
-    restartGame();
-    triggerHapticFeedbackByHandedness('left', 0.4, 100);
-    triggerHapticFeedbackByHandedness('right', 0.4, 100);
-    return;
-  }
-  else if (button.userData.buttonType === 'quit') {
-    // Exit VR session
-    if (renderer.xr.isPresenting) {
-      renderer.xr.getSession().end();
-      triggerHapticFeedbackByHandedness('left', 0.6, 150);
-      triggerHapticFeedbackByHandedness('right', 0.6, 150);
+      if (button) {
+        console.log('Button interaction:', button.userData.buttonType);
+        
+        if (button.userData.buttonType === 'letter' || 
+            button.userData.buttonType === 'space' || 
+            button.userData.buttonType === 'backspace' || 
+            button.userData.buttonType === 'submit') {
+          // Use the centralized handler for keyboard buttons
+          handleKeyPress(button);
+          triggerHapticFeedbackByHandedness(event.target === controller1 ? 'left' : 'right', 0.3, 50);
+          return;
+        }
+        else if (button.userData.buttonType === 'restart') {
+          restartGame();
+          triggerHapticFeedbackByHandedness('left', 0.4, 100);
+          triggerHapticFeedbackByHandedness('right', 0.4, 100);
+          return;
+        }
+        else if (button.userData.buttonType === 'quit') {
+          // Exit VR session
+          if (renderer.xr.isPresenting) {
+            renderer.xr.getSession().end();
+            triggerHapticFeedbackByHandedness('left', 0.6, 150);
+            triggerHapticFeedbackByHandedness('right', 0.6, 150);
+          }
+          return;
+        }
+      }
     }
-    return;
   }
-}
+
+  // Only handle ring grabbing if game is not completed
+  if (!gameCompleted) {
+    const ringBox = new THREE.Box3().setFromObject(ring);
+    const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+    const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
+
+    if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+      grabbed = true;
+      grabbingController = controller1;
+      grabOffset.copy(ring.position).sub(controller1.position);
+      grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
+      if (startTime === null) {
+        startTime = Date.now() - elapsedTime;
+      }
+    } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+      grabbed = true;
+      grabbingController = controller2;
+      grabOffset.copy(ring.position).sub(controller2.position);
+      grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
+      if (startTime === null) {
+        startTime = Date.now() - elapsedTime;
+      }
+    }
+  }
 }
 
 // handle ring grabbing if no UI element was interacted with
@@ -1064,7 +1099,7 @@ startTime = Date.now() - elapsedTime;
 }
 }
 }
-}
+
 
 function onSelectEnd(event) {
 if (event.target === grabbingController) {
@@ -2161,7 +2196,7 @@ for (let i = 0; i < 5; i++) {
   scoreSummaryMeshes.push(playerTimeMesh);
   
   // Format record time or show "N/A"
-  const recordTimeText = recordTime ? formatTime(recordTime) : "N/A";
+  const recordTimeText = recordTime && recordTime.time ? formatTime(recordTime.time) : "N/A";
   
   // Record time - middle column
   const recordTimeGeometry = new THREE.TextGeometry(recordTimeText, { 
@@ -2236,7 +2271,7 @@ gameCompletionMeshes.push(playerTotalMesh);
 scoreSummaryMeshes.push(playerTotalMesh);
 
 // Record total time
-const recordTotalGeometry = new THREE.TextGeometry(totalRecordTime ? formatTime(totalRecordTime) : "N/A", { 
+const recordTotalGeometry = new THREE.TextGeometry(totalRecordTime && totalRecordTime.time ? formatTime(totalRecordTime.time) : "N/A", { 
   font: font, 
   size: 0.025, 
   height: 0.005 
@@ -2368,21 +2403,25 @@ function blinkNewRecords(meshes, times = 5) {
     
     // Just add restart and quit buttons
     addGameControlButtons();
-    return;
-  }
-
-  // Create custom keyboard
-  console.log("Using custom 3D keyboard");
-  createImprovedVirtualKeyboard();
-  
-  // Add restart and quit buttons
-  addGameControlButtons();
+  } else {
+  // Only add keyboard if it's a new record - FIXED LOGIC
+  console.log("New record detected! Creating keyboard...");
+  setTimeout(() => {
+    console.log("Creating custom 3D keyboard");
+    keyboardActive = true; // Set this explicitly
+    createImprovedVirtualKeyboard();
+    
+    // Add restart and quit buttons AFTER keyboard is created
+    setTimeout(() => {
+      addGameControlButtons();
+    }, 100);
+  }, 1000);
 }
-  
+}
 });
 }
 }
-     
+
 </script>
 </body>
 </html>
