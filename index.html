@@ -548,8 +548,10 @@ function createImprovedVirtualKeyboard() {
     -(submitTextGeometry.boundingBox.max.y - submitTextGeometry.boundingBox.min.y) / 2,
     0
   );
+
+  submitTextMesh.userData.isNonInteractive = true;
   submitTextMesh.position.copy(submitTextOffset);
-  submitTextMesh.position.z = 0.006;
+  submitTextMesh.position.z = 0.005;
   submitButton.add(submitTextMesh);
   
   submitButton.userData.isButton = true;
@@ -1047,22 +1049,38 @@ function onSelectStart(event) {
     
     if (buttonIntersects.length > 0) {
       // Find the actual button - either the intersected object or one of its parents
-      let buttonObject = buttonIntersects[0].object;
-      let button = null;
-      
-      // Check if the object itself is a button
-      if (buttonObject.userData && buttonObject.userData.isButton) {
-        button = buttonObject;
-      } else {
-        // Check parent hierarchy for a button
-        let parent = buttonObject.parent;
-        while (parent && !button) {
-          if (parent.userData && parent.userData.isButton) {
-            button = parent;
-          }
-          parent = parent.parent;
-        }
+      let intersectedObj = buttonIntersects[0].object;
+  
+  // Skip non-interactive elements (like text on buttons)
+  if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
+    // Try next intersection if available
+    if (buttonIntersects.length > 1) {
+      intersectedObj = buttonIntersects[1].object;
+    } else {
+      // Check if parent of non-interactive element is a button
+      let parent = intersectedObj.parent;
+      if (parent && parent.userData && parent.userData.isButton) {
+        // Use the parent button instead
+        intersectedObj = parent;
       }
+    }
+  }
+  
+  let button = null;
+  
+  // Check if the object itself is a button
+  if (intersectedObj.userData && intersectedObj.userData.isButton) {
+    button = intersectedObj;
+  } else {
+    // Check parent hierarchy for a button
+    let parent = intersectedObj.parent;
+    while (parent && !button) {
+      if (parent.userData && parent.userData.isButton) {
+        button = parent;
+      }
+      parent = parent.parent;
+    }
+  }
       
       if (button) {
         console.log('Button interaction:', button.userData.buttonType);
@@ -1211,15 +1229,11 @@ renderer.setAnimationLoop(render);
       updateNameDisplay(button.parent);
       triggerHapticFeedbackByHandedness('left', 0.3, 50);
       triggerHapticFeedbackByHandedness('right', 0.3, 50);
-    }
-  } 
-  else if (button.userData.buttonType === 'space' && !nameEntered) {
-    // Add space if under max length
-    if (playerName.length < maxNameLength) {
-      playerName += ' ';
-      updateNameDisplay(button.parent);
-      triggerHapticFeedbackByHandedness('left', 0.2, 40);
-      triggerHapticFeedbackByHandedness('right', 0.2, 40);
+    } else {
+      // Character limit reached - provide feedback
+      contactSound.play().catch(error => console.log('Error sound play error:', error));
+      triggerHapticFeedbackByHandedness('left', 0.8, 80);
+      triggerHapticFeedbackByHandedness('right', 0.8, 80);
     }
   }
   else if (button.userData.buttonType === 'backspace' && !nameEntered) {
@@ -1961,7 +1975,8 @@ function addGameControlButtons() {
   restartGeometry.computeBoundingBox();
   const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
   const restartOffset = -0.5 * restartWidth;
-  restartMesh.position.set(restartOffset - 0.15, 0, 0.006);
+  restartMesh.userData.isNonInteractive = true;
+  restartMesh.position.set(restartOffset - 0.15, 0, 0.005);
   buttonContainer.add(restartMesh);
   
   // Make the background button interactive
@@ -1993,7 +2008,8 @@ function addGameControlButtons() {
   quitGeometry.computeBoundingBox();
   const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
   const quitOffset = -0.5 * quitWidth;
-  quitMesh.position.set(quitOffset + 0.15, 0, 0.006);
+  quitMesh.userData.isNonInteractive = true; 
+  quitMesh.position.set(quitOffset + 0.15, 0, 0.005);
   buttonContainer.add(quitMesh);
   
   // Make the background button interactive
