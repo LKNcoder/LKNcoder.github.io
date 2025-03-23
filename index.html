@@ -1360,7 +1360,7 @@ function proceedToNextLevel() {
 // implement keyboard hover effects
 function updateKeyboardHoverState() {
   // Only check if keyboard is active
-  if (!keyboardActive) return;
+  if (!keyboardActive && !gameCompleted) return;
   
   // Reset previously hovered button
   if (hoveredButton) {
@@ -1379,11 +1379,11 @@ function updateKeyboardHoverState() {
     direction.applyQuaternion(controller.quaternion);
     raycaster.set(controller.position, direction);
     
-    // Get all keyboard button objects
-    const buttonObjects = keyboardMeshes.filter(mesh => 
+    // Get all button objects
+    const allButtonObjects = gameCompletionMeshes.filter(mesh => 
       mesh.userData && mesh.userData.isButton);
     
-    const intersects = raycaster.intersectObjects(buttonObjects, true);
+    const intersects = raycaster.intersectObjects(allButtonObjects, true);
     
     if (intersects.length > 0) {
       // Get the actual button (might be a child of a group)
@@ -1929,9 +1929,7 @@ function saveLevelRecord(levelNumber, levelTime, playerName) {
   });
 }
 
-// Move the addGameControlButtons function outside of any nested functions
-// Place this somewhere before line 2302 where it's first called
-
+// create restart and quit buttons
 function addGameControlButtons() {
   // Create button container to help with positioning
   const buttonContainer = new THREE.Group();
@@ -2003,10 +2001,12 @@ function addGameControlButtons() {
   quitBg.userData.hoverColor = 0xcc0000;
   quitBg.userData.pressColor = 0xff0000;
   
-  // Add controller rays if not already visible
+  // Ensure controller rays are visible
   if (controllerRays.length === 0) {
     createControllerRays();
   }
+  
+  return buttonContainer;
 }
 
 function victory() {
