@@ -1403,6 +1403,7 @@ function updateKeyboardHoverState() {
     
     if (intersects.length > 0) {
       // Get the actual button (might be a child of a group)
+      let intersectedObj = intersects[0].object;
       let button = null;
          // Check if it's a non-interactive element (like text on a button)
       if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
