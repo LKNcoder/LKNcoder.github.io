@@ -1197,6 +1197,13 @@ function restartGame() {
     textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
     textMesh.geometry.computeBoundingBox();
     const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+    // center the geometry 
+  textMesh.geometry.translate(
+    -(textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x) / 2,
+    -(textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y) / 2,
+    0
+  );
+   
     textMesh.position.set(centerOffset, 2.0, -0.75);
     scene.add(textMesh);
   }
@@ -1358,6 +1365,13 @@ function proceedToNextLevel() {
         { font: font, size: 0.02, height: 0.005 });
       textMesh.geometry.computeBoundingBox();
       const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
+        // center the geometry itself
+  textMesh.geometry.translate(
+    -(textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x) / 2,
+    -(textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y) / 2,
+    0
+  );
+      
       textMesh.position.set(centerOffset, 2.0, -0.75);
       textMesh.visible = true;
     }
