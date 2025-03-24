@@ -666,6 +666,34 @@ function updateNameDisplay(container) {
   initialsDisplayMesh = textGroup;
 }
 
+function updateRecordHolderDisplays() {
+  if (!window.recordHolderMeshes || !window.recordHolderMeshes.length) return;
+  
+  const displayName = playerName || "...";
+  
+  for (let i = 0; i < window.recordHolderMeshes.length; i++) {
+    if (window.recordHolderMeshes[i]) {
+      // Remove old geometry
+      if (window.recordHolderMeshes[i].geometry) {
+        window.recordHolderMeshes[i].geometry.dispose();
+      }
+      
+      // Create new text geometry with current player name
+      const newGeometry = new THREE.TextGeometry(
+        displayName, 
+        { font: font, size: 0.014, height: 0.005 }
+      );
+      
+      window.recordHolderMeshes[i].geometry = newGeometry;
+      
+      // Ensure material color is consistent (green for new records)
+      if (window.recordHolderMeshes[i].material) {
+        window.recordHolderMeshes[i].material.color.set(0x00ff00);
+      }
+    }
+  }
+}
+
 // Function to trigger haptics by controller handedness
 function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
   // Find the input source for the specified hand
@@ -1264,6 +1292,10 @@ renderer.setAnimationLoop(render);
     if (playerName.length < maxNameLength) {
       playerName += button.userData.letter;
       updateNameDisplay(button.parent);
+     // Also update record holder meshes if they exist
+     if (window.recordHolderMeshes) {
+        updateRecordHolderDisplays();
+      }    
       triggerHapticFeedbackByHandedness('left', 0.3, 50);
       triggerHapticFeedbackByHandedness('right', 0.3, 50);
     } else {
@@ -1278,6 +1310,10 @@ renderer.setAnimationLoop(render);
     if (playerName.length > 0) {
       playerName = playerName.slice(0, -1);
       updateNameDisplay(button.parent);
+         // Also update record holder meshes if they exist
+         if (window.recordHolderMeshes) {
+        updateRecordHolderDisplays();
+      }
       triggerHapticFeedbackByHandedness('left', 0.2, 40);
       triggerHapticFeedbackByHandedness('right', 0.2, 40);
     }
@@ -2275,18 +2311,23 @@ for (let i = 0; i < 5; i++) {
   gameCompletionMeshes.push(playerTimeMesh);
   scoreSummaryMeshes.push(playerTimeMesh);
   
-  // Format record time or show "N/A"
-  const recordTimeText = recordTime && recordTime.time ? formatTime(recordTime.time) : "N/A";
+  // Format record time - use player's time if it's a new record
+  const recordTimeText = isNewLevelRecord ? 
+    formatTime(levelTime) : // Use the player's new record time
+    (recordTime && recordTime.time ? formatTime(recordTime.time) : "N/A");
   
   // Record time - middle column
   const recordTimeGeometry = new THREE.TextGeometry(recordTimeText, { 
     font: font, 
-    size: 0.02, 
+    size: 0.014, 
     height: 0.005 
   });
   const recordTimeMesh = new THREE.Mesh(
     recordTimeGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0xff8000 })
+    new THREE.MeshStandardMaterial({ 
+      color: isNewLevelRecord ? 0x00ff00 : 0xff8000, 
+      emissive: isNewLevelRecord ? 0x00ff00 : 0,
+      emissiveIntensity: isNewLevelRecord ? 0.3 : 0 })
   );
   recordTimeMesh.position.set(-0.05, 1.35 - (i * 0.04), -0.75);
   scene.add(recordTimeMesh);
@@ -2295,9 +2336,11 @@ for (let i = 0; i < 5; i++) {
 
 // record holders - right column
   // Truncate name if too long
-  const displayName = recordHolder ? 
-    (recordHolder.length > 10 ? recordHolder.substring(0, 9) + "…" : recordHolder) : 
-    "N/A";
+  const displayName = isNewLevelRecord ? 
+    "..." : // Placeholder for new record
+    (recordHolder ? 
+      (recordHolder.length > 10 ? recordHolder.substring(0, 9) + "…" : recordHolder) : 
+      "N/A");
   
   const recordHolderGeometry = new THREE.TextGeometry(displayName, { 
     font: font, 
@@ -2312,6 +2355,12 @@ for (let i = 0; i < 5; i++) {
   scene.add(recordHolderMesh);
   gameCompletionMeshes.push(recordHolderMesh);
   scoreSummaryMeshes.push(recordHolderMesh);
+
+  if (isNewLevelRecord) {
+    // Store in global array for later updates as player types
+    if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
+    window.recordHolderMeshes[i] = recordHolderMesh;
+  }
 }
 
 // Total label
