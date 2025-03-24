@@ -550,6 +550,7 @@ function createImprovedVirtualKeyboard() {
   );
 
   submitTextMesh.userData.isNonInteractive = true;
+  submitTextMesh.raycast = function() {}; 
   submitTextMesh.position.copy(submitTextOffset);
   submitTextMesh.position.z = 0.008;
   submitButton.add(submitTextMesh);
@@ -1178,7 +1179,7 @@ function restartGame() {
   // Reset the level text
   if (textMesh && font) {
     textMesh.geometry.dispose();
-    textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.008 });
+    textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
     textMesh.geometry.computeBoundingBox();
     const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
     textMesh.position.set(centerOffset, 2.0, -0.75);
@@ -1988,7 +1989,8 @@ function addGameControlButtons() {
   const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
   const restartOffset = -0.5 * restartWidth;
   restartMesh.userData.isNonInteractive = true;
-  restartMesh.position.set(restartOffset - 0.15, 0, 0.008);
+  restartMesh.raycast = function() {};
+  restartMesh.position.set(restartOffset - 0.15, 0, 0.005);
   buttonContainer.add(restartMesh);
   
   // Make the background button interactive
@@ -2021,7 +2023,8 @@ function addGameControlButtons() {
   const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
   const quitOffset = -0.5 * quitWidth;
   quitMesh.userData.isNonInteractive = true; 
-  quitMesh.position.set(quitOffset + 0.15, 0, 0.008);
+  quitMesh.raycast = function() {};
+  quitMesh.position.set(quitOffset + 0.15, 0, 0.005);
   buttonContainer.add(quitMesh);
   
   // Make the background button interactive
