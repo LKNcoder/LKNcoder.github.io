@@ -391,7 +391,7 @@ function createImprovedVirtualKeyboard() {
   // Keyboard container to group all elements
   const keyboardContainer = new THREE.Group();
   keyboardContainer.name = "keyboardContainer"; 
-  keyboardContainer.position.set(0, 1.2, -0.75);
+  keyboardContainer.position.set(0, 0.8, -0.75);
   keyboardContainer.scale.set(0.4, 0.4, 0.4);
   scene.add(keyboardContainer);
   gameCompletionMeshes.push(keyboardContainer);
@@ -1284,42 +1284,45 @@ renderer.setAnimationLoop(render);
   }
 
   else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
-  // Submit score to leaderboard
-  nameEntered = true;
-  
-  if (gameCompleted) {
-    // If game is complete, submit full game score
-    submitScore(playerName, levelTimes);
-    // check if we need to save level 5 record separately
-    if (window.pendingRecords && window.pendingRecords.level5) {
-      saveLevelRecord(5, levelTimes[4], playerName);
+    // Submit score to leaderboard
+    nameEntered = true;
+    
+    if (gameCompleted) {
+      // If game is complete, submit full game score
+      submitScore(playerName, levelTimes);
+      // check if we need to save level 5 record separately
+      if (window.pendingRecords && window.pendingRecords.level5) {
+        saveLevelRecord(5, levelTimes[4], playerName);
+      }
+      fetchLeaderboard();
+    } else {
+      // If individual level, save just that level record
+      saveLevelRecord(currentLevel, levelTimes[currentLevel-1], playerName);
     }
-    fetchLeaderboard();
-  } else {
-    // If individual level, save just that level record
-    saveLevelRecord(currentLevel, levelTimes[currentLevel-1], playerName);
+    
+    // Clear any cursor blink interval
+    if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
+      clearInterval(initialsDisplayMesh.userData.blinkInterval);
+      initialsDisplayMesh.userData.blinkInterval = null;
+    }
+    window.pendingRecords = null; // Clear pending records
+    
+    triggerHapticFeedbackByHandedness('left', 0.5, 100);
+    triggerHapticFeedbackByHandedness('right', 0.5, 100);
+    
+    // Hide keyboard after submission
+    button.parent.visible = false;
+    hideControllerRays();
+    keyboardActive = false;
+    
+    // If mid-game, continue to next level
+    if (!gameCompleted) {
+      proceedToNextLevel();
+    } else {
+      // If game is completed, now show the control buttons
+      addGameControlButtons();
+    }
   }
-  
-  // Clear any cursor blink interval
-  if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
-    clearInterval(initialsDisplayMesh.userData.blinkInterval);
-    initialsDisplayMesh.userData.blinkInterval = null;
-  }
-  window.pendingRecords = null; // Clear pending records
-  
-  triggerHapticFeedbackByHandedness('left', 0.5, 100);
-  triggerHapticFeedbackByHandedness('right', 0.5, 100);
-  
-  // Hide keyboard after submission
-  button.parent.visible = false;
-  hideControllerRays();
-  keyboardActive = false;
-  
-  // If mid-game, continue to next level
-  if (!gameCompleted) {
-    proceedToNextLevel();
-  }
-}
 }
 
 // Function to check if a level time is a record
@@ -2169,7 +2172,7 @@ textMesh.geometry.dispose();
 // Game complete text
 const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
       font: font, 
-      size: 0.03, 
+      size: 0.021, 
       height: 0.005 
     });
     const gameCompleteMesh = new THREE.Mesh(
@@ -2186,28 +2189,28 @@ const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', {
 // Add column headers
 const yourTimesGeometry = new THREE.TextGeometry('YOUR TIMES', { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const yourTimesMesh = new THREE.Mesh(
   yourTimesGeometry, 
   new THREE.MeshStandardMaterial({ color: 0x00ffff })
 );
-yourTimesMesh.position.set(-0.35, 1.4, -0.75);
+yourTimesMesh.position.set(-0.3, 1.4, -0.75);
 scene.add(yourTimesMesh);
 gameCompletionMeshes.push(yourTimesMesh);
 scoreSummaryMeshes.push(yourTimesMesh);
 
 const recordTimesGeometry = new THREE.TextGeometry('RECORD TIMES', { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const recordTimesMesh = new THREE.Mesh(
   recordTimesGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
-recordTimesMesh.position.set(0, 1.4, -0.75);
+recordTimesMesh.position.set(-0.05, 1.4, -0.75);
 scene.add(recordTimesMesh);
 gameCompletionMeshes.push(recordTimesMesh);
 scoreSummaryMeshes.push(recordTimesMesh);
@@ -2215,14 +2218,14 @@ scoreSummaryMeshes.push(recordTimesMesh);
 // column for record holders
 const recordHoldersGeometry = new THREE.TextGeometry('RECORD HOLDERS', { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const recordHoldersMesh = new THREE.Mesh(
   recordHoldersGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
-recordHoldersMesh.position.set(0.35, 1.4, -0.75); // Right column
+recordHoldersMesh.position.set(0.2, 1.4, -0.75); // Right column
 scene.add(recordHoldersMesh);
 gameCompletionMeshes.push(recordHoldersMesh);
 scoreSummaryMeshes.push(recordHoldersMesh);
@@ -2236,14 +2239,14 @@ for (let i = 0; i < 5; i++) {
   // Create level number label
   const levelLabelGeometry = new THREE.TextGeometry(`Level ${i+1}:`, { 
     font: font, 
-    size: 0.02, 
+    size: 0.014, 
     height: 0.005 
   });
   const levelLabelMesh = new THREE.Mesh(
     levelLabelGeometry, 
     new THREE.MeshStandardMaterial({ color: 0xffffff })
   );
-  levelLabelMesh.position.set(-0.55, 1.35 - (i * 0.05), -0.75);
+  levelLabelMesh.position.set(-0.45, 1.35 - (i * 0.04), -0.75);
   scene.add(levelLabelMesh);
   gameCompletionMeshes.push(levelLabelMesh);
   scoreSummaryMeshes.push(levelLabelMesh);
@@ -2256,7 +2259,7 @@ for (let i = 0; i < 5; i++) {
   const playerTextColor = isNewLevelRecord ? 0x00ff00 : 0x00ffff;
   const playerTimeGeometry = new THREE.TextGeometry(playerTimeText, { 
     font: font, 
-    size: 0.02, 
+    size: 0.014, 
     height: 0.005 
   });
   const playerTimeMesh = new THREE.Mesh(
@@ -2267,7 +2270,7 @@ for (let i = 0; i < 5; i++) {
       emissiveIntensity: 0.3
     })
   );
-  playerTimeMesh.position.set(-0.35, 1.35 - (i * 0.05), -0.75);
+  playerTimeMesh.position.set(-0.3, 1.35 - (i * 0.04), -0.75);
   scene.add(playerTimeMesh);
   gameCompletionMeshes.push(playerTimeMesh);
   scoreSummaryMeshes.push(playerTimeMesh);
@@ -2285,7 +2288,7 @@ for (let i = 0; i < 5; i++) {
     recordTimeGeometry, 
     new THREE.MeshStandardMaterial({ color: 0xff8000 })
   );
-  recordTimeMesh.position.set(0, 1.35 - (i * 0.05), -0.75);
+  recordTimeMesh.position.set(-0.05, 1.35 - (i * 0.04), -0.75);
   scene.add(recordTimeMesh);
   gameCompletionMeshes.push(recordTimeMesh);
   scoreSummaryMeshes.push(recordTimeMesh);
@@ -2298,14 +2301,14 @@ for (let i = 0; i < 5; i++) {
   
   const recordHolderGeometry = new THREE.TextGeometry(displayName, { 
     font: font, 
-    size: 0.02, 
+    size: 0.014, 
     height: 0.005 
   });
   const recordHolderMesh = new THREE.Mesh(
     recordHolderGeometry, 
     new THREE.MeshStandardMaterial({ color: 0xff8000 })
   );
-  recordHolderMesh.position.set(0.35, 1.35 - (i * 0.05), -0.75);
+  recordHolderMesh.position.set(0.2, 1.35 - (i * 0.04), -0.75);
   scene.add(recordHolderMesh);
   gameCompletionMeshes.push(recordHolderMesh);
   scoreSummaryMeshes.push(recordHolderMesh);
@@ -2314,14 +2317,14 @@ for (let i = 0; i < 5; i++) {
 // Total label
 const totalLabelGeometry = new THREE.TextGeometry("Total:", { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const totalLabelMesh = new THREE.Mesh(
   totalLabelGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xffffff })
 );
-totalLabelMesh.position.set(-0.55, 1.1, -0.75);
+totalLabelMesh.position.set(-0.45, 1.12, -0.75);
 scene.add(totalLabelMesh);
 gameCompletionMeshes.push(totalLabelMesh);
 scoreSummaryMeshes.push(totalLabelMesh);
@@ -2331,7 +2334,7 @@ const totalRecordTime = bestTimes.total;
 const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
 const playerTotalGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const playerTotalMesh = new THREE.Mesh(
@@ -2342,7 +2345,7 @@ const playerTotalMesh = new THREE.Mesh(
     emissiveIntensity: isNewRecord ? 0.5 : 0
   })
 );
-playerTotalMesh.position.set(-0.35, 1.1, -0.75);
+playerTotalMesh.position.set(-0.3, 1.12, -0.75);
 scene.add(playerTotalMesh);
 gameCompletionMeshes.push(playerTotalMesh);
 scoreSummaryMeshes.push(playerTotalMesh);
@@ -2350,14 +2353,14 @@ scoreSummaryMeshes.push(playerTotalMesh);
 // Record total time
 const recordTotalGeometry = new THREE.TextGeometry(totalRecordTime && totalRecordTime.time ? formatTime(totalRecordTime.time) : "N/A", { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const recordTotalMesh = new THREE.Mesh(
   recordTotalGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
-recordTotalMesh.position.set(0, 1.1, -0.75);
+recordTotalMesh.position.set(-0.05, 1.12, -0.75);
 scene.add(recordTotalMesh);
 gameCompletionMeshes.push(recordTotalMesh);
 scoreSummaryMeshes.push(recordTotalMesh);
@@ -2370,14 +2373,14 @@ const displayTotalHolder = totalRecordHolder ?
 
 const totalHolderGeometry = new THREE.TextGeometry(displayTotalHolder, { 
   font: font, 
-  size: 0.025, 
+  size: 0.0175, 
   height: 0.005 
 });
 const totalHolderMesh = new THREE.Mesh(
   totalHolderGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
-totalHolderMesh.position.set(0.35, 1.1, -0.75);
+totalHolderMesh.position.set(0.2, 1.12, -0.75);
 scene.add(totalHolderMesh);
 gameCompletionMeshes.push(totalHolderMesh);
 scoreSummaryMeshes.push(totalHolderMesh);
@@ -2501,15 +2504,14 @@ function blinkNewRecords(meshes, times = 5) {
   console.log("New record detected! Creating keyboard...");
   setTimeout(() => {
     console.log("Creating custom 3D keyboard");
-    keyboardActive = true; // Set this explicitly
-    createImprovedVirtualKeyboard();
-    
-    // Add restart and quit buttons AFTER keyboard is created
-    setTimeout(() => {
-      addGameControlButtons();
-    }, 100);
-  }, 1000);
-}
+    playerName = ""; // Reset player name
+      nameEntered = false;
+      keyboardActive = true; // Set this explicitly
+      createImprovedVirtualKeyboard();
+      
+      // Don't add buttons here - they'll be added after name submission
+    }, 1000);
+  }
 }
 });
 }
