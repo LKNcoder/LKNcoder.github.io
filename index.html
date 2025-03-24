@@ -1103,15 +1103,24 @@ function onSelectStart(event) {
           return;
         }
         else if (button.userData.buttonType === 'quit') {
-          console.log('Quitting game...');
-          // Exit VR session
-          if (renderer.xr.isPresenting) {
-            renderer.xr.getSession().end();
-            triggerHapticFeedbackByHandedness('left', 0.6, 150);
-            triggerHapticFeedbackByHandedness('right', 0.6, 150);
-          }
-          return;
-        }
+  console.log('Quitting game...');
+  
+  // Play collision sound for feedback
+  contactSound.play().catch(error => console.log('Sound play error:', error));
+  
+  // Stronger haptic feedback
+  triggerHapticFeedbackByHandedness('left', 0.8, 200);
+  triggerHapticFeedbackByHandedness('right', 0.8, 200);
+  
+  // Exit VR session after a short delay to let sound finish
+  setTimeout(() => {
+    if (renderer.xr.isPresenting) {
+      renderer.xr.getSession().end();
+    }
+  }, 300); // 300ms delay
+  
+  return;
+}
       }
     }
   }
