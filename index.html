@@ -2288,6 +2288,24 @@ gameCompletionMeshes.push(totalLabelMesh);
 scoreSummaryMeshes.push(totalLabelMesh);
 
 // Player total time
+const playerTotalTimeGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
+  font: font, 
+  size: 0.0175, 
+  height: 0.005 
+});
+const playerTotalMesh = new THREE.Mesh(
+  playerTotalTimeGeometry, 
+  new THREE.MeshStandardMaterial({ 
+    color: isNewRecord ? 0x00ff00 : 0x00ffff,
+    emissive: isNewRecord ? 0x00ff00 : 0,
+    emissiveIntensity: isNewRecord ? 0.5 : 0
+  })
+);
+playerTotalMesh.position.set(-0.3, 1.12, -0.75);
+scene.add(playerTotalMesh);
+gameCompletionMeshes.push(playerTotalMesh);
+scoreSummaryMeshes.push(playerTotalMesh);
+
 const totalRecordTime = bestTimes.total;
 const totalRecordHolder = bestTimes.total.name;
 const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
@@ -2333,44 +2351,20 @@ const newRecordMeshes = [];
 
 // Add "NEW RECORD!" text if applicable
 if (isNewRecord) {
-    scene.remove(recordTotalMesh);
-  const newRecordTextGeometry = new THREE.TextGeometry('NEW RECORD!', { 
-    font: font, 
-    size: 0.025, 
-    height: 0.005 
-  });
-  const newRecordTextMesh = new THREE.Mesh(
-    newRecordTextGeometry, 
-    new THREE.MeshStandardMaterial({ 
-      color: 0xffff00,
-      emissive: 0xffff00,
-      emissiveIntensity: 0.5
-    })
-  );
- 
-  newRecordTextMesh.position.set(0.12, 1.1, -0.75);
-  scene.add(newRecordTextMesh);
-  gameCompletionMeshes.push(newRecordTextMesh);
-  scoreSummaryMeshes.push(newRecordTextMesh);
-
-  // Add both player and new record meshes to blink array
-  newRecordMeshes.push(playerTotalMesh, newRecordTextMesh);
-}   
-
- 
-setTimeout(() => {
-  blinkNewRecords(newRecordMeshes);
-}, 1000);
-
-if (isNewRecord) {
+  console.log("NEW RECORD! Should show keyboard soon.");
+  // Reset any existing keyboard state
+  keyboardActive = false;
+  nameEntered = false;
+  playerName = ""; 
   
   setTimeout(() => {
+    console.log("Starting record name entry process");
     playerName = ""; // Reset player name
     nameEntered = false;
     keyboardActive = true;
 
-      // Store information about which records were set
-      window.pendingRecords = {
+    // Store information about which records were set
+    window.pendingRecords = {
       totalGame: true
     };
     
@@ -2378,11 +2372,16 @@ if (isNewRecord) {
     checkIfNewRecord(4, levelTimes[4], function(isLevel5Record) {
       window.pendingRecords.level5 = isLevel5Record;
       console.log("Level 5 record check:", isLevel5Record);
-    
-    forceShowKeyboard();
+      
+      console.log("Forcing keyboard display now");
+      const keyboard = forceShowKeyboard();
+      if (!keyboard) {
+        console.error("Failed to create keyboard!");
+      }
     });
   }, 2000); // Give more time (2 seconds)
 }
+ 
 
 
 // Function to make new record meshes blink
