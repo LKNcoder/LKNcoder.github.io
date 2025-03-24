@@ -2103,48 +2103,11 @@ function victory() {
     // Flash the wire white and blue
     flashWire(3, false);
 
-    //timeout to ensure we proceed even if the record check fails
-    let recordCheckCompleted = false;
-    const fallbackTimer = setTimeout(() => {
-      if (!recordCheckCompleted) {
-        console.warn('Record check timed out - proceeding to next level');
-        proceedToNextLevel();
-      }
-    }, 5000); // 5 second fallback
+    setTimeout(() => {
+    proceedToNextLevel();
     
-    // Check if this is a new record for this level
-    checkIfNewRecord(currentLevel - 1, levelTimes[currentLevel - 1], function(isRecord) {
-      recordCheckCompleted = true;
-      clearTimeout(fallbackTimer);
-
-      if (isRecord) {
-        console.log("New record detected! Showing notification.");
-        // Create "NEW RECORD!" notification
-        showNewRecordNotification(levelTimes[currentLevel - 1]);
-        
-        // Create confetti effect
-        createConfetti();
-        
-        // Show the keyboard for name entry
-        playerName = ""; // Reset player name for new entry
-        nameEntered = false;
-        
-        // Add slight delay before showing keyboard
-        setTimeout(() => {
-          const keyboard = createImprovedVirtualKeyboard();
-          // Position keyboard appropriately
-          if (keyboard) {
-            keyboard.position.set(0, 1.2, -0.75);
-          }
-        }, 1500);
-        
-        // The game will continue after name submission in the handleKeyPress function
-      } else {
-        console.log("No new record, proceeding to next level directly.");
-        // If no record, continue normally
         proceedToNextLevel();
-      }
-    });
+        }, 3000);
   } 
   else {
     // Game complete! Show summary of times
