@@ -1330,8 +1330,7 @@ renderer.setAnimationLoop(render);
       if (window.pendingRecords && window.pendingRecords.level5) {
         saveLevelRecord(5, levelTimes[4], playerName);
       }
-      fetchLeaderboard();
-    } else {
+          } else {
       // If individual level, save just that level record
       saveLevelRecord(currentLevel, levelTimes[currentLevel-1], playerName);
     }
@@ -1890,68 +1889,7 @@ function submitScore(playerName, levelTimes) {
   });
 }
 
-// Fetch and display top scores
-function fetchLeaderboard() {
-  leaderboardRef.orderByChild('totalTime').limitToFirst(10).once('value', snapshot => {
-    const scores = [];
-    snapshot.forEach(child => {
-      scores.push({
-        name: child.val().playerName,
-        time: child.val().totalTime
-      });
-    });
-    displayScores(scores); 
-  });
-}
 
-// display leaderboard scores
-function displayScores(scores) {
-  // Remove any existing leaderboard display
-  gameCompletionMeshes.forEach(mesh => {
-    if (mesh.userData && mesh.userData.isLeaderboard) {
-      scene.remove(mesh);
-    }
-  });
-  
-  // Create leaderboard header
-  const headerGeometry = new THREE.TextGeometry('TOP SCORES', { 
-    font: font, 
-    size: 0.03, 
-    height: 0.005 
-  });
-  const headerMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-  const headerMesh = new THREE.Mesh(
-    headerGeometry, 
-    headerMaterial
-  );
-  headerGeometry.computeBoundingBox();
-  const headerOffset = -0.5 * (headerGeometry.boundingBox.max.x - headerGeometry.boundingBox.min.x);
-  headerMesh.position.set(headerOffset, 0.65, -0.65);
-  headerMesh.userData.isLeaderboard = true;
-  scene.add(headerMesh);
-  gameCompletionMeshes.push(headerMesh);
-  
-  // Display up to 5 scores
-  scores.slice(0, 5).forEach((score, i) => {
-    const scoreText = `${i+1}. ${score.name.substring(0, 10)} - ${formatTime(score.time)}`;
-    const scoreGeometry = new THREE.TextGeometry(scoreText, { 
-      font: font, 
-      size: 0.02, 
-      height: 0.005 
-    });
-    const scoreColor = score.name === playerName ? 0x00ffff : 0xffffff;
-    const scoreMesh = new THREE.Mesh(
-      scoreGeometry, 
-      new THREE.MeshStandardMaterial({ color: scoreColor })
-    );
-    scoreGeometry.computeBoundingBox();
-    const scoreOffset = -0.5 * (scoreGeometry.boundingBox.max.x - scoreGeometry.boundingBox.min.x);
-    scoreMesh.position.set(scoreOffset, 0.6 - (i * 0.05), -0.65);
-    scoreMesh.userData.isLeaderboard = true;
-    scene.add(scoreMesh);
-    gameCompletionMeshes.push(scoreMesh);
-  });
-}
 
 // fetch best times for each level
 function fetchBestTimes(callback) {
@@ -2237,34 +2175,21 @@ scene.add(yourTimesMesh);
 gameCompletionMeshes.push(yourTimesMesh);
 scoreSummaryMeshes.push(yourTimesMesh);
 
-const recordTimesGeometry = new THREE.TextGeometry('RECORD TIMES', { 
+const recordsGeometry = new THREE.TextGeometry('RECORDS', { 
   font: font, 
   size: 0.0175, 
   height: 0.005 
 });
-const recordTimesMesh = new THREE.Mesh(
-  recordTimesGeometry, 
+const recordsMesh = new THREE.Mesh(
+  recordsGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xff8000 })
 );
-recordTimesMesh.position.set(-0.05, 1.4, -0.75);
-scene.add(recordTimesMesh);
-gameCompletionMeshes.push(recordTimesMesh);
-scoreSummaryMeshes.push(recordTimesMesh);
+recordsMesh.position.set(0.1, 1.4, -0.75);  
+scene.add(recordsMesh);
+gameCompletionMeshes.push(recordsMesh);
+scoreSummaryMeshes.push(recordsMesh);
 
-// column for record holders
-const recordHoldersGeometry = new THREE.TextGeometry('RECORD HOLDERS', { 
-  font: font, 
-  size: 0.0175, 
-  height: 0.005 
-});
-const recordHoldersMesh = new THREE.Mesh(
-  recordHoldersGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xff8000 })
-);
-recordHoldersMesh.position.set(0.2, 1.4, -0.75); // Right column
-scene.add(recordHoldersMesh);
-gameCompletionMeshes.push(recordHoldersMesh);
-scoreSummaryMeshes.push(recordHoldersMesh);
+
 
 // Level rows
 for (let i = 0; i < 5; i++) {
@@ -2311,55 +2236,39 @@ for (let i = 0; i < 5; i++) {
   gameCompletionMeshes.push(playerTimeMesh);
   scoreSummaryMeshes.push(playerTimeMesh);
   
-  // Format record time - use player's time if it's a new record
-  const recordTimeText = isNewLevelRecord ? 
-    formatTime(levelTime) : // Use the player's new record time
-    (recordTime && recordTime.time ? formatTime(recordTime.time) : "N/A");
+  // Combined record time and holder with hyphenated format
+  const recordTimeFormatted = recordTime && recordTime.time ? formatTime(recordTime.time) : "N/A";
+  const displayName = recordHolder ? 
+    (recordHolder.length > 10 ? recordHolder.substring(0, 10) : recordHolder) : "N/A";
   
-  // Record time - middle column
-  const recordTimeGeometry = new THREE.TextGeometry(recordTimeText, { 
+  // Format combined record: "1:23:456 - PLAYER" or "N/A" if no record exists
+  const combinedRecordText = recordTime && recordTime.time ? 
+    `${recordTimeFormatted} - ${displayName}` : "N/A";
+  
+  // Combined record - right column
+  const combinedRecordGeometry = new THREE.TextGeometry(
+    isNewLevelRecord ? "..." : combinedRecordText, { 
     font: font, 
     size: 0.014, 
     height: 0.005 
   });
-  const recordTimeMesh = new THREE.Mesh(
-    recordTimeGeometry, 
+  const combinedRecordMesh = new THREE.Mesh(
+    combinedRecordGeometry, 
     new THREE.MeshStandardMaterial({ 
       color: isNewLevelRecord ? 0x00ff00 : 0xff8000, 
       emissive: isNewLevelRecord ? 0x00ff00 : 0,
-      emissiveIntensity: isNewLevelRecord ? 0.3 : 0 })
+      emissiveIntensity: isNewLevelRecord ? 0.3 : 0 
+    })
   );
-  recordTimeMesh.position.set(-0.05, 1.35 - (i * 0.04), -0.75);
-  scene.add(recordTimeMesh);
-  gameCompletionMeshes.push(recordTimeMesh);
-  scoreSummaryMeshes.push(recordTimeMesh);
-
-// record holders - right column
-  // Truncate name if too long
-  const displayName = isNewLevelRecord ? 
-    "..." : // Placeholder for new record
-    (recordHolder ? 
-      (recordHolder.length > 10 ? recordHolder.substring(0, 9) + "…" : recordHolder) : 
-      "N/A");
-  
-  const recordHolderGeometry = new THREE.TextGeometry(displayName, { 
-    font: font, 
-    size: 0.014, 
-    height: 0.005 
-  });
-  const recordHolderMesh = new THREE.Mesh(
-    recordHolderGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0xff8000 })
-  );
-  recordHolderMesh.position.set(0.2, 1.35 - (i * 0.04), -0.75);
-  scene.add(recordHolderMesh);
-  gameCompletionMeshes.push(recordHolderMesh);
-  scoreSummaryMeshes.push(recordHolderMesh);
+  combinedRecordMesh.position.set(0.1, 1.35 - (i * 0.04), -0.75);
+  scene.add(combinedRecordMesh);
+  gameCompletionMeshes.push(combinedRecordMesh);
+  scoreSummaryMeshes.push(combinedRecordMesh);
 
   if (isNewLevelRecord) {
     // Store in global array for later updates as player types
     if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
-    window.recordHolderMeshes[i] = recordHolderMesh;
+    window.recordHolderMeshes[i] = combinedRecordMesh;
   }
 }
 
@@ -2380,59 +2289,36 @@ scoreSummaryMeshes.push(totalLabelMesh);
 
 // Player total time
 const totalRecordTime = bestTimes.total;
+const totalRecordHolder = bestTimes.total.name;
 const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
-const playerTotalGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
+// Format combined total record
+const totalRecordTimeFormatted = totalRecordTime && totalRecordTime.time ? 
+  formatTime(totalRecordTime.time) : "N/A";
+const displayTotalHolder = totalRecordHolder ? 
+  (totalRecordHolder.length > 10 ? totalRecordHolder.substring(0, 10) : totalRecordHolder) : "N/A";
+const combinedTotalRecordText = totalRecordTime && totalRecordTime.time ? 
+  `${totalRecordTimeFormatted} - ${displayTotalHolder}` : "N/A";
+
+const combinedTotalRecordGeometry = new THREE.TextGeometry(
+  isNewRecord ? "..." : combinedTotalRecordText, { 
   font: font, 
   size: 0.0175, 
   height: 0.005 
 });
-const playerTotalMesh = new THREE.Mesh(
-  playerTotalGeometry, 
+const combinedTotalRecordMesh = new THREE.Mesh(
+  combinedTotalRecordGeometry, 
   new THREE.MeshStandardMaterial({ 
-    color: isNewRecord ? 0x00ff00 : 0x00ffff,
+    color: isNewRecord ? 0x00ff00 : 0xff8000,
     emissive: isNewRecord ? 0x00ff00 : 0,
     emissiveIntensity: isNewRecord ? 0.5 : 0
   })
 );
-playerTotalMesh.position.set(-0.3, 1.12, -0.75);
-scene.add(playerTotalMesh);
-gameCompletionMeshes.push(playerTotalMesh);
-scoreSummaryMeshes.push(playerTotalMesh);
+combinedTotalRecordMesh.position.set(0.1, 1.12, -0.75);
+scene.add(combinedTotalRecordMesh);
+gameCompletionMeshes.push(combinedTotalRecordMesh);
+scoreSummaryMeshes.push(combinedTotalRecordMesh);
 
-// Record total time
-const recordTotalGeometry = new THREE.TextGeometry(totalRecordTime && totalRecordTime.time ? formatTime(totalRecordTime.time) : "N/A", { 
-  font: font, 
-  size: 0.0175, 
-  height: 0.005 
-});
-const recordTotalMesh = new THREE.Mesh(
-  recordTotalGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xff8000 })
-);
-recordTotalMesh.position.set(-0.05, 1.12, -0.75);
-scene.add(recordTotalMesh);
-gameCompletionMeshes.push(recordTotalMesh);
-scoreSummaryMeshes.push(recordTotalMesh);
 
-// Add total record holder name
-const totalRecordHolder = bestTimes.total.name;
-const displayTotalHolder = totalRecordHolder ? 
-  (totalRecordHolder.length > 10 ? totalRecordHolder.substring(0, 9) + "…" : totalRecordHolder) : 
-  "N/A";
-
-const totalHolderGeometry = new THREE.TextGeometry(displayTotalHolder, { 
-  font: font, 
-  size: 0.0175, 
-  height: 0.005 
-});
-const totalHolderMesh = new THREE.Mesh(
-  totalHolderGeometry, 
-  new THREE.MeshStandardMaterial({ color: 0xff8000 })
-);
-totalHolderMesh.position.set(0.2, 1.12, -0.75);
-scene.add(totalHolderMesh);
-gameCompletionMeshes.push(totalHolderMesh);
-scoreSummaryMeshes.push(totalHolderMesh);
 
 // Add a divider line
 const dividerGeometry = new THREE.BoxGeometry(0.8, 0.002, 0.001);
