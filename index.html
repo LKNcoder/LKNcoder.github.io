@@ -104,6 +104,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
+// Reset leaderboard on every game start for testing
+resetLeaderboard();
+console.log("Leaderboard reset for testing");
+
 const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
 light.position.set(0.5, 1, 0.25);
 scene.add(light);
