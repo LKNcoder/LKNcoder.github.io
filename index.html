@@ -2324,7 +2324,7 @@ scoreSummaryMeshes.push(totalLabelMesh);
 
 // Player total time
 const totalRecordTime = bestTimes.total;
-const isNewRecord = totalTime > 0 && (!totalRecordTime || totalTime <= totalRecordTime);
+const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
 const playerTotalGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
   font: font, 
   size: 0.025, 
