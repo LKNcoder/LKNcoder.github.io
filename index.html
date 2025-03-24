@@ -2272,6 +2272,10 @@ for (let i = 0; i < 5; i++) {
   }
 }
 
+const totalRecordTime = bestTimes.total;
+const totalRecordHolder = bestTimes.total.name;
+const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
+
 // Total label
 const totalLabelGeometry = new THREE.TextGeometry("Total:", { 
   font: font, 
@@ -2306,9 +2310,8 @@ scene.add(playerTotalMesh);
 gameCompletionMeshes.push(playerTotalMesh);
 scoreSummaryMeshes.push(playerTotalMesh);
 
-const totalRecordTime = bestTimes.total;
-const totalRecordHolder = bestTimes.total.name;
-const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
+
+
 // Format combined total record
 const totalRecordTimeFormatted = totalRecordTime && totalRecordTime.time ? 
   formatTime(totalRecordTime.time) : "N/A";
