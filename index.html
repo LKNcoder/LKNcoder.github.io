@@ -53,7 +53,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 
@@ -823,7 +823,7 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
-if (level === 0) {
+if (level === 5) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
@@ -903,7 +903,7 @@ x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
 }
 
-else if (level === 5) {
+else if (level === 0) {
   // Level 5 - challenging but navigable
   // Use moderate frequency combinations
   waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
@@ -1418,7 +1418,7 @@ function proceedToNextLevel() {
     timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
     timerMesh.visible = true; 
   }
-  }, 2000);
+  }, 500);
 }
 
 
@@ -2120,9 +2120,11 @@ function victory() {
     // Flash the wire white and blue
     flashWire(3, false);
 
+    // Add confetti 
+  createConfetti();
+
     setTimeout(() => {
-      
-        proceedToNextLevel();
+         proceedToNextLevel();
         }, 3000);
   } 
   else {
