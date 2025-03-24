@@ -1212,7 +1212,15 @@ function restartGame() {
     timerMesh.visible = true;
     timerMesh.geometry.computeBoundingBox();
     const timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+    // center the geometry 
+  timerMesh.geometry.translate(
+    -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+    -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+    0
+  );
     timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+    timerMesh.lookAt(camera.position);
+    timerMesh.visible = true;
   }
   
   // Play chime sound to indicate restart
