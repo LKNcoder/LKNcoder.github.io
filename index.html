@@ -87,6 +87,7 @@ let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
 let isFlashing = false;
 let levelMusic = []; // Array to store music for each level
 let currentMusic = null; // Reference to currently playing music
+let endGameMusic;
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvzAS8zXYraoP-a10eAMFAZX7u1TQNY-M",
@@ -269,6 +270,7 @@ applauseSound = new Audio('short_applause.mp3');
 longApplauseSound = new Audio('long_applause.mp3');
 longHornsSound = new Audio('long_horns.mp3');
 chimeSound = new Audio('chime.mp3');
+endGameMusic = new Audio('music_end.mp3');
 }
 
 // Function to initialize haptic feedback system using direct XR input sources
@@ -1145,6 +1147,10 @@ function onSelectStart(event) {
         }
         else if (button.userData.buttonType === 'restart') {
           console.log('Restarting game...');
+           // Stop end game music
+  if (endGameMusic) {
+    endGameMusic.pause();
+  }
           restartGame();
           triggerHapticFeedbackByHandedness('left', 0.4, 100);
           triggerHapticFeedbackByHandedness('right', 0.4, 100);
@@ -1152,6 +1158,10 @@ function onSelectStart(event) {
         }
         else if (button.userData.buttonType === 'quit') {
   console.log('Quitting game...');
+  // Stop end game music
+  if (endGameMusic) {
+    endGameMusic.pause();
+  }
   
   // Play collision sound for feedback
   contactSound.play().catch(error => console.log('Sound play error:', error));
@@ -1182,11 +1192,16 @@ function onSelectStart(event) {
     if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
       grabbed = true;
       if (grabbed) {
-  // Play music for current level (array is 0-indexed, levels are 1-indexed)
-  if (currentMusic) currentMusic.pause();
-  currentMusic = levelMusic[currentLevel - 1];
+    // Only start music if it's not already playing this level's music
+    const levelMusicTrack = levelMusic[currentLevel - 1];
+    if (!currentMusic || currentMusic !== levelMusicTrack) {
+      // Stop any previous music
+      if (currentMusic) currentMusic.pause();
+      // Set and play the current level's music
+      currentMusic = levelMusicTrack;
   currentMusic.currentTime = 0; // Start from beginning
   currentMusic.play().catch(error => console.log('Music play error:', error));
+}
 }
       grabbingController = controller1;
       grabOffset.copy(ring.position).sub(controller1.position);
@@ -1197,11 +1212,16 @@ function onSelectStart(event) {
     } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
       grabbed = true;
       if (grabbed) {
-  // Play music for current level (array is 0-indexed, levels are 1-indexed)
-  if (currentMusic) currentMusic.pause();
-  currentMusic = levelMusic[currentLevel - 1];
+    // Only start music if it's not already playing this level's music
+    const levelMusicTrack = levelMusic[currentLevel - 1];
+    if (!currentMusic || currentMusic !== levelMusicTrack) {
+      // Stop any previous music
+      if (currentMusic) currentMusic.pause();
+      // Set and play the current level's music
+      currentMusic = levelMusicTrack;
   currentMusic.currentTime = 0; // Start from beginning
   currentMusic.play().catch(error => console.log('Music play error:', error));
+}
 }
       grabbingController = controller2;
       grabOffset.copy(ring.position).sub(controller2.position);
@@ -2289,6 +2309,12 @@ function showNewRecordPrompt(isNewTotalRecord) {
 
 // Extract the score display code into its own function
 function showGameCompletionScores(bestTimes) {
+ // Play end game music
+ if (endGameMusic) {
+    endGameMusic.currentTime = 0; // Start from beginning
+    endGameMusic.play().catch(error => console.log('End game music play error:', error));
+  }
+
   // Create "GAME COMPLETE!" header at the top
   const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
     font: font, 
