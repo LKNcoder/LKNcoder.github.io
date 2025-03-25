@@ -689,15 +689,27 @@ function updateRecordHolderDisplays() {
         window.recordHolderMeshes[i].geometry.dispose();
       }
       
-      // Create new text geometry with current player name
+      // Create new text geometry with current player name - SAME SIZE as original
       const newGeometry = new THREE.TextGeometry(
         `${formatTime(levelTimes[i] || 0)} - ${displayName}`,  
-        { font: font, size: 0.014, height: 0.005 }
+        { font: font, size: 0.018, height: 0.005 }
       );
       
+      // Center the text properly
+      newGeometry.computeBoundingBox();
+      newGeometry.translate(
+        -(newGeometry.boundingBox.max.x - newGeometry.boundingBox.min.x) / 2,
+        -(newGeometry.boundingBox.max.y - newGeometry.boundingBox.min.y) / 2,
+        0
+      );
+      
+      // Store the original position
+      const originalPosition = window.recordHolderMeshes[i].position.clone();
+      
+      // Update the geometry
       window.recordHolderMeshes[i].geometry = newGeometry;
       
-      // Ensure material color is consistent (green for new records)
+      // Ensure material color and position are preserved
       if (window.recordHolderMeshes[i].material) {
         window.recordHolderMeshes[i].material.color.set(0xff8000);
         window.recordHolderMeshes[i].material.emissive.set(0xff8000);
