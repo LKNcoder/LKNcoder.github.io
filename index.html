@@ -2281,7 +2281,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const yourTimesMesh = new THREE.Mesh(yourTimesGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-  yourTimesMesh.position.set(-0.05, 1.66, -0.75);
+  yourTimesMesh.position.set(-0.10, 1.66, -0.75);
   scene.add(yourTimesMesh);
   gameCompletionMeshes.push(yourTimesMesh);
   
@@ -2291,7 +2291,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const recordsMesh = new THREE.Mesh(recordsGeometry, new THREE.MeshStandardMaterial({ color: 0xff8000 }));
-  recordsMesh.position.set(0.15, 1.66, -0.75);
+  recordsMesh.position.set(0.10, 1.66, -0.75);
   scene.add(recordsMesh);
   gameCompletionMeshes.push(recordsMesh);
 
