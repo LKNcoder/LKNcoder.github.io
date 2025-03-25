@@ -2394,7 +2394,7 @@ const totalLabelMesh = new THREE.Mesh(
   totalLabelGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xffffff })
 );
-totalLabelMesh.position.set(-0.35, 1.0, -0.75);
+totalLabelMesh.position.set(-0.35, 1.21 - (5 * 0.035), -0.75);
 scene.add(totalLabelMesh);
 gameCompletionMeshes.push(totalLabelMesh);
 scoreSummaryMeshes.push(totalLabelMesh);
@@ -2410,10 +2410,10 @@ const playerTotalMesh = new THREE.Mesh(
   new THREE.MeshStandardMaterial({ 
     color: isNewRecord ? 0x00ff00 : 0x00ffff,
     emissive: isNewRecord ? 0x00ff00 : 0,
-    emissiveIntensity: isNewRecord ? 0.5 : 0
+    emissiveIntensity: 0.3
   })
 );
-playerTotalMesh.position.set(-0.15, 1.0, -0.75);
+playerTotalMesh.position.set(-0.15, 1.21 - (5 * 0.035), -0.75);
 scene.add(playerTotalMesh);
 gameCompletionMeshes.push(playerTotalMesh);
 scoreSummaryMeshes.push(playerTotalMesh);
@@ -2437,13 +2437,19 @@ const combinedTotalRecordMesh = new THREE.Mesh(
   new THREE.MeshStandardMaterial({ 
     color: isNewRecord ? 0x00ff00 : 0xff8000,
     emissive: isNewRecord ? 0x00ff00 : 0,
-    emissiveIntensity: isNewRecord ? 0.5 : 0
+    emissiveIntensity: 0.3
   })
 );
-combinedTotalRecordMesh.position.set(0.15, 1.0, -0.75);
+combinedTotalRecordMesh.position.set(0.15, 1.21 - (5 * 0.035), -0.75);
 scene.add(combinedTotalRecordMesh);
 gameCompletionMeshes.push(combinedTotalRecordMesh);
 scoreSummaryMeshes.push(combinedTotalRecordMesh);
+
+if (isNewRecord) {
+  // Store in global array for later updates as player types
+  if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
+  window.recordHolderMeshes[5] = combinedTotalRecordMesh; // Use index 5 for total row
+}
 
 // Only show keyboard if it's a new record
 if (!isNewRecord) {
