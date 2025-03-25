@@ -110,7 +110,7 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // Reset leaderboard on every game start for testing
-// resetLeaderboard();
+ resetLeaderboard();
 // console.log("Leaderboard reset for testing");
 
 const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
@@ -352,7 +352,7 @@ function forceShowKeyboard() {
 }
 
 
-/*
+
 //reset leaderboard for testing
 function resetLeaderboard() {
   // Clear main leaderboard
@@ -365,7 +365,7 @@ function resetLeaderboard() {
     .then(() => console.log('Level records cleared!'))
     .catch(err => console.error('Error clearing records:', err));
 }
-*/
+
 
 
 //debug firebase initialization
@@ -1270,6 +1270,9 @@ function restartGame() {
     if (mesh.material) mesh.material.dispose();
   });
   gameCompletionMeshes = [];
+
+  // Remove controller rays 
+  hideControllerRays();
 
   // Reset game state
   currentLevel = 1;
