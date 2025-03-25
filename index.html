@@ -2408,8 +2408,8 @@ const playerTotalTimeGeometry = new THREE.TextGeometry(formatTime(totalTime), {
 const playerTotalMesh = new THREE.Mesh(
   playerTotalTimeGeometry, 
   new THREE.MeshStandardMaterial({ 
-    color: isNewRecord ? 0x00ff00 : 0x00ffff,
-    emissive: isNewRecord ? 0x00ff00 : 0,
+    color: 0x00ffff,
+    emissive: isNewRecord ? 0x00ffff : 0,
     emissiveIntensity: 0.3
   })
 );
@@ -2427,7 +2427,7 @@ const combinedTotalRecordText = totalRecordTime && totalRecordTime.time ?
   `${totalRecordTimeFormatted} - ${displayTotalHolder}` : "N/A";
 
 const combinedTotalRecordGeometry = new THREE.TextGeometry(
-  isNewRecord ? "..." : combinedTotalRecordText, { 
+  isNewRecord ? `${formatTime(totalTime)} - ${playerName || "..."}` : combinedTotalRecordText, { 
   font: font, 
   size: 0.018, 
   height: 0.005 
@@ -2435,8 +2435,8 @@ const combinedTotalRecordGeometry = new THREE.TextGeometry(
 const combinedTotalRecordMesh = new THREE.Mesh(
   combinedTotalRecordGeometry, 
   new THREE.MeshStandardMaterial({ 
-    color: isNewRecord ? 0x00ff00 : 0xff8000,
-    emissive: isNewRecord ? 0x00ff00 : 0,
+    color: 0xff8000,
+    emissive: isNewRecord ? 0xff800 : 0,
     emissiveIntensity: 0.3
   })
 );
