@@ -2170,7 +2170,7 @@ const yourTimesMesh = new THREE.Mesh(
   yourTimesGeometry, 
   new THREE.MeshStandardMaterial({ color: 0x00ffff })
 );
-yourTimesMesh.position.set(-0.25, 1.42, -0.75);
+yourTimesMesh.position.set(-0.15, 1.42, -0.75);
 scene.add(yourTimesMesh);
 gameCompletionMeshes.push(yourTimesMesh);
 scoreSummaryMeshes.push(yourTimesMesh);
@@ -2231,7 +2231,7 @@ for (let i = 0; i < 5; i++) {
       emissiveIntensity: 0.3
     })
   );
-  playerTimeMesh.position.set(-0.35, 1.36 - (i * 0.05), -0.75);
+  playerTimeMesh.position.set(-0.15, 1.36 - (i * 0.05), -0.75);
   scene.add(playerTimeMesh);
   gameCompletionMeshes.push(playerTimeMesh);
   scoreSummaryMeshes.push(playerTimeMesh);
