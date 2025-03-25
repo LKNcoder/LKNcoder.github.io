@@ -2071,7 +2071,7 @@ function addGameControlButtons() {
     emissiveIntensity: 0.3
   });
   const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
-  quitBg.position.set(0.15, -0.01, 0);
+  quitBg.position.set(0.15, 0, 0);
   buttonContainer.add(quitBg);
   gameCompletionMeshes.push(quitBg);
   
@@ -2087,7 +2087,7 @@ function addGameControlButtons() {
   const quitOffset = -0.5 * quitWidth;
   quitMesh.userData.isNonInteractive = true; 
   quitMesh.raycast = function() {};
-  quitMesh.position.set(quitOffset + 0.15, 0, 0.005);
+  quitMesh.position.set(quitOffset + 0.15, -0.01, 0.005);
   buttonContainer.add(quitMesh);
   
   // Make the background button interactive
@@ -2281,7 +2281,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const yourTimesMesh = new THREE.Mesh(yourTimesGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-  yourTimesMesh.position.set(-0.10, 1.66, -0.75);
+  yourTimesMesh.position.set(-0.07, 1.66, -0.75);
   scene.add(yourTimesMesh);
   gameCompletionMeshes.push(yourTimesMesh);
   
@@ -2291,7 +2291,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const recordsMesh = new THREE.Mesh(recordsGeometry, new THREE.MeshStandardMaterial({ color: 0xff8000 }));
-  recordsMesh.position.set(0.10, 1.66, -0.75);
+  recordsMesh.position.set(0.13, 1.66, -0.75);
   scene.add(recordsMesh);
   gameCompletionMeshes.push(recordsMesh);
 
