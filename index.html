@@ -690,7 +690,7 @@ function updateRecordHolderDisplays() {
       
       // Create new text geometry with current player name
       const newGeometry = new THREE.TextGeometry(
-        displayName, 
+        `${formatTime(levelTimes[i] || 0)} - ${displayName}`,  
         { font: font, size: 0.014, height: 0.005 }
       );
       
@@ -698,7 +698,9 @@ function updateRecordHolderDisplays() {
       
       // Ensure material color is consistent (green for new records)
       if (window.recordHolderMeshes[i].material) {
-        window.recordHolderMeshes[i].material.color.set(0x00ff00);
+        window.recordHolderMeshes[i].material.color.set(0xff8000);
+        window.recordHolderMeshes[i].material.emissive.set(0xff8000);
+        window.recordHolderMeshes[i].material.emissiveIntensity = 0.3;
       }
     }
   }
@@ -2392,8 +2394,8 @@ for (let i = 0; i < 5; i++) {
   const playerTimeMesh = new THREE.Mesh(
     playerTimeGeometry, 
     new THREE.MeshStandardMaterial({ 
-      color: playerTextColor,
-      emissive: isNewLevelRecord ? 0x00ff00 : 0,
+      color: 0x00ffff,
+      emissive: 0x00ffff,
       emissiveIntensity: 0.3
     })
   );
@@ -2421,9 +2423,9 @@ for (let i = 0; i < 5; i++) {
   const combinedRecordMesh = new THREE.Mesh(
     combinedRecordGeometry, 
     new THREE.MeshStandardMaterial({ 
-      color: isNewLevelRecord ? 0x00ff00 : 0xff8000, 
-      emissive: isNewLevelRecord ? 0x00ff00 : 0,
-      emissiveIntensity: isNewLevelRecord ? 0.3 : 0 
+      color: 0xff8000, 
+      emissive: 0xff8000,
+      emissiveIntensity: 0.3
     })
   );
   combinedRecordMesh.position.set(0.15, 1.46 - (i * 0.035), -0.75);
