@@ -881,7 +881,7 @@ x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
 y = 1.4 + waveY + heightVar;
 z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
 }
-else if (level === 3) {
+else if (level === 0) {
 // Level 3 wire pattern
 waveX = Math.sin(angle * 10) * 0.08;
 waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
@@ -931,7 +931,7 @@ x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
 z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
 }
 
-else if (level === 0) {
+else if (level === 3) {
   // Level 5 - challenging but navigable
   // Use moderate frequency combinations
   waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
@@ -2053,7 +2053,7 @@ function addGameControlButtons() {
   const restartOffset = -0.5 * restartWidth;
   restartMesh.userData.isNonInteractive = true;
   restartMesh.raycast = function() {};
-  restartMesh.position.set(restartOffset - 0.15, 0, 0.005);
+  restartMesh.position.set(restartOffset - 0.15, -0.01, 0.005);
   buttonContainer.add(restartMesh);
   
   // Make the background button interactive
@@ -2071,7 +2071,7 @@ function addGameControlButtons() {
     emissiveIntensity: 0.3
   });
   const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
-  quitBg.position.set(0.15, 0, 0);
+  quitBg.position.set(0.15, -0.01, 0);
   buttonContainer.add(quitBg);
   gameCompletionMeshes.push(quitBg);
   
