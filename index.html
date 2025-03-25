@@ -85,6 +85,8 @@ let timerCenterOffset = 0;
 // Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
 let isFlashing = false;
+let levelMusic = []; // Array to store music for each level
+let currentMusic = null; // Reference to currently playing music
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvzAS8zXYraoP-a10eAMFAZX7u1TQNY-M",
@@ -120,6 +122,12 @@ ring = new THREE.Mesh(ringGeometry, ringMaterial);
 ring.position.copy(ringStartPosition);
 ring.rotation.y = Math.PI / 2;
 scene.add(ring);
+
+for (let i = 1; i <= 5; i++) {
+  const music = new Audio(`music_${i}.mp3`);
+  music.loop = true; // Make music loop
+  levelMusic.push(music);
+}
 
 const loader = new THREE.FontLoader();
 loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
@@ -1173,6 +1181,13 @@ function onSelectStart(event) {
 
     if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
       grabbed = true;
+      if (grabbed) {
+  // Play music for current level (array is 0-indexed, levels are 1-indexed)
+  if (currentMusic) currentMusic.pause();
+  currentMusic = levelMusic[currentLevel - 1];
+  currentMusic.currentTime = 0; // Start from beginning
+  currentMusic.play().catch(error => console.log('Music play error:', error));
+}
       grabbingController = controller1;
       grabOffset.copy(ring.position).sub(controller1.position);
       grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
@@ -1181,6 +1196,13 @@ function onSelectStart(event) {
       }
     } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
       grabbed = true;
+      if (grabbed) {
+  // Play music for current level (array is 0-indexed, levels are 1-indexed)
+  if (currentMusic) currentMusic.pause();
+  currentMusic = levelMusic[currentLevel - 1];
+  currentMusic.currentTime = 0; // Start from beginning
+  currentMusic.play().catch(error => console.log('Music play error:', error));
+}
       grabbingController = controller2;
       grabOffset.copy(ring.position).sub(controller2.position);
       grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
@@ -1771,6 +1793,11 @@ victory();
 }
 
 function handleCollision() {
+  // Stop any playing music
+  if (currentMusic) {
+    currentMusic.pause();
+    currentMusic = null;
+  }
 explodeRing(); // Add explosion effect
 contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
 resetWireColor(); // Reset wire color to pink
@@ -2108,6 +2135,12 @@ function addGameControlButtons() {
 function victory() {
   if (levelCompleted) return;
   levelCompleted = true;
+
+   // Stop the music
+   if (currentMusic) {
+    currentMusic.pause();
+    currentMusic = null;
+  }
 
   // First, always record the completion time for the current level
   if (startTime !== null) {
