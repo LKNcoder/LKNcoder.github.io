@@ -110,8 +110,8 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // Reset leaderboard on every game start for testing
-// resetLeaderboard();
-// console.log("Leaderboard reset for testing");
+ resetLeaderboard();
+ console.log("Leaderboard reset for testing");
 
 const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
 light.position.set(0.5, 1, 0.25);
@@ -352,7 +352,7 @@ function forceShowKeyboard() {
 }
 
 
-/*
+
 //reset leaderboard for testing
 function resetLeaderboard() {
   // Clear main leaderboard
@@ -365,7 +365,7 @@ function resetLeaderboard() {
     .then(() => console.log('Level records cleared!'))
     .catch(err => console.error('Error clearing records:', err));
 }
-*/
+
 
 //debug firebase initialization
 console.log('Testing Firebase connection...');
@@ -2176,6 +2176,14 @@ function victory() {
     levelTimes[currentLevel - 1] = levelTime;
     startTime = null;
     console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+  // Check if this is a new record
+checkIfNewRecord(currentLevel - 1, levelTime, (isRecord) => {
+  if (isRecord) {
+    // Show notification that user beat the record for this level
+    showNewRecordNotification(levelTime);
+    // Wait for name entry and save later when submitted
+  }
+});
   }
 
   if (currentLevel < 5) {
@@ -2391,7 +2399,7 @@ for (let i = 0; i < 5; i++) {
   const playerTimeText = formatTime(levelTime);
   
   // Player time - left column
-  const isNewLevelRecord = (levelTime > 0 && recordTime && levelTime <= recordTime);
+  const isNewLevelRecord = (levelTime > 0 && recordTime && recordTime.time && levelTime <= recordTime.time);
   const playerTextColor = isNewLevelRecord ? 0x00ff00 : 0x00ffff;
   const playerTimeGeometry = new THREE.TextGeometry(playerTimeText, { 
     font: font, 
@@ -2521,31 +2529,14 @@ if (isNewRecord) {
 
 // Only show keyboard if it's a new record
 if (!isNewRecord) {
-    // If no record was set, just show a simple message and the restart/quit buttons
-    const noRecordGeometry = new THREE.TextGeometry("Thanks for playing!", { 
-      font: font, 
-      size: 0.025, 
-      height: 0.005 
-    });
-    const noRecordMesh = new THREE.Mesh(
-      noRecordGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xffffff })
-    );
-    noRecordGeometry.computeBoundingBox();
-    const noRecordOffset = -0.5 * (noRecordGeometry.boundingBox.max.x - noRecordGeometry.boundingBox.min.x);
-    noRecordMesh.position.set(noRecordOffset, 1.4, -0.75);
-    scene.add(noRecordMesh);
-    gameCompletionMeshes.push(noRecordMesh);
-
+    // Just show the restart/quit buttons without any additional text
     createControllerRays();
     
     // add restart and quit buttons
     addGameControlButtons();
-  }
+}
 }
  
-
-
 // Function to make new record meshes blink
 function blinkNewRecords(meshes, times = 5) {
   if (!meshes || meshes.length === 0) return;
@@ -2571,7 +2562,6 @@ function blinkNewRecords(meshes, times = 5) {
     }
   }, 250);
 }
-
 
 </script>
 </body>
