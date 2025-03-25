@@ -53,7 +53,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 5; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 
@@ -110,8 +110,8 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // Reset leaderboard on every game start for testing
-resetLeaderboard();
-console.log("Leaderboard reset for testing");
+// resetLeaderboard();
+// console.log("Leaderboard reset for testing");
 
 const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
 light.position.set(0.5, 1, 0.25);
@@ -352,7 +352,7 @@ function forceShowKeyboard() {
 }
 
 
-
+/*
 //reset leaderboard for testing
 function resetLeaderboard() {
   // Clear main leaderboard
@@ -365,6 +365,7 @@ function resetLeaderboard() {
     .then(() => console.log('Level records cleared!'))
     .catch(err => console.error('Error clearing records:', err));
 }
+*/
 
 //debug firebase initialization
 console.log('Testing Firebase connection...');
@@ -863,12 +864,14 @@ const angle = t * Math.PI * 2;
 
 let waveX, waveY, waveZ, x, y, z;
 
-if (level === 5) {
+/* smooth testing wire
+if (level === 0) {
       // Test level - perfectly smooth circular wire
       x = Math.cos(angle) * radius;
       y = 1.4; // Fixed height
       z = Math.sin(angle) * radius;
     }
+  */
 
 if (level === 1) {
 // Level 1 wire pattern
@@ -893,7 +896,7 @@ x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
 y = 1.4 + waveY + heightVar;
 z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
 }
-else if (level === 0) {
+else if (level === 5) {
 // Level 3 wire pattern
 waveX = Math.sin(angle * 10) * 0.08;
 waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
@@ -1390,10 +1393,13 @@ renderer.setAnimationLoop(render);
     if (gameCompleted) {
       // If game is complete, submit full game score
       submitScore(playerName, levelTimes);
-      // check if we need to save level 5 record separately
-      if (window.pendingRecords && window.pendingRecords.level5) {
-        saveLevelRecord(5, levelTimes[4], playerName);
-      }
+      // Check and save records for all levels
+  for (let i = 0; i < 5; i++) {
+    // Check if this level was a new record
+    if (window.recordHolderMeshes && window.recordHolderMeshes[i]) {
+      saveLevelRecord(i+1, levelTimes[i], playerName);
+    }
+  }
 
       // Remove the "New Record" prompt meshes
       gameCompletionMeshes.forEach(mesh => {
@@ -2351,7 +2357,8 @@ function showGameCompletionScores(bestTimes) {
     size: 0.02, 
     height: 0.005 
   });
-  const recordsMesh = new THREE.Mesh(recordsGeometry, new THREE.MeshStandardMaterial({ color: 0xff8000 }));
+  const recordsMesh = new THREE.Mesh(recordsGeometry, new THREE.MeshStandardMaterial({ color: 0xff8000, emissive: 0xff8000,
+    emissiveIntensity: 0.3  }));
   recordsMesh.position.set(0.13, 1.51, -0.75);
   scene.add(recordsMesh);
   gameCompletionMeshes.push(recordsMesh);
