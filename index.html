@@ -2025,7 +2025,7 @@ function saveLevelRecord(levelNumber, levelTime, playerName) {
 function addGameControlButtons() {
   // Create button container to help with positioning
   const buttonContainer = new THREE.Group();
-  buttonContainer.position.set(0, 0.88, -0.75);
+  buttonContainer.position.set(0, 1.28, -0.75);
   scene.add(buttonContainer);
   gameCompletionMeshes.push(buttonContainer);
   
@@ -2213,7 +2213,7 @@ function showNewRecordPrompt(isNewTotalRecord) {
   const recordMesh = new THREE.Mesh(recordGeometry, recordMaterial);
   recordGeometry.computeBoundingBox();
   const recordOffset = -0.5 * (recordGeometry.boundingBox.max.x - recordGeometry.boundingBox.min.x);
-  recordMesh.position.set(recordOffset, 1.5, -0.75);
+  recordMesh.position.set(recordOffset, 1.9, -0.75);
   scene.add(recordMesh);
   
   // Add "Enter your name:" text
@@ -2226,7 +2226,7 @@ function showNewRecordPrompt(isNewTotalRecord) {
   const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
   promptGeometry.computeBoundingBox();
   const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
-  promptMesh.position.set(promptOffset, 1.45, -0.75);
+  promptMesh.position.set(promptOffset, 1.85, -0.75);
   scene.add(promptMesh);
   
   // Store these for later cleanup
@@ -2270,7 +2270,7 @@ function showGameCompletionScores(bestTimes) {
   const gameCompleteMesh = new THREE.Mesh(gameCompleteGeometry, gameCompleteMaterial);
   gameCompleteGeometry.computeBoundingBox();
   const gameCompleteOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
-  gameCompleteMesh.position.set(gameCompleteOffset, 1.40, -0.75);
+  gameCompleteMesh.position.set(gameCompleteOffset, 1.8, -0.75);
   scene.add(gameCompleteMesh);
   gameCompletionMeshes.push(gameCompleteMesh);
   
@@ -2281,7 +2281,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const yourTimesMesh = new THREE.Mesh(yourTimesGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-  yourTimesMesh.position.set(0, 1.26, -0.75);
+  yourTimesMesh.position.set(0, 1.66, -0.75);
   scene.add(yourTimesMesh);
   gameCompletionMeshes.push(yourTimesMesh);
   
@@ -2291,7 +2291,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const recordsMesh = new THREE.Mesh(recordsGeometry, new THREE.MeshStandardMaterial({ color: 0xff8000 }));
-  recordsMesh.position.set(0.15, 1.26, -0.75);
+  recordsMesh.position.set(0.15, 1.66, -0.75);
   scene.add(recordsMesh);
   gameCompletionMeshes.push(recordsMesh);
 
@@ -2312,7 +2312,7 @@ for (let i = 0; i < 5; i++) {
     levelLabelGeometry, 
     new THREE.MeshStandardMaterial({ color: 0xffffff })
   );
-  levelLabelMesh.position.set(-0.25, 1.21 - (i * 0.035), -0.75);
+  levelLabelMesh.position.set(-0.25, 1.61 - (i * 0.035), -0.75);
   scene.add(levelLabelMesh);
   gameCompletionMeshes.push(levelLabelMesh);
 
@@ -2338,7 +2338,7 @@ for (let i = 0; i < 5; i++) {
       emissiveIntensity: 0.3
     })
   );
-  playerTimeMesh.position.set(0, 1.21 - (i * 0.035), -0.75);
+  playerTimeMesh.position.set(0, 1.61 - (i * 0.035), -0.75);
   scene.add(playerTimeMesh);
   gameCompletionMeshes.push(playerTimeMesh);
   scoreSummaryMeshes.push(playerTimeMesh);
@@ -2367,7 +2367,7 @@ for (let i = 0; i < 5; i++) {
       emissiveIntensity: isNewLevelRecord ? 0.3 : 0 
     })
   );
-  combinedRecordMesh.position.set(0.15, 1.21 - (i * 0.035), -0.75);
+  combinedRecordMesh.position.set(0.15, 1.61 - (i * 0.035), -0.75);
   scene.add(combinedRecordMesh);
   gameCompletionMeshes.push(combinedRecordMesh);
   scoreSummaryMeshes.push(combinedRecordMesh);
@@ -2394,7 +2394,7 @@ const totalLabelMesh = new THREE.Mesh(
   totalLabelGeometry, 
   new THREE.MeshStandardMaterial({ color: 0xffffff })
 );
-totalLabelMesh.position.set(-0.25, 1.21 - (5 * 0.035), -0.75);
+totalLabelMesh.position.set(-0.25, 1.61 - (5 * 0.035), -0.75);
 scene.add(totalLabelMesh);
 gameCompletionMeshes.push(totalLabelMesh);
 scoreSummaryMeshes.push(totalLabelMesh);
@@ -2413,7 +2413,7 @@ const playerTotalMesh = new THREE.Mesh(
     emissiveIntensity: 0.3
   })
 );
-playerTotalMesh.position.set(0, 1.21 - (5 * 0.035), -0.75);
+playerTotalMesh.position.set(0, 1.61 - (5 * 0.035), -0.75);
 scene.add(playerTotalMesh);
 gameCompletionMeshes.push(playerTotalMesh);
 scoreSummaryMeshes.push(playerTotalMesh);
@@ -2440,7 +2440,7 @@ const combinedTotalRecordMesh = new THREE.Mesh(
     emissiveIntensity: 0.3
   })
 );
-combinedTotalRecordMesh.position.set(0.15, 1.21 - (5 * 0.035), -0.75);
+combinedTotalRecordMesh.position.set(0.15, 1.61 - (5 * 0.035), -0.75);
 scene.add(combinedTotalRecordMesh);
 gameCompletionMeshes.push(combinedTotalRecordMesh);
 scoreSummaryMeshes.push(combinedTotalRecordMesh);
@@ -2465,7 +2465,7 @@ if (!isNewRecord) {
     );
     noRecordGeometry.computeBoundingBox();
     const noRecordOffset = -0.5 * (noRecordGeometry.boundingBox.max.x - noRecordGeometry.boundingBox.min.x);
-    noRecordMesh.position.set(noRecordOffset, 1.0, -0.75);
+    noRecordMesh.position.set(noRecordOffset, 1.4, -0.75);
     scene.add(noRecordMesh);
     gameCompletionMeshes.push(noRecordMesh);
 
