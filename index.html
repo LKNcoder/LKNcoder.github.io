@@ -53,7 +53,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 4; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 
@@ -1286,18 +1286,33 @@ function restartGame() {
   
   // Reset the level text
   if (textMesh && font) {
+    scene.remove(textMesh);
     textMesh.geometry.dispose();
-    textMesh.geometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
-    textMesh.geometry.computeBoundingBox();
-    const centerOffset = -0.5 * (textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x);
-    // center the geometry 
-  textMesh.geometry.translate(
-    -(textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x) / 2,
-    -(textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y) / 2,
+   
+     // Create new text geometry
+  const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  textGeometry.computeBoundingBox();
+  
+  // Center the geometry properly
+  textGeometry.translate(
+    -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+    -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
     0
   );
-   
-    textMesh.position.set(centerOffset, 2.0, -0.75);
+  
+  // Reuse existing material or create new one
+  if (!textMesh.material) {
+    textMesh.material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  }
+  
+  // Update geometry and position
+  textMesh.geometry = textGeometry;
+  textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+  textMesh.visible = true;
     scene.add(textMesh);
   }
   
@@ -2442,7 +2457,7 @@ for (let i = 0; i < 5; i++) {
   
   // Combined record - right column
   const combinedRecordGeometry = new THREE.TextGeometry(
-    isNewLevelRecord ? "..." : combinedRecordText, { 
+    isNewLevelRecord ? `${formatTime(levelTime)} - ${playerName || "..."}` : combinedRecordText, {  
     font: font, 
     size: 0.018, 
     height: 0.005 
