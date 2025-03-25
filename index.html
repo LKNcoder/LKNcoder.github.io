@@ -2213,7 +2213,7 @@ function showNewRecordPrompt(isNewTotalRecord) {
   const recordMesh = new THREE.Mesh(recordGeometry, recordMaterial);
   recordGeometry.computeBoundingBox();
   const recordOffset = -0.5 * (recordGeometry.boundingBox.max.x - recordGeometry.boundingBox.min.x);
-  recordMesh.position.set(recordOffset, 1.9, -0.75);
+  recordMesh.position.set(recordOffset, 1.5, -0.75);
   scene.add(recordMesh);
   
   // Add "Enter your name:" text
@@ -2226,7 +2226,7 @@ function showNewRecordPrompt(isNewTotalRecord) {
   const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
   promptGeometry.computeBoundingBox();
   const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
-  promptMesh.position.set(promptOffset, 1.85, -0.75);
+  promptMesh.position.set(promptOffset, 1.45, -0.75);
   scene.add(promptMesh);
   
   // Store these for later cleanup
@@ -2270,7 +2270,7 @@ function showGameCompletionScores(bestTimes) {
   const gameCompleteMesh = new THREE.Mesh(gameCompleteGeometry, gameCompleteMaterial);
   gameCompleteGeometry.computeBoundingBox();
   const gameCompleteOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
-  gameCompleteMesh.position.set(gameCompleteOffset, 1.8, -0.75);
+  gameCompleteMesh.position.set(gameCompleteOffset, 1.75, -0.75);
   scene.add(gameCompleteMesh);
   gameCompletionMeshes.push(gameCompleteMesh);
   
@@ -2281,7 +2281,7 @@ function showGameCompletionScores(bestTimes) {
     height: 0.005 
   });
   const yourTimesMesh = new THREE.Mesh(yourTimesGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-  yourTimesMesh.position.set(0, 1.66, -0.75);
+  yourTimesMesh.position.set(-0.5, 1.66, -0.75);
   scene.add(yourTimesMesh);
   gameCompletionMeshes.push(yourTimesMesh);
   
@@ -2338,7 +2338,7 @@ for (let i = 0; i < 5; i++) {
       emissiveIntensity: 0.3
     })
   );
-  playerTimeMesh.position.set(0, 1.61 - (i * 0.035), -0.75);
+  playerTimeMesh.position.set(-0.5, 1.61 - (i * 0.035), -0.75);
   scene.add(playerTimeMesh);
   gameCompletionMeshes.push(playerTimeMesh);
   scoreSummaryMeshes.push(playerTimeMesh);
@@ -2413,7 +2413,7 @@ const playerTotalMesh = new THREE.Mesh(
     emissiveIntensity: 0.3
   })
 );
-playerTotalMesh.position.set(0, 1.61 - (5 * 0.035), -0.75);
+playerTotalMesh.position.set(-0.5, 1.61 - (5 * 0.035), -0.75);
 scene.add(playerTotalMesh);
 gameCompletionMeshes.push(playerTotalMesh);
 scoreSummaryMeshes.push(playerTotalMesh);
