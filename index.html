@@ -9,25 +9,89 @@
 <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
 <title>Ring Ring</title>
 <style>
-body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
-canvas { display: block; }
-#vrButton {
-padding: 20px 40px;
-font-size: 24px;
-background-color: #0078d7;
-color: white;
-border: none;
-border-radius: 10px;
-cursor: pointer;
-transition: background-color 0.3s ease;
-position: absolute;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%);
+body { 
+  margin: 0; 
+  display: flex; 
+  flex-direction: column;
+  justify-content: center; 
+  align-items: center; 
+  height: 100vh; 
+  background-color: #0c0c30; /* Darker blue background */
+  font-family: Arial, sans-serif;
+  color: white;
+  overflow: hidden;
 }
-#vrButton:hover { background-color: #005bb5; }
-</style>
+canvas { display: block; }
 
+#loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+#titleContainer {
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+#gameTitle {
+  font-size: 60px;
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  margin: 0;
+}
+
+#gameSubtitle {
+  font-size: 24px;
+  margin-top: 10px;
+  color: #ff00ff;
+}
+
+.monthButton {
+  padding: 20px 40px;
+  font-size: 24px;
+  background-color: #00468e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 300px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.monthButton:hover { 
+  background-color: #005bb5; 
+  transform: scale(1.05);
+}
+
+.monthButton .monthName {
+  font-weight: bold;
+  font-size: 28px;
+  margin-bottom: 5px;
+}
+
+.monthButton .monthTheme {
+  font-size: 18px;
+  color: #00ffff;
+}
+
+.newBadge {
+  background-color: #ff00ff;
+  color: white;
+  font-size: 14px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  position: absolute;
+  top: -10px;
+  right: -10px;
+}
+</style>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -36,7 +100,18 @@ transform: translate(-50%, -50%);
 <body>
 <!--  Levelsio Vibe Jam link  -->
 <a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
-<button id="vrButton">Enter VR</button>
+
+<div id="loadingContainer">
+  <div id="titleContainer">
+    <h1 id="gameTitle">RING RING</h1>
+    <div id="gameSubtitle">VR CHALLENGE</div>
+  </div>
+  
+  <div id="monthsContainer" style="display: flex; flex-direction: column; gap: 20px;">
+    <!-- Month buttons will be generated here -->
+  </div>
+</div>
+
 <script type="importmap">
 {
 "imports": {
@@ -47,6 +122,7 @@ transform: translate(-50%, -50%);
 }
 }
 </script>
+
 <script type="module">
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
@@ -84,21 +160,305 @@ const keyboardRaycaster = new THREE.Raycaster();
 const tempVector = new THREE.Vector3();
 let timerCenterOffset = 0;
 
-// Sound effects and flashing state
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
-let isFlashing = false;
+let isFlashing = false;  // wire flash flag
 let levelMusic = []; // Array to store music for each level
 let currentMusic = null; // Reference to currently playing music
 let endGameMusic;
 
+let selectedMonth = null;
+let monthlyLevels = [];
+let cachedMonths = {};
+
+// Initialize Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCvzAS8zXYraoP-a10eAMFAZX7u1TQNY-M",
   databaseURL: "https://ring-ring-vr-game-default-rtdb.firebaseio.com/",
   projectId: "ring-ring-vr-game"
 };
 firebase.initializeApp(firebaseConfig);
+
+const levelsRef = firebase.database().ref('levels/months');
 const leaderboardRef = firebase.database().ref('leaderboard');
 
+loadAvailableMonths();
+
+function loadAvailableMonths() {
+  levelsRef.once('value')
+    .then(snapshot => {
+      const monthsData = snapshot.val();
+      
+      if (!monthsData) {
+        // If no months data exists yet, create placeholder months
+        createDefaultMonths();
+        return;
+      }
+      
+      // Container for month buttons
+      const monthsContainer = document.getElementById('monthsContainer');
+      monthsContainer.innerHTML = ''; // Clear existing content
+      
+      // Convert object to array and sort by date (newest first)
+      const monthsArray = Object.keys(monthsData).map(key => {
+        return {
+          id: key,
+          ...monthsData[key]
+        };
+      }).sort((a, b) => {
+        // Assuming IDs are in YYYY-MM format
+        return b.id.localeCompare(a.id);
+      });
+      
+      // Create buttons for each month
+      monthsArray.forEach((month, index) => {
+        const button = document.createElement('div');
+        button.className = 'monthButton';
+        button.style.position = 'relative'; // For badge positioning
+        
+        // Create HTML content for button
+        button.innerHTML = `
+          <div class="monthName">${month.name}</div>
+          <div class="monthTheme">${month.theme}</div>
+          ${index === 0 ? '<span class="newBadge">NEW</span>' : ''}
+        `;
+        
+        // Add click handler
+        button.addEventListener('click', () => {
+          selectedMonth = month.id;
+          enterVR(month.id);
+        });
+        
+        monthsContainer.appendChild(button);
+      });
+    })
+    .catch(error => {
+      console.error("Error loading months:", error);
+      
+      // Create default months if there's an error
+      createDefaultMonths();
+    });
+}
+
+function createDefaultMonths() {
+  // Create default months in case Firebase doesn't have any yet
+  const currentDate = new Date();
+  const monthsContainer = document.getElementById('monthsContainer');
+  monthsContainer.innerHTML = ''; // Clear existing content
+  
+  // Create March 2025 button
+  const marchButton = document.createElement('div');
+  marchButton.className = 'monthButton';
+  marchButton.innerHTML = `
+    <div class="monthName">March 2025</div>
+    <div class="monthTheme">Spiral Challenge</div>
+    <span class="newBadge">NEW</span>
+  `;
+  marchButton.addEventListener('click', () => {
+    selectedMonth = "2025-03";
+    enterVR("2025-03");
+  });
+  
+  // Create April 2025 button (coming soon)
+  const aprilButton = document.createElement('div');
+  aprilButton.className = 'monthButton';
+  aprilButton.style.opacity = '0.6';
+  aprilButton.innerHTML = `
+    <div class="monthName">April 2025</div>
+    <div class="monthTheme">Coming Soon</div>
+  `;
+  
+  // Add buttons to container
+  monthsContainer.appendChild(marchButton);
+  monthsContainer.appendChild(aprilButton);
+  
+  // Create the default monthly data in Firebase
+  createDefaultMonthData();
+}
+
+function createDefaultMonthData() {
+  // Check if March 2025 exists
+  levelsRef.child("2025-03").once("value", snapshot => {
+    if (!snapshot.exists()) {
+      // If it doesn't exist, create default level data
+      levelsRef.child("2025-03").set({
+        name: "March 2025",
+        theme: "Spiral Challenge",
+        levels: [
+          {
+            name: "Gentle Start",
+            difficulty: 1,
+            params: {
+              frequencies: [8, 6, 6],
+              amplitudes: [0.05, 0.05, 0.05],
+              rotationOffset: 0
+            }
+          },
+          {
+            name: "Twisted Path",
+            difficulty: 2,
+            params: {
+              frequencies: [7, 5, 6],
+              amplitudes: [0.07, 0.08, 0.07],
+              rotationOffset: Math.PI / 5.3,
+              heightVar: 0.06,
+              radiusVar: 0.1
+            }
+          },
+          {
+            name: "Quantum Wave",
+            difficulty: 3,
+            params: {
+              frequencies: [9, 7, 6],
+              amplitudes: [0.07, 0.08, 0.07],
+              rotationOffset: Math.PI / 1.1,
+              sections: [
+                {type: "ascent", factor: 0.12},
+                {type: "oscillate", factor: 0.06},
+                {type: "descent", factor: 0.12},
+                {type: "smooth", factor: 0.2}
+              ],
+              heightFactor: 0.15,
+              radiusVariation: 0.1
+            }
+          },
+          {
+            name: "Prime Pattern",
+            difficulty: 4,
+            params: {
+              frequencies: [11, 7, 17],
+              amplitudes: [0.07, 0.09, 0.06],
+              rotationOffset: Math.PI / 6.3,
+              sections: [
+                {type: "ascent", factor: 0.15},
+                {type: "oscillate", factor: 0.07},
+                {type: "descent", factor: 0.15},
+                {type: "smooth", factor: 0.1}
+              ]
+            }
+          },
+          {
+            name: "Cosmic Loop",
+            difficulty: 5,
+            params: {
+              frequencies: [10, 8, 12],
+              amplitudes: [0.08, 0.08, 0.06],
+              rotationOffset: Math.PI / 1.6,
+              heightFactor: 0.14,
+              radiusVariation: 0.16
+            }
+          }
+        ]
+      });
+      console.log("Created default month data for March 2025");
+    }
+  });
+}
+
+async function enterVR(monthId) {
+  console.log(`Selected month: ${monthId}`);
+  
+  try {
+    // Load the level data for this month
+    await loadMonthLevels(monthId);
+    
+    // Request VR session
+    const session = await navigator.xr.requestSession('immersive-vr', { 
+      optionalFeatures: ['local-floor', 'hand-tracking'] 
+    });
+    
+    // Play chime sound
+    if (chimeSound) {
+      chimeSound.play().catch(error => console.log('Chime sound play error:', error));
+    }
+    
+    // Initialize or reset the renderer if needed
+    if (!renderer) {
+      init();
+    } else {
+      // Reset the game state for the new month
+      resetGameForNewMonth();
+    }
+    
+    // Set the VR session
+    renderer.xr.setSession(session);
+    
+    // Hide the UI
+    document.getElementById('loadingContainer').style.display = 'none';
+    
+    // Track first frame rendered
+    let firstFrameRendered = false;
+    session.requestAnimationFrame(() => {
+      console.log('First XR frame rendered');
+      if (!firstFrameRendered) {
+        firstFrameRendered = true;
+        console.log('Waiting for controllers to initialize...');
+        setTimeout(() => {
+          initControllerHaptics();
+        }, 1000);           
+      }
+    });
+    
+    // Listen for input source changes
+    session.addEventListener('inputsourceschange', (event) => {
+      console.log('Input sources changed:', event);
+      setTimeout(initControllerHaptics, 500);
+    });
+    
+  } catch (error) {
+    console.error('Failed to enter VR:', error);
+  }
+}
+
+async function loadMonthLevels(monthId) {
+  // Check if we already have this month's data cached
+  if (cachedMonths[monthId]) {
+    monthlyLevels = cachedMonths[monthId];
+    console.log(`Loaded cached month data for ${monthId}`);
+    return;
+  }
+  
+  // Otherwise, fetch from Firebase
+  try {
+    const snapshot = await levelsRef.child(monthId).once('value');
+    const monthData = snapshot.val();
+    
+    if (monthData && monthData.levels) {
+      // Cache the month data
+      cachedMonths[monthId] = monthData.levels;
+      monthlyLevels = monthData.levels;
+      console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
+    } else {
+      console.error(`No levels found for month ${monthId}`);
+      // Fall back to built-in levels
+      monthlyLevels = [];
+    }
+  } catch (error) {
+    console.error(`Error loading levels for month ${monthId}:`, error);
+    monthlyLevels = [];
+  }
+}
+
+function resetGameForNewMonth() {
+  // Reset game state for the new month
+  currentLevel = 1;
+  levelTimes = [];
+  startTime = null;
+  elapsedTime = 0;
+  levelCompleted = false;
+  gameCompleted = false;
+  
+  // Reset position and visibility
+  ring.position.copy(ringStartPosition);
+  ring.rotation.set(0, Math.PI / 2, 0);
+  ring.visible = true;
+  
+  // Create wire for first level
+  wire = createMonthlyWire(currentLevel);
+  
+  // Update text displays
+  updateLevelText();
+  resetTimerDisplay();
+}
 
 init();
 animate();
@@ -856,7 +1216,126 @@ setTimeout(flash, flashDuration);
 flash();
 }
 
-function createWire(level = 1) {
+// decide which wire creation method to use
+function createWire(level) {
+  // Remove old wire if it exists
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+  }
+  
+  // Check if we're using monthly levels
+  if (selectedMonth && monthlyLevels.length > 0) {
+    return createMonthlyWire(level);
+  } else {
+    // Fall back to original wire patterns
+    return createBuiltinWire(level);
+  }
+}
+
+function createMonthlyWire(level) {
+  // Make sure we're not exceeding array bounds
+  if (level < 1 || level > monthlyLevels.length) {
+    console.error(`Invalid level ${level}, max is ${monthlyLevels.length}`);
+    return createBuiltinWire(level); // Fallback
+  }
+  
+  // Get level parameters
+  const levelData = monthlyLevels[level - 1];
+  const params = levelData.params;
+  
+  const points = [];
+  const segments = 200;
+  const radius = 0.75;
+  
+  // Extract parameters with defaults
+  const rotationOffset = params.rotationOffset || 0;
+  const frequencies = params.frequencies || [8, 6, 6];
+  const amplitudes = params.amplitudes || [0.05, 0.05, 0.05];
+  
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const angle = t * Math.PI * 2;
+    const rotatedAngle = angle + rotationOffset;
+    
+    // Base wave components
+    let waveX = Math.sin(angle * frequencies[0]) * amplitudes[0];
+    let waveY = Math.cos(angle * frequencies[1]) * amplitudes[1];
+    let waveZ = Math.sin(angle * frequencies[2]) * amplitudes[2];
+    
+    // Handle section-specific modifications
+    if (params.sections) {
+      const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
+      if (section < params.sections.length) {
+        const sectionData = params.sections[section];
+        const sectionFactor = getSectionFactor(section, t);
+        
+        // Apply effects based on section type
+        switch(sectionData.type) {
+          case 'ascent':
+            waveY += Math.sin(sectionFactor * Math.PI * 0.5) * sectionData.factor;
+            break;
+          case 'oscillate': 
+            waveX += Math.sin(sectionFactor * Math.PI * 3) * sectionData.factor;
+            waveZ += Math.cos(sectionFactor * Math.PI * 3) * sectionData.factor;
+            break;
+          case 'descent':
+            waveY -= Math.sin(sectionFactor * Math.PI * 0.5) * sectionData.factor;
+            break;
+          case 'smooth':
+            waveX *= (1.2 - sectionFactor * sectionData.factor);
+            waveZ *= (1.2 - sectionFactor * sectionData.factor);
+            break;
+        }
+      }
+    }
+    
+    // Calculate radius variation if specified
+    const radiusVar = params.radiusVariation ? 
+      (1 + Math.sin(angle * 2) * params.radiusVariation) : 1.0;
+    
+    // Calculate height variation
+    const heightVar = params.heightFactor ? 
+      Math.sin(angle * 2) * params.heightFactor : 0;
+    
+    // Final position calculation
+    const x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
+    const y = 1.4 + waveY + heightVar;
+    const z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+    
+    points.push(new THREE.Vector3(x, y, z));
+  }
+  
+  // Create the wire geometry and material
+  wirePoints = points;
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const colors = new Float32Array(points.length * 3);
+  for (let i = 0; i < points.length; i++) {
+    colors[i * 3] = 1;     // R
+    colors[i * 3 + 1] = 0; // G
+    colors[i * 3 + 2] = 1; // B
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
+  
+  wire = new THREE.Line(geometry, wireMaterial);
+  scene.add(wire);
+  
+  console.log(`Monthly wire for level ${level} created:`, wire);
+  return wire;
+}
+
+// Helper for section calculations
+function getSectionFactor(section, t) {
+  return section === 0 ? t * 4 : 
+         section === 1 ? (t - 0.25) * 4 :
+         section === 2 ? (t - 0.5) * 4 : 
+         (t - 0.75) * 4;
+}
+
+
+
+function createBuiltinWire(level = 1) {
 // Remove old wire if it exists
 if (wire) {
 scene.remove(wire);
@@ -2003,17 +2482,20 @@ function showNewRecordNotification(recordTime) {
 // Submit score to Leaderboard 
 function submitScore(playerName, levelTimes) {
   const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+
+  // Reference to the monthly leaderboard
+  const monthLeaderboardRef = selectedMonth ? 
+    firebase.database().ref(`leaderboard/${selectedMonth}`) : 
+    leaderboardRef;
   
   // Add to leaderboard
-  leaderboardRef.push({
+  monthLeaderboardRef.push({
     playerName: playerName || 'Anonymous Player',
     totalTime: totalTime,
     levelTimes: levelTimes,
     date: Date.now()
   });
 }
-
-
 
 // fetch best times for each level
 function fetchBestTimes(callback) {
@@ -2027,6 +2509,11 @@ function fetchBestTimes(callback) {
     total: { time: Number.MAX_VALUE, name: "" }
   };
   
+  // Use the monthly leaderboard if available
+  const monthLeaderboardRef = selectedMonth ? 
+    firebase.database().ref(`leaderboard/${selectedMonth}`) : 
+    leaderboardRef;
+
   try {
     // Get all leaderboard entries with timeout protection
     const timeoutId = setTimeout(() => {
@@ -2037,7 +2524,7 @@ function fetchBestTimes(callback) {
       callback = null;
     }, 5000);
     
-    leaderboardRef.once('value', 
+    monthleaderboardRef.once('value', 
       // Success handler
       snapshot => {
         clearTimeout(timeoutId); // Clear the timeout
