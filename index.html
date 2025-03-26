@@ -266,6 +266,22 @@ function loadAvailableMonths() {
         
         monthsContainer.appendChild(button);
       });
+
+      // Always add April 2025 "Coming Soon" button if it doesn't exist
+      if (!monthsArray.some(month => month.id === "2025-04")) {
+        const aprilButton = document.createElement('div');
+        aprilButton.className = 'monthButton';
+        aprilButton.style.opacity = '0.6';
+        aprilButton.innerHTML = `
+          <div class="monthName">April 2025</div>
+          <div class="monthTheme">Coming Soon</div>
+        `;
+        aprilButton.addEventListener('click', () => {
+          alert('April levels will be available next month!');
+        });
+        monthsContainer.appendChild(aprilButton);
+      }
+
     })
     .catch(error => {
       console.error("Error loading months:", error);
