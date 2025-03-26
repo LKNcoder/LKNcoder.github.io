@@ -123,6 +123,71 @@ canvas {
   right: -10px;
 }
 
+.leaderboardTooltip {
+  position: absolute;
+  background-color: rgba(0, 60, 120, 0.9);
+  border: 2px solid #00ffff;
+  border-radius: 10px;
+  padding: 15px;
+  width: 250px;
+  max-height: 300px;
+  overflow-y: auto;
+  color: white;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.leaderboardTooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.leaderboardTooltip h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #00ffff;
+  text-align: center;
+  font-size: 18px;
+  border-bottom: 1px solid #00ffff;
+  padding-bottom: 5px;
+}
+
+.leaderboardPlayer {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.leaderboardRank {
+  color: #ffff00;
+  font-weight: bold;
+  width: 30px;
+}
+
+.leaderboardName {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 5px;
+}
+
+.leaderboardTime {
+  color: #00ffff;
+}
+
+.noRecords {
+  text-align: center;
+  color: #888888;
+  font-style: italic;
+  margin: 15px 0;
+}
+
+
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -247,23 +312,7 @@ function loadAvailableMonths() {
       
       // Create buttons for each month
       monthsArray.forEach((month, index) => {
-        const button = document.createElement('div');
-        button.className = 'monthButton';
-        button.style.position = 'relative'; // For badge positioning
-        
-        // Create HTML content for button
-        button.innerHTML = `
-          <div class="monthName">${month.name}</div>
-          <div class="monthTheme">${month.theme}</div>
-          ${index === 0 ? '<span class="newBadge">NEW</span>' : ''}
-        `;
-        
-        // Add click handler
-        button.addEventListener('click', () => {
-          selectedMonth = month.id;
-          enterVR(month.id);
-        });
-        
+        const button = createMonthButton(month, index);
         monthsContainer.appendChild(button);
       });
 
@@ -273,6 +322,7 @@ function loadAvailableMonths() {
         aprilButton.className = 'monthButton';
         aprilButton.style.opacity = '0.6';
         aprilButton.style.transform = 'scale(0.9)'; // Make it smaller
+        aprilButton.style.pointerEvents = 'none'; // Prevents hover state
         aprilButton.innerHTML = `
           <div class="monthName">April 2025</div>
           <div class="monthTheme">Coming Soon</div>
@@ -282,7 +332,6 @@ function loadAvailableMonths() {
         });
         monthsContainer.appendChild(aprilButton);
       }
-
     })
     .catch(error => {
       console.error("Error loading months:", error);
@@ -298,32 +347,28 @@ function createDefaultMonths() {
   const monthsContainer = document.getElementById('monthsContainer');
   monthsContainer.innerHTML = ''; // Clear existing content
   
-  // Create March 2025 button
-  const marchButton = document.createElement('div');
-  marchButton.className = 'monthButton';
-  marchButton.innerHTML = `
-    <div class="monthName">March 2025</div>
-    <div class="monthTheme">Levels 1-5</div>
-    <span class="newBadge">NEW</span>
-  `;
-  marchButton.addEventListener('click', () => {
-    selectedMonth = "2025-03";
-    enterVR("2025-03");
-  });
+ // Create March 2025 button
+ const marchMonth = {
+    id: "2025-03",
+    name: "March 2025",
+    theme: "Levels 1-5"
+  };
+  const marchButton = createMonthButton(marchMonth, 0);
   
   // Create April 2025 button (coming soon)
   const aprilButton = document.createElement('div');
   aprilButton.className = 'monthButton';
   aprilButton.style.opacity = '0.6';
   aprilButton.style.transform = 'scale(0.9)'; // Make it smaller
+  aprilButton.style.pointerEvents = 'none'; // Prevents hover state
   aprilButton.innerHTML = `
     <div class="monthName">April 2025</div>
     <div class="monthTheme">Coming Soon</div>
   `;
   // Add a click handler to show a message
   aprilButton.addEventListener('click', () => {
-  alert('April levels will be available next month!');
-});
+    alert('April levels will be available next month!');
+  });
   
   // Add buttons to container
   monthsContainer.appendChild(marchButton);
@@ -333,6 +378,101 @@ function createDefaultMonths() {
   createDefaultMonthData();
 }
 
+function createMonthButton(month, index) {
+  const button = document.createElement('div');
+  button.className = 'monthButton';
+  button.style.position = 'relative'; // For badge positioning
+  
+  // Create HTML content for button
+  button.innerHTML = `
+    <div class="monthName">${month.name}</div>
+    <div class="monthTheme">${month.theme}</div>
+    ${index === 0 ? '<span class="newBadge">NEW</span>' : ''}
+  `;
+  
+  // Add click handler
+  button.addEventListener('click', () => {
+    selectedMonth = month.id;
+    enterVR(month.id);
+  });
+
+  // Create tooltip element (initially hidden)
+  const tooltip = document.createElement('div');
+  tooltip.className = 'leaderboardTooltip';
+  tooltip.innerHTML = '<h3>Top Players</h3><div class="leaderboardContent">Loading...</div>';
+  document.body.appendChild(tooltip);
+  
+  // Add hover handlers for desktop
+  button.addEventListener('mouseenter', (event) => {
+    // Position tooltip near the button
+    const rect = button.getBoundingClientRect();
+    tooltip.style.left = `${rect.right + 10}px`;
+    tooltip.style.top = `${rect.top + window.scrollY}px`;
+    
+    // Show tooltip with loading message
+    tooltip.classList.add('visible');
+    
+    // Fetch leaderboard data
+    fetchLeaderboardForTooltip(month.id, tooltip);
+  });
+  
+  button.addEventListener('mouseleave', () => {
+    tooltip.classList.remove('visible');
+  });
+  
+  // For mobile, use touch events
+  button.addEventListener('touchstart', (event) => {
+    // Don't show on mobile - just for touch feedback
+    event.preventDefault(); // Prevent default to avoid immediate click
+  });
+  
+  return button;
+}
+
+function fetchLeaderboardForTooltip(monthId, tooltipElement) {
+  const leaderboardContent = tooltipElement.querySelector('.leaderboardContent');
+  
+  // Reference to the monthly leaderboard
+  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
+  
+  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
+    .then(snapshot => {
+      const leaderboardData = [];
+      
+      // Convert Firebase snapshot to array
+      snapshot.forEach(childSnapshot => {
+        leaderboardData.push({
+          name: childSnapshot.val().playerName || 'Anonymous',
+          time: childSnapshot.val().totalTime || 0
+        });
+      });
+      
+      // Sort by time (lowest first)
+      leaderboardData.sort((a, b) => a.time - b.time);
+      
+      // Update tooltip content
+      if (leaderboardData.length > 0) {
+        let html = '';
+        leaderboardData.forEach((player, index) => {
+          html += `
+            <div class="leaderboardPlayer">
+              <span class="leaderboardRank">#${index + 1}</span>
+              <span class="leaderboardName">${player.name}</span>
+              <span class="leaderboardTime">${formatTime(player.time)}</span>
+            </div>
+          `;
+        });
+        leaderboardContent.innerHTML = html;
+      } else {
+        leaderboardContent.innerHTML = '<div class="noRecords">No records yet.<br>Be the first!</div>';
+      }
+    })
+    .catch(error => {
+      console.error("Error fetching leaderboard:", error);
+      leaderboardContent.innerHTML = '<div class="noRecords">Could not load leaderboard</div>';
+    });
+}
+
 function createDefaultMonthData() {
   // Check if March 2025 exists
   levelsRef.child("2025-03").once("value", snapshot => {
@@ -340,7 +480,7 @@ function createDefaultMonthData() {
       // If it doesn't exist, create default level data
       levelsRef.child("2025-03").set({
         name: "March 2025",
-        theme: "Spiral Challenge",
+        theme: "Levels 1-5",
         levels: [
           {
             name: "Gentle Start",
@@ -524,7 +664,7 @@ function resetGameForNewMonth() {
   ring.visible = true;
   
   // Create wire for first level
-  wire = createMonthlyWire(currentLevel);
+  wire = createWire(currentLevel);
   
   // Update text displays
   updateLevelText();
