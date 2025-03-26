@@ -302,7 +302,7 @@ function createDefaultMonths() {
   marchButton.className = 'monthButton';
   marchButton.innerHTML = `
     <div class="monthName">March 2025</div>
-    <div class="monthTheme">Spiral Challenge</div>
+    <div class="monthTheme">Levels 1-5</div>
     <span class="newBadge">NEW</span>
   `;
   marchButton.addEventListener('click', () => {
@@ -515,6 +515,58 @@ function resetGameForNewMonth() {
   updateLevelText();
   resetTimerDisplay();
 }
+
+function updateLevelText() {
+  if (textMesh && font) {
+    if (textMesh.geometry) textMesh.geometry.dispose();
+    
+    // Create new text geometry
+    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.005 
+    });
+    textGeometry.computeBoundingBox();
+    
+    // Center the geometry properly
+    textGeometry.translate(
+      -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+      -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+      0
+    );
+    
+    // Reuse existing material or create new one
+    if (!textMesh.material) {
+      textMesh.material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    }
+    
+    // Update geometry and position
+    textMesh.geometry = textGeometry;
+    textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+    textMesh.visible = true;
+  }
+}
+
+function resetTimerDisplay() {
+  if (timerMesh && timerFont) {
+    timerMesh.geometry.dispose();
+    timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+      font: timerFont,
+      size: 0.02,
+      height: 0.005,
+    });
+    timerMesh.geometry.computeBoundingBox();
+    // Center the geometry itself
+    timerMesh.geometry.translate(
+      -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+      -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+      0
+    );
+    timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+    timerMesh.visible = true;
+  }
+}
+
 
 init();
 animate();
@@ -1006,8 +1058,6 @@ function createImprovedVirtualKeyboard() {
   return keyboardContainer;
 }
 
-// Updated name display function to work with the new keyboard
-// Updated name display function to have a separate cursor mesh
 function updateNameDisplay(container) {
   // Remove existing display elements
   if (initialsDisplayMesh) {
@@ -1797,7 +1847,7 @@ grabbingController = null;
 }
 }
 
-// Add the restartGame function
+// restart Game 
 function restartGame() {
   levelCompleted = false;
   // Clean up game completion meshes
@@ -1827,59 +1877,9 @@ function restartGame() {
   wire = createWire(currentLevel);
   wire.visible = true;
   
-  // Reset the level text
-  if (textMesh && font) {
-    scene.remove(textMesh);
-    textMesh.geometry.dispose();
-   
-     // Create new text geometry
-  const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { 
-    font: font, 
-    size: 0.02, 
-    height: 0.005 
-  });
-  textGeometry.computeBoundingBox();
-  
-  // Center the geometry properly
-  textGeometry.translate(
-    -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
-    -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
-    0
-  );
-  
-  // Reuse existing material or create new one
-  if (!textMesh.material) {
-    textMesh.material = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  }
-  
-  // Update geometry and position
-  textMesh.geometry = textGeometry;
-  textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-  textMesh.visible = true;
-    scene.add(textMesh);
-  }
-  
-  // Reset and show timer
-  if (timerMesh && timerFont) {
-    timerMesh.geometry.dispose();
-    timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
-      font: timerFont,
-      size: 0.02,
-      height: 0.005,
-    });
-    timerMesh.visible = true;
-    timerMesh.geometry.computeBoundingBox();
-    timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-    // center the geometry 
-    timerMesh.geometry.translate(
-      -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
-      -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
-      0
-    );
-    timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-    timerMesh.lookAt(camera.position);
-    timerMesh.visible = true;
-  }
+   // Update level text and timer
+   updateLevelText();
+   resetTimerDisplay();
   
   // Play chime sound to indicate restart
   chimeSound.play().catch(error => console.log('Sound play error:', error));
