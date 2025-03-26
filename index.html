@@ -10,7 +10,7 @@
 <title>Ring Ring</title>
 <style>
     
-    body { 
+  body { 
   margin: 0; 
   display: flex; 
   flex-direction: column;
@@ -136,7 +136,7 @@ canvas {
 <div id="loadingContainer">
   <div id="titleContainer">
     <h1 id="gameTitle">RING RING</h1>
-    <div id="gameSubtitle">VR CHALLENGE</div>
+    <div id="gameSubtitle">VR GAME</div>
   </div>
   
   <div id="monthsContainer" style="display: flex; flex-direction: column; gap: 20px;">
@@ -216,12 +216,16 @@ const leaderboardRef = firebase.database().ref('leaderboard');
 loadAvailableMonths();
 
 function loadAvailableMonths() {
+  console.log("Loading available months...");
+  
   levelsRef.once('value')
     .then(snapshot => {
       const monthsData = snapshot.val();
+      console.log("Received months data:", monthsData ? 
+        Object.keys(monthsData).length + " months" : "No months found");
       
-      if (!monthsData) {
-        // If no months data exists yet, create placeholder months
+      if (!monthsData || Object.keys(monthsData).length === 0) {
+        console.log("No months data found, creating default months");
         createDefaultMonths();
         return;
       }
