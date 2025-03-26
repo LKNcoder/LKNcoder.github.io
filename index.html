@@ -272,6 +272,7 @@ function loadAvailableMonths() {
         const aprilButton = document.createElement('div');
         aprilButton.className = 'monthButton';
         aprilButton.style.opacity = '0.6';
+        aprilButton.style.transform = 'scale(0.9)'; // Make it smaller
         aprilButton.innerHTML = `
           <div class="monthName">April 2025</div>
           <div class="monthTheme">Coming Soon</div>
@@ -314,6 +315,7 @@ function createDefaultMonths() {
   const aprilButton = document.createElement('div');
   aprilButton.className = 'monthButton';
   aprilButton.style.opacity = '0.6';
+  aprilButton.style.transform = 'scale(0.9)'; // Make it smaller
   aprilButton.innerHTML = `
     <div class="monthName">April 2025</div>
     <div class="monthTheme">Coming Soon</div>
@@ -411,9 +413,22 @@ function createDefaultMonthData() {
 }
 
 async function enterVR(monthId) {
-  console.log(`Selected month: ${monthId}`);
+    console.log(`Selected month: ${monthId}`);
+  
+  // Check if WebXR is supported
+  if (!navigator.xr) {
+    alert('WebXR not supported by your browser. Please try a compatible browser with a VR headset.');
+    return;
+  }
   
   try {
+    // Check if 'immersive-vr' is supported
+    const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
+    if (!isSessionSupported) {
+      alert('VR not supported or no VR headset detected. Please connect a VR headset to play Ring Ring.');
+      return;
+    }
+    
     // Load the level data for this month
     await loadMonthLevels(monthId);
     
