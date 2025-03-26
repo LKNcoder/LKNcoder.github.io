@@ -9,18 +9,22 @@
 <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
 <title>Ring Ring</title>
 <style>
+    
 body { 
   margin: 0; 
   display: flex; 
   flex-direction: column;
   justify-content: center; 
   align-items: center; 
-  height: 100vh; 
-  background-color: #0c0c30; /* Darker blue background */
+  min-height: 100vh; /* Use min-height instead of height */
+  height: auto; /* Allow content to determine height */
+  background-color: #0c0c30;
   font-family: Arial, sans-serif;
   color: white;
   overflow: hidden;
+  padding: 20px 0; /* Add some padding */
 }
+
 canvas { display: block; }
 
 #loadingContainer {
@@ -28,6 +32,18 @@ canvas { display: block; }
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  width: 100%;
+  max-width: 800px; /* Limit width on larger screens */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#monthsContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 40px; /* Add space at bottom */
 }
 
 #titleContainer {
@@ -558,8 +574,8 @@ scene.add(controller2);
 window.addEventListener('resize', onWindowResize, false);
 
 const vrButton = document.getElementById('vrButton');
-
-vrButton.addEventListener('click', async () => {
+if (vrButton) {
+  vrButton.addEventListener('click', async () => {
 try {
 chimeSound.play().catch(error => console.log('Chime sound play error:', error));
 const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
@@ -592,7 +608,7 @@ vrButton.style.display = 'none';
 console.error('Failed to enter VR:', error);
 }
 });
-
+}
 
 const particlesGeometry = new THREE.BufferGeometry();
 const particlesCount = 3000;
