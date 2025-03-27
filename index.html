@@ -280,99 +280,131 @@ const leaderboardRef = firebase.database().ref('leaderboard');
 
 loadAvailableMonths();
 
+// Replace the loadAvailableMonths function (around line 328)
 function loadAvailableMonths() {
   console.log("Loading available months...");
   
-  levelsRef.once('value')
-    .then(snapshot => {
-      const monthsData = snapshot.val();
-      console.log("Received months data:", monthsData ? 
-        Object.keys(monthsData).length + " months" : "No months found");
-      
-      if (!monthsData || Object.keys(monthsData).length === 0) {
-        console.log("No months data found, creating default months");
-        createDefaultMonths();
-        return;
-      }
-      
-      // Container for month buttons
-      const monthsContainer = document.getElementById('monthsContainer');
-      monthsContainer.innerHTML = ''; // Clear existing content
-      
-      // Convert object to array and sort by date (newest first)
-      const monthsArray = Object.keys(monthsData).map(key => {
-        return {
-          id: key,
-          ...monthsData[key]
-        };
-      }).sort((a, b) => {
-        // Assuming IDs are in YYYY-MM format
-        return b.id.localeCompare(a.id);
+  // Get both data sources
+  Promise.all([
+    levelsRef.once('value'),
+    firebase.database().ref('monthlyWires').once('value')
+  ])
+  .then(([legacySnapshot, newFormatSnapshot]) => {
+    const legacyData = legacySnapshot.val() || {};
+    const newFormatData = newFormatSnapshot.val() || {};
+    
+    // Combine both data sources
+    let monthsArray = [];
+    
+    // Process legacy months
+    Object.keys(legacyData).forEach(key => {
+      monthsArray.push({
+        id: key,
+        name: legacyData[key].name || `${key.split('-')[1]}/${key.split('-')[0]}`,
+        theme: legacyData[key].theme || "Levels 1-5"
       });
-      
-      // Create buttons for each month
-      monthsArray.forEach((month, index) => {
-        const button = createMonthButton(month, index);
-        monthsContainer.appendChild(button);
-      });
-
-      // Always add April 2025 "Coming Soon" button if it doesn't exist
-      if (!monthsArray.some(month => month.id === "2025-04")) {
-        const aprilButton = document.createElement('div');
-        aprilButton.className = 'monthButton';
-        aprilButton.style.opacity = '0.6';
-        aprilButton.style.transform = 'scale(0.9)'; // Make it smaller
-        aprilButton.style.pointerEvents = 'none'; // Prevents hover state
-        aprilButton.innerHTML = `
-          <div class="monthName">April 2025</div>
-          <div class="monthTheme">Coming Soon</div>
-        `;
-        aprilButton.addEventListener('click', () => {
-          alert('April levels will be available next month!');
-        });
-        monthsContainer.appendChild(aprilButton);
-      }
-    })
-    .catch(error => {
-      console.error("Error loading months:", error);
-      
-      // Create default months if there's an error
-      createDefaultMonths();
     });
+    
+    // Process new format months
+    Object.keys(newFormatData).forEach(key => {
+      // Only add if not already in the array
+      if (!monthsArray.some(m => m.id === key)) {
+        // Extract month name from the key (format: YYYY-MM)
+        const [year, monthNum] = key.split('-');
+        const monthName = new Date(year, parseInt(monthNum) - 1).toLocaleString('default', { month: 'long' });
+        
+        monthsArray.push({
+          id: key,
+          name: `${monthName} ${year}`,
+          theme: "Levels 1-5"
+        });
+      }
+    });
+    
+    // No months found, create defaults
+    if (monthsArray.length === 0) {
+      createDefaultMonths();
+      return;
+    }
+    
+    // Generate buttons for all months + coming soon
+    generateMonthButtons(monthsArray);
+  })
+  .catch(error => {
+    console.error("Error loading months:", error);
+    createDefaultMonths();
+  });
 }
 
-function createDefaultMonths() {
-  // Create default months in case Firebase doesn't have any yet
-  const currentDate = new Date();
+
+function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
   monthsContainer.innerHTML = ''; // Clear existing content
   
- // Create March 2025 button
- const marchMonth = {
-    id: "2025-03",
-    name: "March 2025",
-    theme: "Levels 1-5"
-  };
-  const marchButton = createMonthButton(marchMonth, 0);
+  // Get the current date to determine the next month
+  const currentDate = new Date();
+  // For demo purposes, let's set current date to April 2025
+     currentDate.setFullYear(2025, 3); // Month is 0-indexed, so 2 = March
+   // (Remove this line when going live)
   
-  // Create April 2025 button (coming soon)
-  const aprilButton = document.createElement('div');
-  aprilButton.className = 'monthButton';
-  aprilButton.style.opacity = '0.6';
-  aprilButton.style.transform = 'scale(0.9)'; // Make it smaller
-  aprilButton.style.pointerEvents = 'none'; // Prevents hover state
-  aprilButton.innerHTML = `
-    <div class="monthName">April 2025</div>
-    <div class="monthTheme">Coming Soon</div>
-  `;
-  // Add a click handler to show a message
-  aprilButton.addEventListener('click', () => {
-    alert('April levels will be available next month!');
+
+  // Sort months by date (newest first)
+  monthsArray.sort((a, b) => b.id.localeCompare(a.id));
+  
+  // Create active month buttons
+  monthsArray.forEach((month, index) => {
+    const button = createMonthButton(month, index);
+    monthsContainer.appendChild(button);
   });
   
-  // Add buttons to container
-  monthsContainer.appendChild(marchButton);
-  monthsContainer.appendChild(aprilButton);
+  // Get the latest month
+  let latestYearMonth = monthsArray.length > 0 ? 
+    monthsArray[0].id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
+  
+  // Calculate the next month for "Coming Soon"
+  let [nextYear, nextMonth] = latestYearMonth;
+  nextMonth++;
+  if (nextMonth > 12) {
+    nextYear++;
+    nextMonth = 1;
+  }
+  
+  // Format with leading zeros
+  const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
+  
+  // Create "Coming Soon" button for next month if it doesn't exist
+  if (!monthsArray.some(m => m.id === nextMonthId)) {
+    const comingSoonButton = document.createElement('div');
+    comingSoonButton.className = 'monthButton';
+    comingSoonButton.style.opacity = '0.6';
+    comingSoonButton.style.transform = 'scale(0.9)';
+    comingSoonButton.style.pointerEvents = 'none';
+    comingSoonButton.innerHTML = `
+      <div class="monthName">${nextMonthName} ${nextYear}</div>
+      <div class="monthTheme">Coming Soon</div>
+    `;
+    monthsContainer.appendChild(comingSoonButton);
+  }
+}
+
+function createDefaultMonths() {
+  // Create default months with March 2025 and April 2025
+  const monthsArray = [
+    {
+      id: "2025-04",
+      name: "April 2025",
+      theme: "Levels 1-5"
+    },
+    {
+      id: "2025-03",
+      name: "March 2025",
+      theme: "Levels 1-5"
+    }
+  ];
+  
+  // Generate buttons including "Coming Soon" for May
+  generateMonthButtons(monthsArray);
   
   // Create the default monthly data in Firebase
   createDefaultMonthData();
@@ -620,6 +652,7 @@ async function enterVR(monthId) {
   }
 }
 
+
 async function loadMonthLevels(monthId) {
   // Check if we already have this month's data cached
   if (cachedMonths[monthId]) {
@@ -628,7 +661,37 @@ async function loadMonthLevels(monthId) {
     return;
   }
   
-  // Otherwise, fetch from Firebase
+  // First try loading from the newer location (for April 2025 and newer)
+  try {
+    const newPathRef = firebase.database().ref(`monthlyWires/${monthId}`);
+    const newPathSnapshot = await newPathRef.once('value');
+    const newPathData = newPathSnapshot.val();
+    
+    if (newPathData) {
+      // Convert the level1, level2 format to an array
+      const levelsArray = [];
+      for (let i = 1; i <= 5; i++) {
+        if (newPathData[`level${i}`]) {
+          levelsArray.push({
+            name: `Level ${i}`,
+            difficulty: i,
+            params: newPathData[`level${i}`].params,
+            color: newPathData[`level${i}`].color
+          });
+        }
+      }
+      
+      // Cache the month data
+      cachedMonths[monthId] = levelsArray;
+      monthlyLevels = levelsArray;
+      console.log(`Loaded month data from new path for ${monthId}:`, monthlyLevels);
+      return;
+    }
+  } catch (error) {
+    console.log(`No data at new path for ${monthId}, trying legacy path:`, error);
+  }
+  
+  // If we get here, try the old path
   try {
     const snapshot = await levelsRef.child(monthId).once('value');
     const monthData = snapshot.val();
@@ -637,7 +700,7 @@ async function loadMonthLevels(monthId) {
       // Cache the month data
       cachedMonths[monthId] = monthData.levels;
       monthlyLevels = monthData.levels;
-      console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
+      console.log(`Loaded month data from legacy path for ${monthId}:`, monthlyLevels);
     } else {
       console.error(`No levels found for month ${monthId}`);
       // Fall back to built-in levels
