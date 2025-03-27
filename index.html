@@ -367,9 +367,11 @@ function generateMonthButtons(monthsArray) {
     monthsContainer.appendChild(button);
   });
   
-  // Get the latest month
-  let latestYearMonth = monthsArray.length > 0 ? 
-    monthsArray[0].id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
+  // Get the latest month by finding the month with the most recent date
+const mostRecentMonth = monthsArray.length > 0 ? 
+  [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
+let latestYearMonth = mostRecentMonth ? 
+  mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
   
   // Calculate the next month for "Coming Soon"
   let [nextYear, nextMonth] = latestYearMonth;
