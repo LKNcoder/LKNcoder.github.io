@@ -337,19 +337,26 @@ function loadAvailableMonths() {
 }
 
 
+// Modify the generateMonthButtons function
 function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
   monthsContainer.innerHTML = ''; // Clear existing content
   
   // Get the current date to determine the next month
   const currentDate = new Date();
-  // For demo purposes, let's set current date to April 2025
-     currentDate.setFullYear(2025, 3); // Month is 0-indexed, so 2 = March
-   // (Remove this line when going live)
   
-
   // Sort months by date (newest first)
   monthsArray.sort((a, b) => b.id.localeCompare(a.id));
+  
+  // Custom month labels based on month ID
+  monthsArray.forEach(month => {
+    // Set the correct theme based on month ID
+    if (month.id === "2025-03") {
+      month.theme = "Levels 1-5";
+    } else if (month.id === "2025-04") {
+      month.theme = "Levels 6-10";
+    }
+  });
   
   // Create active month buttons
   monthsArray.forEach((month, index) => {
@@ -375,6 +382,11 @@ function generateMonthButtons(monthsArray) {
   
   // Create "Coming Soon" button for next month if it doesn't exist
   if (!monthsArray.some(m => m.id === nextMonthId)) {
+    // Calculate theme for next month
+    const nextMonthTheme = nextMonthId === "2025-05" ? "Levels 11-15" : 
+                          (parseInt(nextMonthId.split('-')[1]) - 2) * 5 + 1 + "-" + 
+                          (parseInt(nextMonthId.split('-')[1]) - 2) * 5 + 5;
+    
     const comingSoonButton = document.createElement('div');
     comingSoonButton.className = 'monthButton';
     comingSoonButton.style.opacity = '0.6';
@@ -382,7 +394,7 @@ function generateMonthButtons(monthsArray) {
     comingSoonButton.style.pointerEvents = 'none';
     comingSoonButton.innerHTML = `
       <div class="monthName">${nextMonthName} ${nextYear}</div>
-      <div class="monthTheme">Coming Soon</div>
+      <div class="monthTheme">${nextMonthTheme}</div>
     `;
     monthsContainer.appendChild(comingSoonButton);
   }
@@ -399,7 +411,7 @@ function createDefaultMonths() {
     {
       id: "2025-03",
       name: "March 2025",
-      theme: "Levels 1-5"
+      theme: "Levels 6-10"
     }
   ];
   
