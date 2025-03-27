@@ -799,8 +799,19 @@ function updateLevelText() {
   if (textMesh && font) {
     if (textMesh.geometry) textMesh.geometry.dispose();
     
-    // Create new text geometry
-    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { 
+    // Calculate level offset based on selected month
+    let levelOffset = 0;
+    if (selectedMonth === "2025-04") {
+      levelOffset = 5; // April 2025 starts at level 6
+    } else if (selectedMonth === "2025-05") {
+      levelOffset = 10; // May 2025 starts at level 11
+    }
+    
+    const displayLevel = currentLevel + levelOffset;
+    const maxLevel = levelOffset + 5;
+    
+    // Create new text geometry with correct level numbering
+    const textGeometry = new THREE.TextGeometry(`LEVEL ${displayLevel}/${maxLevel}`, { 
       font: font, 
       size: 0.02, 
       height: 0.005 
