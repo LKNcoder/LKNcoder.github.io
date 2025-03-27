@@ -399,9 +399,14 @@ let latestYearMonth = mostRecentMonth ?
     comingSoonButton.style.pointerEvents = 'none';
     comingSoonButton.innerHTML = `
       <div class="monthName">${nextMonthName} ${nextYear}</div>
-      <div class="monthTheme">${nextMonthTheme}</div>
+      <div class="monthTheme">Coming Soon</div>
     `;
     monthsContainer.appendChild(comingSoonButton);
+  }
+
+  // Add scrolling if there are enough months to warrant it
+  if (monthsArray.length > 3) {
+    addScrollingToMonthsContainer();
   }
 }
 
@@ -425,6 +430,45 @@ function createDefaultMonths() {
   
   // Create the default monthly data in Firebase
   createDefaultMonthData();
+}
+
+// Add scrolling to the months container
+function addScrollingToMonthsContainer() {
+  const monthsContainer = document.getElementById('monthsContainer');
+  const containerHeight = 400; // Fixed height for the container
+  
+  // Style container for scrolling
+  monthsContainer.style.height = `${containerHeight}px`;
+  monthsContainer.style.overflow = 'auto';
+  monthsContainer.style.position = 'relative';
+  monthsContainer.style.paddingRight = '10px'; // Add padding for scrollbar
+  
+  // Add smooth scrolling
+  monthsContainer.style.scrollBehavior = 'smooth';
+  
+  // Add styling for scrollbar
+  monthsContainer.style.scrollbarWidth = 'thin';
+  monthsContainer.style.scrollbarColor = '#00ffff #003366';
+  
+  // For Webkit browsers
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = `
+    #monthsContainer::-webkit-scrollbar {
+      width: 8px;
+    }
+    #monthsContainer::-webkit-scrollbar-track {
+      background: rgba(0, 51, 102, 0.3);
+      border-radius: 10px;
+    }
+    #monthsContainer::-webkit-scrollbar-thumb {
+      background: #00ffff;
+      border-radius: 10px;
+    }
+    #monthsContainer::-webkit-scrollbar-thumb:hover {
+      background: #33ffff;
+    }
+  `;
+  document.head.appendChild(styleSheet);
 }
 
 function createMonthButton(month, index, latestMonth) {
