@@ -341,9 +341,12 @@ function loadAvailableMonths() {
 function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
   monthsContainer.innerHTML = ''; // Clear existing content
-  
+
   // Get the current date to determine the next month
   const currentDate = new Date();
+  
+  // Find the newest month before sorting
+  const latestMonth = [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
   
   // Sort months by date (newest first)
   monthsArray.sort((a, b) => a.id.localeCompare(b.id));
@@ -360,7 +363,7 @@ function generateMonthButtons(monthsArray) {
   
   // Create active month buttons
   monthsArray.forEach((month, index) => {
-    const button = createMonthButton(month, index);
+    const button = createMonthButton(month, index, latestMonth);
     monthsContainer.appendChild(button);
   });
   
@@ -422,16 +425,16 @@ function createDefaultMonths() {
   createDefaultMonthData();
 }
 
-function createMonthButton(month, index) {
+function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
   button.className = 'monthButton';
   button.style.position = 'relative'; // For badge positioning
   
-  // Create HTML content for button
-  button.innerHTML = `
+   // Create HTML content for button - apply NEW badge if this is the latest month
+   button.innerHTML = `
     <div class="monthName">${month.name}</div>
     <div class="monthTheme">${month.theme}</div>
-    ${index === 0 ? '<span class="newBadge">NEW</span>' : ''}
+    ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
   `;
   
   // Add click handler
