@@ -346,7 +346,7 @@ function generateMonthButtons(monthsArray) {
   const currentDate = new Date();
   
   // Sort months by date (newest first)
-  monthsArray.sort((a, b) => b.id.localeCompare(a.id));
+  monthsArray.sort((a, b) => a.id.localeCompare(b.id));
   
   // Custom month labels based on month ID
   monthsArray.forEach(month => {
