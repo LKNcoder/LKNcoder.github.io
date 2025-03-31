@@ -622,9 +622,9 @@ function createDefaultMonthData() {
 }
 
 async function enterVR(monthId) {
-    console.log(`Selected month: ${monthId}`);
+  console.log(`Selected month: ${monthId}`);
 
-    // Load the level data 
+  // Load the level data 
   await loadMonthLevels(monthId);
   
   // Check if WebXR is supported
@@ -665,7 +665,7 @@ async function enterVR(monthId) {
       chimeSound.play().catch(error => console.log('Chime sound play error:', error));
     }
 
-  // Track first frame rendered
+    // Track first frame rendered
     let firstFrameRendered = false;
     session.requestAnimationFrame(() => {
       console.log('First XR frame rendered');
