@@ -404,31 +404,57 @@ let latestYearMonth = mostRecentMonth ?
     monthsContainer.appendChild(comingSoonButton);
   }
 
-  function addTestMonthButtons() {
-  console.log("Adding test month buttons for scrolling demo");
-  const monthsContainer = document.getElementById('monthsContainer');
+   // Store reference to current months array for testing
+  window.currentMonthsArray = monthsArray;
   
-  // Generate several test months
-  const testMonths = [
-    { id: "2024-10", name: "October 2024", theme: "Test Month" },
-    { id: "2024-11", name: "November 2024", theme: "Test Month" },
-    { id: "2024-12", name: "December 2024", theme: "Test Month" },
-    { id: "2025-01", name: "January 2025", theme: "Test Month" },
-    { id: "2025-02", name: "February 2025", theme: "Test Month" },
-    { id: "2025-06", name: "June 2025", theme: "Test Month" },
-    { id: "2025-07", name: "July 2025", theme: "Test Month" },
-    { id: "2025-08", name: "August 2025", theme: "Test Month" },
-    { id: "2025-09", name: "September 2025", theme: "Test Month" }
-  ];
-  }
-
-  addTestMonthButtons();
+  
 
   // Add scrolling if there are enough months to warrant it
   if (monthsArray.length > 3) {
     addScrollingToMonthsContainer();
   }
 }
+
+function addTestMonthButtons() {
+  console.log("Adding test month buttons for scrolling demo");
+  
+  // Generate several test months
+  const testMonths = [
+    { id: "2024-10", name: "October 2024", theme: "Past Levels" },
+    { id: "2024-11", name: "November 2024", theme: "Past Levels" },
+    { id: "2024-12", name: "December 2024", theme: "Past Levels" },
+    { id: "2025-01", name: "January 2025", theme: "Past Levels" },
+    { id: "2025-02", name: "February 2025", theme: "Past Levels" },
+    { id: "2025-06", name: "June 2025", theme: "Future Levels" },
+    { id: "2025-07", name: "July 2025", theme: "Future Levels" },
+    { id: "2025-08", name: "August 2025", theme: "Future Levels" },
+    { id: "2025-09", name: "September 2025", theme: "Future Levels" }
+  ];
+  
+  // Get the existing months
+  const monthsContainer = document.getElementById('monthsContainer');
+  
+  // Find all existing month buttons
+  const existingMonths = Array.from(monthsContainer.getElementsByClassName('monthButton'));
+  console.log(`Found ${existingMonths.length} existing month buttons`);
+  
+  // Create a new full array including test months
+  const fullMonthsArray = window.currentMonthsArray || [];
+  
+  // Add test months to the array
+  testMonths.forEach(month => {
+    // Only add if not already in array
+    if (!fullMonthsArray.some(m => m.id === month.id)) {
+      fullMonthsArray.push(month);
+    }
+  });
+  
+  console.log(`Generated total of ${fullMonthsArray.length} months`);
+  
+  // Re-generate all buttons with the combined array
+  generateMonthButtons(fullMonthsArray);
+}
+
 
 
 
