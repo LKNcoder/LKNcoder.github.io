@@ -2878,71 +2878,6 @@ function createConfetti() {
   }
 }
 
-function showNewRecordNotification(recordTime) {
-  // Create record notification text
-  const recordGeometry = new THREE.TextGeometry('NEW RECORD!', { 
-    font: font, 
-    size: 0.05, // Slightly larger
-    height: 0.008 
-  });
-  const recordMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xffff00,
-    emissive: 0xffff00,
-    emissiveIntensity: 0.7 // Brighter
-  });
-  const recordMesh = new THREE.Mesh(recordGeometry, recordMaterial);
-  recordGeometry.computeBoundingBox();
-  const recordOffset = -0.5 * (recordGeometry.boundingBox.max.x - recordGeometry.boundingBox.min.x);
-  recordMesh.position.set(recordOffset, 1.5, -0.75);
-  scene.add(recordMesh);
-  
-  // Show the time
-  const timeGeometry = new THREE.TextGeometry(`Time: ${formatTime(recordTime)}`, { 
-    font: font, 
-    size: 0.035, 
-    height: 0.005 
-  });
-  const timeMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00ffff,
-    emissive: 0x00ffff, 
-    emissiveIntensity: 0.3 
-  });
-  const timeMesh = new THREE.Mesh(timeGeometry, timeMaterial);
-  timeGeometry.computeBoundingBox();
-  const timeOffset = -0.5 * (timeGeometry.boundingBox.max.x - timeGeometry.boundingBox.min.x);
-  timeMesh.position.set(timeOffset, 1.4, -0.75);
-  scene.add(timeMesh);
-  
-  // Add "Enter your name:" text
-  const promptGeometry = new THREE.TextGeometry('Enter your name:', { 
-    font: font, 
-    size: 0.03, 
-    height: 0.005 
-  });
-  const promptMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
-  promptGeometry.computeBoundingBox();
-  const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
-  promptMesh.position.set(promptOffset, 1.3, -0.75);
-  scene.add(promptMesh);
-  
-  // Store these for later cleanup and mark them as notifications
-  recordMesh.userData.isNotification = true;
-  timeMesh.userData.isNotification = true;
-  promptMesh.userData.isNotification = true;
-  gameCompletionMeshes.push(recordMesh, timeMesh, promptMesh);
-  
-  // Make the record text blink
-  let blinkCount = 0;
-  const blinkInterval = setInterval(() => {
-    recordMesh.visible = !recordMesh.visible;
-    blinkCount++;
-    if (blinkCount >= 10) {
-      clearInterval(blinkInterval);
-      recordMesh.visible = true;
-    }
-  }, 250);
-}
 
 // Submit score to Leaderboard 
 function submitScore(playerName, levelTimes) {
@@ -2989,7 +2924,7 @@ function fetchBestTimes(callback) {
       callback = null;
     }, 5000);
     
-    monthleaderboardRef.once('value', 
+    monthLeaderboardRef.once('value', 
       // Success handler
       snapshot => {
         clearTimeout(timeoutId); // Clear the timeout
@@ -3163,15 +3098,7 @@ function victory() {
     levelTimes[currentLevel - 1] = levelTime;
     startTime = null;
     console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
-  // Check if this is a new record
-checkIfNewRecord(currentLevel - 1, levelTime, (isRecord) => {
-  if (isRecord) {
-    // Show notification that user beat the record for this level
-    showNewRecordNotification(levelTime);
-    // Wait for name entry and save later when submitted
-  }
-});
-  }
+    }
 
   if (currentLevel < 5) {
     // Handle regular level completion
