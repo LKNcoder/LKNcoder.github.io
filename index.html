@@ -336,34 +336,6 @@ function loadAvailableMonths() {
   });
 }
 
-// fallback button for testing
-function addDirectVRButton() {
-  const container = document.getElementById('loadingContainer');
-  const buttonContainer = document.createElement('div');
-  buttonContainer.style.marginTop = '30px';
-  buttonContainer.style.textAlign = 'center';
-  
-  const directVRButton = document.createElement('button');
-  directVRButton.innerText = "ENTER VR DIRECTLY";
-  directVRButton.style.padding = '15px 30px';
-  directVRButton.style.backgroundColor = '#ff00ff';
-  directVRButton.style.color = 'white';
-  directVRButton.style.border = 'none';
-  directVRButton.style.borderRadius = '10px';
-  directVRButton.style.fontSize = '20px';
-  directVRButton.style.cursor = 'pointer';
-  directVRButton.style.fontWeight = 'bold';
-  
-  directVRButton.addEventListener('click', () => {
-    // Default to March 2025 if no month is selected
-    enterVR("2025-03");
-  });
-  
-  buttonContainer.appendChild(directVRButton);
-  container.appendChild(buttonContainer);
-}
-
-
 
 function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
@@ -449,8 +421,6 @@ let latestYearMonth = mostRecentMonth ?
   `;
   monthsContainer.appendChild(comingSoonButton);
 }
-
-addDirectVRButton(); // Add fallback button for testing
 }
 
 function createDefaultMonths() {
@@ -829,37 +799,11 @@ function updateLevelText() {
   if (textMesh && font) {
     if (textMesh.geometry) textMesh.geometry.dispose();
     
-    // Calculate level offset based on selected month
-    let levelOffset = 0;
-    let maxLevel = 5;
+    // SIMPLIFIED APPROACH: Always show relative level numbers 1-5
+    // regardless of which month is selected
     
-    // Keep March and April as they are
-    if (selectedMonth === "2025-03") {
-      levelOffset = 0; // March 2025 starts at level 1
-      maxLevel = 5;
-    } else if (selectedMonth === "2025-04") {
-      levelOffset = 5; // April 2025 starts at level 6
-      maxLevel = 10;
-    } else {
-      // Dynamic calculation for May onwards
-      // Extract month number and convert to number
-      const monthNum = parseInt(selectedMonth.split('-')[1]);
-      
-      // Only calculate if it's a valid month number
-      if (!isNaN(monthNum)) {
-        // Starting from May (05), each month increases by 5 levels
-        // March is 03 (levels 1-5), April is 04 (levels 6-10)
-        // So May is 05 (levels 11-15), etc.
-        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2, etc.
-        levelOffset = monthIndex * 5;
-        maxLevel = levelOffset + 5;
-      }
-    }
-    
-    const displayLevel = currentLevel + levelOffset;
-        
-    // Create new text geometry with correct level numbering
-    const textGeometry = new THREE.TextGeometry(`LEVEL ${displayLevel}/${maxLevel}`, { 
+    // Create new text geometry with relative level numbering
+    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { 
       font: font, 
       size: 0.02, 
       height: 0.005 
