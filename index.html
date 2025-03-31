@@ -624,25 +624,51 @@ function createDefaultMonthData() {
 async function enterVR(monthId) {
   console.log(`Selected month: ${monthId}`);
   selectedMonth = monthId;
-
-  // Check if WebXR is supported
+  
+  // Add debug alert to confirm function is being called
+  console.log("enterVR function called for month:", monthId);
+  
+  // First check: are we ALREADY in a VR session?
+  const alreadyInVR = renderer && renderer.xr && renderer.xr.isPresenting;
+  
+  if (alreadyInVR) {
+    console.log("Already in VR, just switching month");
+    try {
+      await loadMonthLevels(monthId);
+      resetGameForNewMonth();
+      if (chimeSound) {
+        chimeSound.play().catch(error => console.log('Chime sound play error:', error));
+      }
+      return; // Exit early since we're already in VR
+    } catch (error) {
+      console.error("Error switching month in VR:", error);
+      return;
+    }
+  }
+  
+  // Otherwise, we need to enter VR mode
   if (!navigator.xr) {
-    alert('WebXR not supported by your browser.');
+    alert('WebXR not supported by your browser. Please try with a VR-compatible browser.');
+    console.error('WebXR API not found');
     return;
   }
   
   try {
-    // First check if VR is supported and a headset is connected
+    // Log check for VR support
+    console.log("Checking if VR is supported...");
+    
     const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
+    console.log("Is VR session supported:", isSessionSupported);
+    
     if (!isSessionSupported) {
-      alert('VR not supported or no VR headset detected.');
+      alert('VR is not supported or no VR headset is connected. Connect your headset and try again.');
       return;
     }
     
-    // Load the level data BEFORE requesting VR session
+    console.log("Loading month levels...");
     await loadMonthLevels(monthId);
     
-    // Request VR session
+    console.log("Requesting VR session...");
     const session = await navigator.xr.requestSession('immersive-vr', {
       optionalFeatures: ['local-floor', 'hand-tracking']
     });
@@ -652,10 +678,11 @@ async function enterVR(monthId) {
     
     // Initialize or reset renderer
     if (!renderer) {
+      console.log("Initializing renderer...");
       init();
     }
     
-    // Set up VR session
+    console.log("Setting up XR session...");
     renderer.xr.setSession(session);
     
     // Reset game state for the new month
@@ -665,14 +692,13 @@ async function enterVR(monthId) {
     if (chimeSound) {
       chimeSound.play().catch(error => console.log('Chime sound play error:', error));
     }
-
+    
     // Track first frame rendered
     let firstFrameRendered = false;
     session.requestAnimationFrame(() => {
       console.log('First XR frame rendered');
       if (!firstFrameRendered) {
         firstFrameRendered = true;
-        console.log('Waiting for controllers to initialize...');
         setTimeout(() => {
           initControllerHaptics();
         }, 1000);           
@@ -685,9 +711,15 @@ async function enterVR(monthId) {
       setTimeout(initControllerHaptics, 500);
     });
     
+    // Listen for session end
+    session.addEventListener('end', () => {
+      console.log('VR session ended');
+      document.getElementById('loadingContainer').style.display = 'flex';
+    });
+    
   } catch (error) {
     console.error('Failed to enter VR:', error);
-    alert('Failed to enter VR: ' + error.message);
+    alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
   }
 }
    
