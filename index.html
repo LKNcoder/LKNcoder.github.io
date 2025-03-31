@@ -613,20 +613,23 @@ function createMonthButton(month, index, latestMonth) {
     ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
   `;
   
-  // SIMPLIFIED CLICK HANDLER - No status messages
+  // Use enterVR 
   button.addEventListener('click', () => {
-    // Simple direct approach like the working button
-    selectedMonth = month.id;
-    enterVRSimple(month.id);
+    // Visual feedback
+    button.style.backgroundColor = '#00ffff';
+    setTimeout(() => button.style.backgroundColor = '', 300);
+    
+    
+    enterVR(month.id);
   });
-
-  // Create tooltip and hover handlers as before
+  
+  // Create tooltip and hover handlers
   const tooltip = document.createElement('div');
   tooltip.className = 'leaderboardTooltip';
   tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
   document.body.appendChild(tooltip);
   
-  // Remaining event listeners stay the same...
+  // Show tooltip on hover
   button.addEventListener('mouseenter', (event) => {
     const rect = button.getBoundingClientRect();
     tooltip.style.left = `${rect.right + 10}px`;
@@ -635,90 +638,22 @@ function createMonthButton(month, index, latestMonth) {
     fetchLeaderboardForTooltip(month.id, tooltip);
   });
   
+  // Hide tooltip when mouse leaves
   button.addEventListener('mouseleave', () => {
     tooltip.classList.remove('visible');
   });
   
+  // Touch devices - prevent ghost clicks
   button.addEventListener('touchstart', (event) => {
-    event.preventDefault(); 
+    event.preventDefault();
+    // Provide visual feedback
+    button.style.backgroundColor = '#00ffff';
+    setTimeout(() => button.style.backgroundColor = '', 300);
+    // Enter VR with this month
+    enterVR(month.id);
   });
   
   return button;
-}
-
-function enterVRSimple(monthId) {
-  console.log(`Simple VR entry for month: ${monthId}`);
-  selectedMonth = monthId;
-  
-  // Skip the already-in-VR check to simplify
-  
-  // Core functionality without status messages
-  if (!navigator.xr) {
-    alert('WebXR not supported by your browser');
-    return;
-  }
-  
-  navigator.xr.isSessionSupported('immersive-vr')
-    .then(supported => {
-      if (!supported) {
-        alert('VR not supported by your device');
-        return;
-      }
-      
-      // Load month levels first
-      loadMonthLevels(monthId)
-        .then(() => {
-          // Then request VR session
-          navigator.xr.requestSession('immersive-vr', {
-            optionalFeatures: ['local-floor', 'hand-tracking']
-          })
-          .then(session => {
-            // Hide the UI
-            document.getElementById('loadingContainer').style.display = 'none';
-            
-            // Initialize renderer if needed
-            if (!renderer) {
-              init();
-            }
-            
-            // Set the session
-            renderer.xr.setSession(session);
-            
-            // Reset game state for the new month
-            resetGameForNewMonth();
-            
-            // Play chime sound
-            if (chimeSound) {
-              chimeSound.play().catch(error => {});
-            }
-            
-            // Track first frame rendered
-            let firstFrameRendered = false;
-            session.requestAnimationFrame(() => {
-              if (!firstFrameRendered) {
-                firstFrameRendered = true;
-                setTimeout(() => {
-                  initControllerHaptics();
-                }, 1000);           
-              }
-            });
-            
-            session.addEventListener('inputsourceschange', (event) => {
-              setTimeout(initControllerHaptics, 500);
-            });
-            
-            session.addEventListener('end', () => {
-              document.getElementById('loadingContainer').style.display = 'flex';
-            });
-          })
-          .catch(err => {
-            alert('Failed to start VR session: ' + err.message);
-          });
-        })
-        .catch(err => {
-          alert('Failed to load month levels: ' + err.message);
-        });
-    });
 }
 
 
