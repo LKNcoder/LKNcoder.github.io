@@ -476,56 +476,7 @@ function createDefaultMonths() {
 }
 
 
-function createMonthButton(month, index, latestMonth) {
-  const button = document.createElement('div');
-  button.className = 'monthButton';
-  button.style.position = 'relative'; // For badge positioning
-  
-   // Create HTML content for button - apply NEW badge if this is the latest month
-   button.innerHTML = `
-    <div class="monthName">${month.name}</div>
-    <div class="monthTheme">${month.theme}</div>
-    ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
-  `;
-  
-  // Add click handler
-  button.addEventListener('click', () => {
-    selectedMonth = month.id;
-    enterVR(month.id);
-  });
 
-  // Create tooltip element (initially hidden)
-  const tooltip = document.createElement('div');
-  tooltip.className = 'leaderboardTooltip';
-  tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
-  document.body.appendChild(tooltip);
-  
-  // Add hover handlers for desktop
-  button.addEventListener('mouseenter', (event) => {
-    // Position tooltip near the button
-    const rect = button.getBoundingClientRect();
-    tooltip.style.left = `${rect.right + 10}px`;
-    tooltip.style.top = `${rect.top + window.scrollY}px`;
-    
-    // Show tooltip with loading message
-    tooltip.classList.add('visible');
-    
-    // Fetch leaderboard data
-    fetchLeaderboardForTooltip(month.id, tooltip);
-  });
-  
-  button.addEventListener('mouseleave', () => {
-    tooltip.classList.remove('visible');
-  });
-  
-  // For mobile, use touch events
-  button.addEventListener('touchstart', (event) => {
-    // Don't show on mobile - just for touch feedback
-    event.preventDefault(); // Prevent default to avoid immediate click
-  });
-  
-  return button;
-}
 
 function fetchLeaderboardForTooltip(monthId, tooltipElement) {
   const leaderboardContent = tooltipElement.querySelector('.leaderboardContent');
