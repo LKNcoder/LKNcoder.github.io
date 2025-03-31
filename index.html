@@ -358,6 +358,18 @@ function generateMonthButtons(monthsArray) {
       month.theme = "Levels 1-5";
     } else if (month.id === "2025-04") {
       month.theme = "Levels 6-10";
+    } else {
+    // For May onwards, calculate dynamically
+    // Extract month number
+    const monthNum = parseInt(month.id.split('-')[1]);
+    
+    if (!isNaN(monthNum)) {
+      // Calculate level range based on month number
+      const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2
+      const startLevel = (monthIndex * 5) + 1;
+      const endLevel = startLevel + 4;
+      month.theme = `Levels ${startLevel}-${endLevel}`;
+    }
     }
   });
   
@@ -387,76 +399,30 @@ let latestYearMonth = mostRecentMonth ?
   
   // Create "Coming Soon" button for next month if it doesn't exist
   if (!monthsArray.some(m => m.id === nextMonthId)) {
-    // Calculate theme for next month
-    const nextMonthTheme = nextMonthId === "2025-05" ? "Levels 11-15" : 
-                          (parseInt(nextMonthId.split('-')[1]) - 2) * 5 + 1 + "-" + 
-                          (parseInt(nextMonthId.split('-')[1]) - 2) * 5 + 5;
-    
-    const comingSoonButton = document.createElement('div');
-    comingSoonButton.className = 'monthButton';
-    comingSoonButton.style.opacity = '0.6';
-    comingSoonButton.style.transform = 'scale(0.9)';
-    comingSoonButton.style.pointerEvents = 'none';
-    comingSoonButton.innerHTML = `
-      <div class="monthName">${nextMonthName} ${nextYear}</div>
-      <div class="monthTheme">Coming Soon</div>
-    `;
-    monthsContainer.appendChild(comingSoonButton);
+  // Calculate correct theme for next month
+  let nextMonthTheme = "Coming Soon";
+  
+  // If we're showing level ranges, calculate it
+  const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
+  if (!isNaN(nextMonthNum)) {
+    const nextMonthIndex = nextMonthNum - 3; // March = 0, April = 1, May = 2, etc.
+    const startLevel = (nextMonthIndex * 5) + 1;
+    const endLevel = startLevel + 4;
+    nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
   }
-
-   // Store reference to current months array for testing
-  window.currentMonthsArray = monthsArray;
   
-  
-
-  // Add scrolling if there are enough months to warrant it
-  if (monthsArray.length > 3) {
-    addScrollingToMonthsContainer();
-  }
+  const comingSoonButton = document.createElement('div');
+  comingSoonButton.className = 'monthButton';
+  comingSoonButton.style.opacity = '0.6';
+  comingSoonButton.style.transform = 'scale(0.9)';
+  comingSoonButton.style.pointerEvents = 'none';
+  comingSoonButton.innerHTML = `
+    <div class="monthName">${nextMonthName} ${nextYear}</div>
+    <div class="monthTheme">${nextMonthTheme}</div>
+  `;
+  monthsContainer.appendChild(comingSoonButton);
 }
-
-function addTestMonthButtons() {
-  console.log("Adding test month buttons for scrolling demo");
-  
-  // Generate several test months
-  const testMonths = [
-    { id: "2024-10", name: "October 2024", theme: "Past Levels" },
-    { id: "2024-11", name: "November 2024", theme: "Past Levels" },
-    { id: "2024-12", name: "December 2024", theme: "Past Levels" },
-    { id: "2025-01", name: "January 2025", theme: "Past Levels" },
-    { id: "2025-02", name: "February 2025", theme: "Past Levels" },
-    { id: "2025-06", name: "June 2025", theme: "Future Levels" },
-    { id: "2025-07", name: "July 2025", theme: "Future Levels" },
-    { id: "2025-08", name: "August 2025", theme: "Future Levels" },
-    { id: "2025-09", name: "September 2025", theme: "Future Levels" }
-  ];
-  
-  // Get the existing months
-  const monthsContainer = document.getElementById('monthsContainer');
-  
-  // Find all existing month buttons
-  const existingMonths = Array.from(monthsContainer.getElementsByClassName('monthButton'));
-  console.log(`Found ${existingMonths.length} existing month buttons`);
-  
-  // Create a new full array including test months
-  const fullMonthsArray = window.currentMonthsArray || [];
-  
-  // Add test months to the array
-  testMonths.forEach(month => {
-    // Only add if not already in array
-    if (!fullMonthsArray.some(m => m.id === month.id)) {
-      fullMonthsArray.push(month);
-    }
-  });
-  
-  console.log(`Generated total of ${fullMonthsArray.length} months`);
-  
-  // Re-generate all buttons with the combined array
-  generateMonthButtons(fullMonthsArray);
 }
-
-
-
 
 function createDefaultMonths() {
   // Create default months with March 2025 and April 2025
@@ -480,44 +446,6 @@ function createDefaultMonths() {
   createDefaultMonthData();
 }
 
-// Add scrolling to the months container
-function addScrollingToMonthsContainer() {
-  const monthsContainer = document.getElementById('monthsContainer');
-  const containerHeight = 400; // Fixed height for the container
-  
-  // Style container for scrolling
-  monthsContainer.style.height = `${containerHeight}px`;
-  monthsContainer.style.overflow = 'auto';
-  monthsContainer.style.position = 'relative';
-  monthsContainer.style.paddingRight = '10px'; // Add padding for scrollbar
-  
-  // Add smooth scrolling
-  monthsContainer.style.scrollBehavior = 'smooth';
-  
-  // Add styling for scrollbar
-  monthsContainer.style.scrollbarWidth = 'thin';
-  monthsContainer.style.scrollbarColor = '#00ffff #003366';
-  
-  // For Webkit browsers
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = `
-    #monthsContainer::-webkit-scrollbar {
-      width: 8px;
-    }
-    #monthsContainer::-webkit-scrollbar-track {
-      background: rgba(0, 51, 102, 0.3);
-      border-radius: 10px;
-    }
-    #monthsContainer::-webkit-scrollbar-thumb {
-      background: #00ffff;
-      border-radius: 10px;
-    }
-    #monthsContainer::-webkit-scrollbar-thumb:hover {
-      background: #33ffff;
-    }
-  `;
-  document.head.appendChild(styleSheet);
-}
 
 function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
@@ -695,6 +623,9 @@ function createDefaultMonthData() {
 
 async function enterVR(monthId) {
     console.log(`Selected month: ${monthId}`);
+
+    // Load the level data 
+  await loadMonthLevels(monthId);
   
   // Check if WebXR is supported
   if (!navigator.xr) {
@@ -709,35 +640,32 @@ async function enterVR(monthId) {
       alert('VR not supported or no VR headset detected. Please connect a VR headset to play Ring Ring.');
       return;
     }
-    
-    // Load the level data for this month
-    await loadMonthLevels(monthId);
-    
+       
     // Request VR session
     const session = await navigator.xr.requestSession('immersive-vr', { 
       optionalFeatures: ['local-floor', 'hand-tracking'] 
     });
+
+    // Hide the UI
+    document.getElementById('loadingContainer').style.display = 'none';
+    
+    // Initialize or reset renderer
+    if (!renderer) {
+      init();
+    }
+    
+    // Set up VR session
+    renderer.xr.setSession(session);
+    
+    // Reset game state for the new month - this should create the first level
+    resetGameForNewMonth();
     
     // Play chime sound
     if (chimeSound) {
       chimeSound.play().catch(error => console.log('Chime sound play error:', error));
     }
-    
-    // Initialize or reset the renderer if needed
-    if (!renderer) {
-      init();
-    } else {
-      // Reset the game state for the new month
-      resetGameForNewMonth();
-    }
-    
-    // Set the VR session
-    renderer.xr.setSession(session);
-    
-    // Hide the UI
-    document.getElementById('loadingContainer').style.display = 'none';
-    
-    // Track first frame rendered
+
+  // Track first frame rendered
     let firstFrameRendered = false;
     session.requestAnimationFrame(() => {
       console.log('First XR frame rendered');
@@ -760,7 +688,7 @@ async function enterVR(monthId) {
     console.error('Failed to enter VR:', error);
   }
 }
-
+   
 
 async function loadMonthLevels(monthId) {
   // Check if we already have this month's data cached
@@ -849,15 +777,33 @@ function updateLevelText() {
     
     // Calculate level offset based on selected month
     let levelOffset = 0;
-    if (selectedMonth === "2025-04") {
+    let maxLevel = 5;
+    
+    // Keep March and April as they are
+    if (selectedMonth === "2025-03") {
+      levelOffset = 0; // March 2025 starts at level 1
+      maxLevel = 5;
+    } else if (selectedMonth === "2025-04") {
       levelOffset = 5; // April 2025 starts at level 6
-    } else if (selectedMonth === "2025-05") {
-      levelOffset = 10; // May 2025 starts at level 11
+      maxLevel = 10;
+    } else {
+      // Dynamic calculation for May onwards
+      // Extract month number and convert to number
+      const monthNum = parseInt(selectedMonth.split('-')[1]);
+      
+      // Only calculate if it's a valid month number
+      if (!isNaN(monthNum)) {
+        // Starting from May (05), each month increases by 5 levels
+        // March is 03 (levels 1-5), April is 04 (levels 6-10)
+        // So May is 05 (levels 11-15), etc.
+        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2, etc.
+        levelOffset = monthIndex * 5;
+        maxLevel = levelOffset + 5;
+      }
     }
     
     const displayLevel = currentLevel + levelOffset;
-    const maxLevel = levelOffset + 5;
-    
+        
     // Create new text geometry with correct level numbering
     const textGeometry = new THREE.TextGeometry(`LEVEL ${displayLevel}/${maxLevel}`, { 
       font: font, 
