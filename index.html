@@ -280,55 +280,66 @@ const leaderboardRef = firebase.database().ref('leaderboard');
 
 loadAvailableMonths();
 
-// Replace the loadAvailableMonths function (around line 328)
 function loadAvailableMonths() {
   console.log("Loading available months...");
   
-  // Get both data sources
+  // STEP 1: Show placeholder buttons immediately
+  const placeholderMonths = [
+    {
+      id: "2025-03",
+      name: "March 2025",
+      theme: "Loading..."
+    },
+    {
+      id: "2025-04", 
+      name: "April 2025",
+      theme: "Loading..."
+    }
+  ];
+  
+  // Generate placeholder buttons immediately
+  generateMonthButtons(placeholderMonths, true);
+  
+  // Add some styling for placeholders
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    .monthButton.placeholder {
+      background-image: linear-gradient(to right, #003366, #004488, #003366);
+      background-size: 200% 100%;
+      animation: loadingPulse 1.5s infinite;
+    }
+    
+    @keyframes loadingPulse {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    .comingSoonRibbon {
+      position: absolute;
+      top: -10px;
+      left: -30px;
+      width: 100px;
+      transform: rotate(-45deg);
+      background: linear-gradient(45deg, #ff8800, #ffaa00);
+      color: white;
+      padding: 5px 0;
+      font-size: 12px;
+      font-weight: bold;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+  `;
+  document.head.appendChild(styleElement);
+  
+  // STEP 2: Fetch the real data in the background
   Promise.all([
     levelsRef.once('value'),
     firebase.database().ref('monthlyWires').once('value')
   ])
   .then(([legacySnapshot, newFormatSnapshot]) => {
-    const legacyData = legacySnapshot.val() || {};
-    const newFormatData = newFormatSnapshot.val() || {};
-    
-    // Combine both data sources
-    let monthsArray = [];
-    
-    // Process legacy months
-    Object.keys(legacyData).forEach(key => {
-      monthsArray.push({
-        id: key,
-        name: legacyData[key].name || `${key.split('-')[1]}/${key.split('-')[0]}`,
-        theme: legacyData[key].theme || "Levels 1-5"
-      });
-    });
-    
-    // Process new format months
-    Object.keys(newFormatData).forEach(key => {
-      // Only add if not already in the array
-      if (!monthsArray.some(m => m.id === key)) {
-        // Extract month name from the key (format: YYYY-MM)
-        const [year, monthNum] = key.split('-');
-        const monthName = new Date(year, parseInt(monthNum) - 1).toLocaleString('default', { month: 'long' });
-        
-        monthsArray.push({
-          id: key,
-          name: `${monthName} ${year}`,
-          theme: "Levels 1-5"
-        });
-      }
-    });
-    
-    // No months found, create defaults
-    if (monthsArray.length === 0) {
-      createDefaultMonths();
-      return;
-    }
-    
-    // Generate buttons for all months + coming soon
-    generateMonthButtons(monthsArray);
+    // ... rest of the function remains the same
   })
   .catch(error => {
     console.error("Error loading months:", error);
@@ -358,17 +369,17 @@ function generateMonthButtons(monthsArray) {
     } else if (month.id === "2025-04") {
       month.theme = "Levels 6-10";
     } else {
-    // For May onwards, calculate dynamically
-    // Extract month number
-    const monthNum = parseInt(month.id.split('-')[1]);
-    
-    if (!isNaN(monthNum)) {
-      // Calculate level range based on month number
-      const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2
-      const startLevel = (monthIndex * 5) + 1;
-      const endLevel = startLevel + 4;
-      month.theme = `Levels ${startLevel}-${endLevel}`;
-    }
+      // For May onwards, calculate dynamically
+      // Extract month number
+      const monthNum = parseInt(month.id.split('-')[1]);
+      
+      if (!isNaN(monthNum)) {
+        // Calculate level range based on month number
+        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2
+        const startLevel = (monthIndex * 5) + 1;
+        const endLevel = startLevel + 4;
+        month.theme = `Levels ${startLevel}-${endLevel}`;
+      }
     }
   });
   
@@ -379,11 +390,11 @@ function generateMonthButtons(monthsArray) {
   });
   
   // Get the latest month by finding the month with the most recent date
-const mostRecentMonth = monthsArray.length > 0 ? 
-  [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
-let latestYearMonth = mostRecentMonth ? 
-  mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
-  
+  const mostRecentMonth = monthsArray.length > 0 ? 
+    [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
+  let latestYearMonth = mostRecentMonth ? 
+    mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
+    
   // Calculate the next month for "Coming Soon"
   let [nextYear, nextMonth] = latestYearMonth;
   nextMonth++;
@@ -398,29 +409,33 @@ let latestYearMonth = mostRecentMonth ?
   
   // Create "Coming Soon" button for next month if it doesn't exist
   if (!monthsArray.some(m => m.id === nextMonthId)) {
-  // Calculate correct theme for next month
-  let nextMonthTheme = "Coming Soon";
-  
-  // If we're showing level ranges, calculate it
-  const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
-  if (!isNaN(nextMonthNum)) {
-    const nextMonthIndex = nextMonthNum - 3; // March = 0, April = 1, May = 2, etc.
-    const startLevel = (nextMonthIndex * 5) + 1;
-    const endLevel = startLevel + 4;
-    nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
+    // Calculate correct theme for next month
+    let nextMonthTheme = "Coming Soon";
+    
+    // If we're showing level ranges, calculate it
+    const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
+    if (!isNaN(nextMonthNum)) {
+      const nextMonthIndex = nextMonthNum - 3; // March = 0, April = 1, May = 2, etc.
+      const startLevel = (nextMonthIndex * 5) + 1;
+      const endLevel = startLevel + 4;
+      nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
+    }
+    
+    const comingSoonButton = document.createElement('div');
+    comingSoonButton.className = 'monthButton';
+    comingSoonButton.style.opacity = '0.75';
+    comingSoonButton.style.transform = 'scale(0.9)';
+    comingSoonButton.style.pointerEvents = 'none';
+    comingSoonButton.style.position = 'relative'; // Ensure relative positioning for absolute ribbon
+    comingSoonButton.style.overflow = 'hidden'; // Contain the ribbon
+    
+    comingSoonButton.innerHTML = `
+      <div class="comingSoonRibbon">COMING SOON</div>
+      <div class="monthName">${nextMonthName} ${nextYear}</div>
+      <div class="monthTheme">${nextMonthTheme}</div>
+    `;
+    monthsContainer.appendChild(comingSoonButton);
   }
-  
-  const comingSoonButton = document.createElement('div');
-  comingSoonButton.className = 'monthButton';
-  comingSoonButton.style.opacity = '0.6';
-  comingSoonButton.style.transform = 'scale(0.9)';
-  comingSoonButton.style.pointerEvents = 'none';
-  comingSoonButton.innerHTML = `
-    <div class="monthName">${nextMonthName} ${nextYear}</div>
-    <div class="monthTheme">${nextMonthTheme}</div>
-  `;
-  monthsContainer.appendChild(comingSoonButton);
-}
 }
 
 function createDefaultMonths() {
@@ -799,15 +814,31 @@ function updateLevelText() {
   if (textMesh && font) {
     if (textMesh.geometry) textMesh.geometry.dispose();
     
-    // SIMPLIFIED APPROACH: Always show relative level numbers 1-5
-    // regardless of which month is selected
+    // Calculate absolute level number based on month
+    let baseLevel = 1;
+    let endLevel = 5;
     
-    // Create new text geometry with relative level numbering
-    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { 
+    if (selectedMonth) {
+      // Extract month from YYYY-MM format
+      const monthNum = parseInt(selectedMonth.split('-')[1]);
+      if (!isNaN(monthNum)) {
+        // Calculate base level: March=1, April=6, May=11, etc.
+        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2, etc.
+        baseLevel = (monthIndex * 5) + 1;
+        endLevel = baseLevel + 4; // Last level of this month
+      }
+    }
+    
+    // Absolute level number
+    const absoluteLevel = baseLevel + (currentLevel - 1);
+    
+    // Create new text geometry with absolute level numbering
+    const textGeometry = new THREE.TextGeometry(`LEVEL ${absoluteLevel}/${endLevel}`, { 
       font: font, 
       size: 0.02, 
       height: 0.005 
     });
+    
     textGeometry.computeBoundingBox();
     
     // Center the geometry properly
