@@ -718,6 +718,9 @@ async function enterVR(monthId) {
     
     session.addEventListener('end', () => {
       document.getElementById('loadingContainer').style.display = 'flex';
+    
+    // Clean up all game completion and interface elements
+  cleanupGameScene();
     });
     
   } catch (error) {
@@ -892,9 +895,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// Reset leaderboard on every game start for testing
- resetLeaderboard();
-// console.log("Leaderboard reset for testing");
+
 
 const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
 light.position.set(0.5, 1, 0.25);
@@ -1132,21 +1133,6 @@ function forceShowKeyboard() {
     createControllerRays();
   }
   return keyboard;
-}
-
-
-
-//reset leaderboard for testing
-function resetLeaderboard() {
-  // Clear main leaderboard
-  firebase.database().ref('leaderboard').remove()
-    .then(() => console.log('Leaderboard cleared!'))
-    .catch(err => console.error('Error clearing leaderboard:', err));
-  
-  // Clear level records
-  firebase.database().ref('records').remove()
-    .then(() => console.log('Level records cleared!'))
-    .catch(err => console.error('Error clearing records:', err));
 }
 
 
@@ -2196,6 +2182,67 @@ function restartGame() {
   
   // Play chime sound to indicate restart
   chimeSound.play().catch(error => console.log('Sound play error:', error));
+}
+
+// clean up game scene
+function cleanupGameScene() {
+  // Clean up game completion meshes
+  gameCompletionMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  gameCompletionMeshes = [];
+  
+  // Clean up score summary meshes
+  scoreSummaryMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  scoreSummaryMeshes = [];
+  
+  // Clear keyboard meshes
+  keyboardMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  keyboardMeshes = [];
+  
+  // Hide controller rays
+  hideControllerRays();
+  
+  // Reset game state variables
+  gameCompleted = false;
+  levelCompleted = false;
+  currentLevel = 1;
+  levelTimes = [];
+  
+  // Stop any playing music
+  if (currentMusic) {
+    currentMusic.pause();
+    currentMusic = null;
+  }
+  if (endGameMusic) {
+    endGameMusic.pause();
+  }
+  
+  // Reset ring and wire visibility
+  if (ring) {
+    ring.position.copy(ringStartPosition);
+    ring.rotation.set(0, Math.PI / 2, 0);
+    ring.visible = true;
+  }
+  
+  // Clear any record holder references
+  if (window.recordHolderMeshes) {
+    window.recordHolderMeshes = [];
+  }
+  
+  // Reset name entry state
+  nameEntered = false;
+  playerName = "";
 }
 
 function animate() {
