@@ -731,6 +731,83 @@ async function enterVR(monthId) {
    
 
 async function loadMonthLevels(monthId) {
+  if (monthId === "2025-03") {
+    console.log("Using hardcoded parameters for March 2025");
+    
+    // Create March 2025 default levels with correct rotation offsets
+    const marchLevels = [
+      {
+        name: "Gentle Start",
+        difficulty: 1,
+        params: {
+          frequencies: [8, 6, 6],
+          amplitudes: [0.05, 0.05, 0.05],
+          rotationOffset: 0
+        }
+      },
+      {
+        name: "Twisted Path",
+        difficulty: 2,
+        params: {
+          frequencies: [7, 5, 6],
+          amplitudes: [0.07, 0.08, 0.07],
+          rotationOffset: Math.PI / 5.3,
+          heightVar: 0.06,
+          radiusVar: 0.1
+        }
+      },
+      {
+        name: "Quantum Wave",
+        difficulty: 3,
+        params: {
+          frequencies: [9, 7, 6],
+          amplitudes: [0.07, 0.08, 0.07],
+          rotationOffset: Math.PI / 3, // Changed from 1.1 to 3
+          sections: [
+            {type: "ascent", factor: 0.12},
+            {type: "oscillate", factor: 0.06},
+            {type: "descent", factor: 0.12},
+            {type: "smooth", factor: 0.2}
+          ],
+          heightFactor: 0.15,
+          radiusVariation: 0.1
+        }
+      },
+      {
+        name: "Prime Pattern",
+        difficulty: 4,
+        params: {
+          frequencies: [11, 7, 17],
+          amplitudes: [0.07, 0.09, 0.06],
+          rotationOffset: Math.PI / 6.3,
+          sections: [
+            {type: "ascent", factor: 0.15},
+            {type: "oscillate", factor: 0.07},
+            {type: "descent", factor: 0.15},
+            {type: "smooth", factor: 0.1}
+          ]
+        }
+      },
+      {
+        name: "Cosmic Loop",
+        difficulty: 5,
+        params: {
+          frequencies: [10, 8, 12],
+          amplitudes: [0.08, 0.08, 0.06],
+          rotationOffset: Math.PI / 1.6,
+          heightFactor: 0.14,
+          radiusVariation: 0.16
+        }
+      }
+    ];
+    
+    // Cache and use these hardcoded values
+    cachedMonths[monthId] = marchLevels;
+    monthlyLevels = marchLevels;
+
+    return;
+  }
+
   // Check if we already have this month's data cached
   if (cachedMonths[monthId]) {
     monthlyLevels = cachedMonths[monthId];
