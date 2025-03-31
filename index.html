@@ -613,44 +613,11 @@ function createMonthButton(month, index, latestMonth) {
     ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
   `;
   
-  // Add click handler
+  // SIMPLIFIED CLICK HANDLER - No status messages
   button.addEventListener('click', () => {
-    // Create status message element if it doesn't exist
-    let statusMsg = document.getElementById('vrStatusMsg');
-    if (!statusMsg) {
-      statusMsg = document.createElement('div');
-      statusMsg.id = 'vrStatusMsg';
-      statusMsg.style.position = 'fixed';
-      statusMsg.style.bottom = '10px';
-      statusMsg.style.left = '0';
-      statusMsg.style.right = '0';
-      statusMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-      statusMsg.style.color = '#00ffff';
-      statusMsg.style.padding = '15px';
-      statusMsg.style.textAlign = 'center';
-      statusMsg.style.fontSize = '18px';
-      statusMsg.style.zIndex = '1000';
-      document.body.appendChild(statusMsg);
-    }
-    
-    // Show initial message
-    statusMsg.textContent = `Starting VR for ${month.name}...`;
-    
-    // Set a timeout to clear the message if VR doesn't start
-    setTimeout(() => {
-      if (document.getElementById('vrStatusMsg')) {
-        statusMsg.textContent = "VR session didn't start. Make sure your headset is connected and try again.";
-        setTimeout(() => {
-          if (document.getElementById('vrStatusMsg')) {
-            document.body.removeChild(statusMsg);
-          }
-        }, 5000);
-      }
-    }, 10000);
-    
-    // Try to start VR
+    // Simple direct approach like the working button
     selectedMonth = month.id;
-    enterVR(month.id);
+    enterVRSimple(month.id);
   });
 
   // Create tooltip and hover handlers as before
@@ -659,6 +626,7 @@ function createMonthButton(month, index, latestMonth) {
   tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
   document.body.appendChild(tooltip);
   
+  // Remaining event listeners stay the same...
   button.addEventListener('mouseenter', (event) => {
     const rect = button.getBoundingClientRect();
     tooltip.style.left = `${rect.right + 10}px`;
@@ -676,6 +644,81 @@ function createMonthButton(month, index, latestMonth) {
   });
   
   return button;
+}
+
+function enterVRSimple(monthId) {
+  console.log(`Simple VR entry for month: ${monthId}`);
+  selectedMonth = monthId;
+  
+  // Skip the already-in-VR check to simplify
+  
+  // Core functionality without status messages
+  if (!navigator.xr) {
+    alert('WebXR not supported by your browser');
+    return;
+  }
+  
+  navigator.xr.isSessionSupported('immersive-vr')
+    .then(supported => {
+      if (!supported) {
+        alert('VR not supported by your device');
+        return;
+      }
+      
+      // Load month levels first
+      loadMonthLevels(monthId)
+        .then(() => {
+          // Then request VR session
+          navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures: ['local-floor', 'hand-tracking']
+          })
+          .then(session => {
+            // Hide the UI
+            document.getElementById('loadingContainer').style.display = 'none';
+            
+            // Initialize renderer if needed
+            if (!renderer) {
+              init();
+            }
+            
+            // Set the session
+            renderer.xr.setSession(session);
+            
+            // Reset game state for the new month
+            resetGameForNewMonth();
+            
+            // Play chime sound
+            if (chimeSound) {
+              chimeSound.play().catch(error => {});
+            }
+            
+            // Track first frame rendered
+            let firstFrameRendered = false;
+            session.requestAnimationFrame(() => {
+              if (!firstFrameRendered) {
+                firstFrameRendered = true;
+                setTimeout(() => {
+                  initControllerHaptics();
+                }, 1000);           
+              }
+            });
+            
+            session.addEventListener('inputsourceschange', (event) => {
+              setTimeout(initControllerHaptics, 500);
+            });
+            
+            session.addEventListener('end', () => {
+              document.getElementById('loadingContainer').style.display = 'flex';
+            });
+          })
+          .catch(err => {
+            alert('Failed to start VR session: ' + err.message);
+          });
+        })
+        .catch(err => {
+          alert('Failed to load month levels: ' + err.message);
+        });
+    });
 }
 
 
