@@ -623,29 +623,30 @@ function createDefaultMonthData() {
 
 async function enterVR(monthId) {
   console.log(`Selected month: ${monthId}`);
+  selectedMonth = monthId;
 
-  // Load the level data 
-  await loadMonthLevels(monthId);
-  
   // Check if WebXR is supported
   if (!navigator.xr) {
-    alert('WebXR not supported by your browser. Please try a compatible browser with a VR headset.');
+    alert('WebXR not supported by your browser.');
     return;
   }
   
   try {
-    // Check if 'immersive-vr' is supported
+    // First check if VR is supported and a headset is connected
     const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
     if (!isSessionSupported) {
-      alert('VR not supported or no VR headset detected. Please connect a VR headset to play Ring Ring.');
+      alert('VR not supported or no VR headset detected.');
       return;
     }
-       
+    
+    // Load the level data BEFORE requesting VR session
+    await loadMonthLevels(monthId);
+    
     // Request VR session
-    const session = await navigator.xr.requestSession('immersive-vr', { 
-      optionalFeatures: ['local-floor', 'hand-tracking'] 
+    const session = await navigator.xr.requestSession('immersive-vr', {
+      optionalFeatures: ['local-floor', 'hand-tracking']
     });
-
+    
     // Hide the UI
     document.getElementById('loadingContainer').style.display = 'none';
     
@@ -657,7 +658,7 @@ async function enterVR(monthId) {
     // Set up VR session
     renderer.xr.setSession(session);
     
-    // Reset game state for the new month - this should create the first level
+    // Reset game state for the new month
     resetGameForNewMonth();
     
     // Play chime sound
@@ -686,6 +687,7 @@ async function enterVR(monthId) {
     
   } catch (error) {
     console.error('Failed to enter VR:', error);
+    alert('Failed to enter VR: ' + error.message);
   }
 }
    
