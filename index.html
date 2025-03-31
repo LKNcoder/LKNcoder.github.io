@@ -302,36 +302,36 @@ function loadAvailableMonths() {
   
   // Add some styling for placeholders
   const styleElement = document.createElement('style');
-  styleElement.textContent = `
-    .monthButton.placeholder {
-      background-image: linear-gradient(to right, #003366, #004488, #003366);
-      background-size: 200% 100%;
-      animation: loadingPulse 1.5s infinite;
-    }
-    
-    @keyframes loadingPulse {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    
-    .comingSoonRibbon {
-      position: absolute;
-      top: -10px;
-      left: -30px;
-      width: 100px;
-      transform: rotate(-45deg);
-      background: linear-gradient(45deg, #ff8800, #ffaa00);
-      color: white;
-      padding: 5px 0;
-      font-size: 12px;
-      font-weight: bold;
-      text-align: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      z-index: 1;
-    }
-  `;
-  document.head.appendChild(styleElement);
+styleElement.textContent = `
+  .monthButton.placeholder {
+    background-image: linear-gradient(to right, #003366, #004488, #003366);
+    background-size: 200% 100%;
+    animation: loadingPulse 1.5s infinite;
+  }
+  
+  @keyframes loadingPulse {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .comingSoonRibbon {
+    position: absolute;
+    top: -15px;                /* Moved further up */
+    right: -45px;              /* Positioned from right instead of left */
+    width: 140px;              /* Made wider to fit text */
+    transform: rotate(45deg);  /* Rotated for right corner */
+    background: linear-gradient(45deg, #ff8800, #ffaa00);
+    color: white;
+    padding: 5px 0;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 1;
+  }
+`;
+document.head.appendChild(styleElement);
   
   // STEP 2: Fetch the real data in the background
   Promise.all([
