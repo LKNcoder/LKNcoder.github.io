@@ -604,57 +604,49 @@ function createDefaultMonthData() {
 function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
   button.className = 'monthButton';
-  button.style.position = 'relative'; // For badge positioning
   
-  // Create HTML content for button - apply NEW badge if this is the latest month
+  // First, store the month ID directly on the button as a data attribute
+  button.dataset.monthId = month.id;
+  
+  // Create HTML content
   button.innerHTML = `
     <div class="monthName">${month.name}</div>
     <div class="monthTheme">${month.theme}</div>
     ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
   `;
   
-  // SIMPLIFIED: Use the working enterVR function directly
-  button.addEventListener('click', () => {
-    try {
-      // Visual feedback
-      button.style.backgroundColor = '#00ffff';
-      
-      // Call the working function directly
-      enterVR(month.id);
-      
-      // Reset button color after a short delay
-      setTimeout(() => button.style.backgroundColor = '', 300);
-      
-    } catch (error) {
-      console.error("Failed to enter VR:", error);
-      button.style.backgroundColor = '';
-      alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
-    }
-  });
+  // This uses the EXACT SAME pattern as the working direct button
+  button.onclick = function() {
+    // Get the month ID from the dataset we stored
+    const monthId = this.dataset.monthId;
+    
+    // Show a visual alert for debugging (you'll see this in VR)
+    this.style.backgroundColor = '#00ffff';
+    
+    // Call enterVR with the explicit month ID - this matches your direct button
+    enterVR(monthId);
+    
+    // Reset color after delay
+    setTimeout(() => this.style.backgroundColor = '', 300);
+  };
   
-  // Create tooltip and hover handlers
+  // Create tooltip (rest of your tooltip code remains the same)
   const tooltip = document.createElement('div');
   tooltip.className = 'leaderboardTooltip';
   tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
   document.body.appendChild(tooltip);
   
-  // Show tooltip on hover
+  // Tooltip hover handlers
   button.addEventListener('mouseenter', (event) => {
     const rect = button.getBoundingClientRect();
     tooltip.style.left = `${rect.right + 10}px`;
     tooltip.style.top = `${rect.top + window.scrollY}px`;
     tooltip.classList.add('visible');
-    fetchLeaderboardForTooltip(month.id, tooltip);
+    fetchLeaderboardForTooltip(button.dataset.monthId, tooltip);
   });
   
-  // Hide tooltip when mouse leaves
   button.addEventListener('mouseleave', () => {
     tooltip.classList.remove('visible');
-  });
-  
-  // Touch devices - prevent ghost clicks
-  button.addEventListener('touchstart', (event) => {
-    event.preventDefault();
   });
   
   return button;
