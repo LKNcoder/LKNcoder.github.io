@@ -336,8 +336,35 @@ function loadAvailableMonths() {
   });
 }
 
+// fallback button for testing
+function addDirectVRButton() {
+  const container = document.getElementById('loadingContainer');
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.marginTop = '30px';
+  buttonContainer.style.textAlign = 'center';
+  
+  const directVRButton = document.createElement('button');
+  directVRButton.innerText = "ENTER VR DIRECTLY";
+  directVRButton.style.padding = '15px 30px';
+  directVRButton.style.backgroundColor = '#ff00ff';
+  directVRButton.style.color = 'white';
+  directVRButton.style.border = 'none';
+  directVRButton.style.borderRadius = '10px';
+  directVRButton.style.fontSize = '20px';
+  directVRButton.style.cursor = 'pointer';
+  directVRButton.style.fontWeight = 'bold';
+  
+  directVRButton.addEventListener('click', () => {
+    // Default to March 2025 if no month is selected
+    enterVR("2025-03");
+  });
+  
+  buttonContainer.appendChild(directVRButton);
+  container.appendChild(buttonContainer);
+}
 
-// Modify the generateMonthButtons function
+
+
 function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
   monthsContainer.innerHTML = ''; // Clear existing content
@@ -422,6 +449,8 @@ let latestYearMonth = mostRecentMonth ?
   `;
   monthsContainer.appendChild(comingSoonButton);
 }
+
+addDirectVRButton(); // Add fallback button for testing
 }
 
 function createDefaultMonths() {
@@ -621,54 +650,175 @@ function createDefaultMonthData() {
   });
 }
 
+function createMonthButton(month, index, latestMonth) {
+  const button = document.createElement('div');
+  button.className = 'monthButton';
+  button.style.position = 'relative'; // For badge positioning
+  
+  // Create HTML content for button - apply NEW badge if this is the latest month
+  button.innerHTML = `
+    <div class="monthName">${month.name}</div>
+    <div class="monthTheme">${month.theme}</div>
+    ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
+  `;
+  
+  // Add click handler
+  button.addEventListener('click', () => {
+    // Create status message element if it doesn't exist
+    let statusMsg = document.getElementById('vrStatusMsg');
+    if (!statusMsg) {
+      statusMsg = document.createElement('div');
+      statusMsg.id = 'vrStatusMsg';
+      statusMsg.style.position = 'fixed';
+      statusMsg.style.bottom = '10px';
+      statusMsg.style.left = '0';
+      statusMsg.style.right = '0';
+      statusMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      statusMsg.style.color = '#00ffff';
+      statusMsg.style.padding = '15px';
+      statusMsg.style.textAlign = 'center';
+      statusMsg.style.fontSize = '18px';
+      statusMsg.style.zIndex = '1000';
+      document.body.appendChild(statusMsg);
+    }
+    
+    // Show initial message
+    statusMsg.textContent = `Starting VR for ${month.name}...`;
+    
+    // Set a timeout to clear the message if VR doesn't start
+    setTimeout(() => {
+      if (document.getElementById('vrStatusMsg')) {
+        statusMsg.textContent = "VR session didn't start. Make sure your headset is connected and try again.";
+        setTimeout(() => {
+          if (document.getElementById('vrStatusMsg')) {
+            document.body.removeChild(statusMsg);
+          }
+        }, 5000);
+      }
+    }, 10000);
+    
+    // Try to start VR
+    selectedMonth = month.id;
+    enterVR(month.id);
+  });
+
+  // Create tooltip and hover handlers as before
+  const tooltip = document.createElement('div');
+  tooltip.className = 'leaderboardTooltip';
+  tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
+  document.body.appendChild(tooltip);
+  
+  button.addEventListener('mouseenter', (event) => {
+    const rect = button.getBoundingClientRect();
+    tooltip.style.left = `${rect.right + 10}px`;
+    tooltip.style.top = `${rect.top + window.scrollY}px`;
+    tooltip.classList.add('visible');
+    fetchLeaderboardForTooltip(month.id, tooltip);
+  });
+  
+  button.addEventListener('mouseleave', () => {
+    tooltip.classList.remove('visible');
+  });
+  
+  button.addEventListener('touchstart', (event) => {
+    event.preventDefault(); 
+  });
+  
+  return button;
+}
+
+
 async function enterVR(monthId) {
+  // Update status message if it exists
+  const statusMsg = document.getElementById('vrStatusMsg');
+  if (statusMsg) {
+    statusMsg.textContent = "Checking VR capabilities...";
+  }
+  
   console.log(`Selected month: ${monthId}`);
   selectedMonth = monthId;
-  
-  // Add debug alert to confirm function is being called
-  console.log("enterVR function called for month:", monthId);
   
   // First check: are we ALREADY in a VR session?
   const alreadyInVR = renderer && renderer.xr && renderer.xr.isPresenting;
   
   if (alreadyInVR) {
-    console.log("Already in VR, just switching month");
+    if (statusMsg) {
+      statusMsg.textContent = "Already in VR, switching month...";
+    }
+    
     try {
       await loadMonthLevels(monthId);
       resetGameForNewMonth();
       if (chimeSound) {
-        chimeSound.play().catch(error => console.log('Chime sound play error:', error));
+        chimeSound.play().catch(error => {});
       }
-      return; // Exit early since we're already in VR
+      
+      if (statusMsg) {
+        statusMsg.textContent = "Month switched successfully!";
+        setTimeout(() => {
+          if (document.getElementById('vrStatusMsg')) {
+            document.body.removeChild(statusMsg);
+          }
+        }, 3000);
+      }
+      return;
     } catch (error) {
-      console.error("Error switching month in VR:", error);
+      if (statusMsg) {
+        statusMsg.textContent = "Error switching month in VR";
+        setTimeout(() => {
+          if (document.getElementById('vrStatusMsg')) {
+            document.body.removeChild(statusMsg);
+          }
+        }, 3000);
+      }
       return;
     }
   }
   
   // Otherwise, we need to enter VR mode
   if (!navigator.xr) {
+    if (statusMsg) {
+      statusMsg.textContent = "WebXR not supported by your browser";
+      setTimeout(() => {
+        if (document.getElementById('vrStatusMsg')) {
+          document.body.removeChild(statusMsg);
+        }
+      }, 5000);
+    }
     alert('WebXR not supported by your browser. Please try with a VR-compatible browser.');
-    console.error('WebXR API not found');
     return;
   }
   
   try {
-    // Log check for VR support
-    console.log("Checking if VR is supported...");
+    if (statusMsg) {
+      statusMsg.textContent = "Checking if VR is supported...";
+    }
     
     const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
-    console.log("Is VR session supported:", isSessionSupported);
     
     if (!isSessionSupported) {
+      if (statusMsg) {
+        statusMsg.textContent = "VR not supported or no headset connected";
+        setTimeout(() => {
+          if (document.getElementById('vrStatusMsg')) {
+            document.body.removeChild(statusMsg);
+          }
+        }, 5000);
+      }
       alert('VR is not supported or no VR headset is connected. Connect your headset and try again.');
       return;
     }
     
-    console.log("Loading month levels...");
+    if (statusMsg) {
+      statusMsg.textContent = "Loading month levels...";
+    }
+    
     await loadMonthLevels(monthId);
     
-    console.log("Requesting VR session...");
+    if (statusMsg) {
+      statusMsg.textContent = "Requesting VR session...";
+    }
+    
     const session = await navigator.xr.requestSession('immersive-vr', {
       optionalFeatures: ['local-floor', 'hand-tracking']
     });
@@ -678,25 +828,34 @@ async function enterVR(monthId) {
     
     // Initialize or reset renderer
     if (!renderer) {
-      console.log("Initializing renderer...");
+      if (statusMsg) {
+        statusMsg.textContent = "Initializing renderer...";
+      }
       init();
     }
     
-    console.log("Setting up XR session...");
+    if (statusMsg) {
+      statusMsg.textContent = "Setting up XR session...";
+    }
+    
     renderer.xr.setSession(session);
     
     // Reset game state for the new month
     resetGameForNewMonth();
     
+    // Clean up status message as we've entered VR
+    if (statusMsg) {
+      document.body.removeChild(statusMsg);
+    }
+    
     // Play chime sound
     if (chimeSound) {
-      chimeSound.play().catch(error => console.log('Chime sound play error:', error));
+      chimeSound.play().catch(error => {});
     }
     
     // Track first frame rendered
     let firstFrameRendered = false;
     session.requestAnimationFrame(() => {
-      console.log('First XR frame rendered');
       if (!firstFrameRendered) {
         firstFrameRendered = true;
         setTimeout(() => {
@@ -705,20 +864,23 @@ async function enterVR(monthId) {
       }
     });
     
-    // Listen for input source changes
     session.addEventListener('inputsourceschange', (event) => {
-      console.log('Input sources changed:', event);
       setTimeout(initControllerHaptics, 500);
     });
     
-    // Listen for session end
     session.addEventListener('end', () => {
-      console.log('VR session ended');
       document.getElementById('loadingContainer').style.display = 'flex';
     });
     
   } catch (error) {
-    console.error('Failed to enter VR:', error);
+    if (statusMsg) {
+      statusMsg.textContent = `Failed to enter VR: ${error.message}`;
+      setTimeout(() => {
+        if (document.getElementById('vrStatusMsg')) {
+          document.body.removeChild(statusMsg);
+        }
+      }, 5000);
+    }
     alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
   }
 }
