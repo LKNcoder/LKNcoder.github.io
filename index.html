@@ -1639,21 +1639,19 @@ flash();
 }
 
 
-function createWire(level) {
-  // Remove old wire if it exists
-  if (wire) {
-    scene.remove(wire);
-    if (wire.geometry) wire.geometry.dispose();
+function createMonthlyWire(level) {
+  console.log(`Creating wire for level ${level}, monthly levels length: ${monthlyLevels ? monthlyLevels.length : 0}`);
+  
+  // Check if monthlyLevels is empty and create a default wire if needed
+  if (!monthlyLevels || monthlyLevels.length === 0) {
+    console.error("No monthly levels available, creating default wire");
+    return createDefaultWire();
   }
   
-  return createMonthlyWire(level);
-}
-
-function createMonthlyWire(level) {
   // Make sure we're not exceeding array bounds
   if (level < 1 || level > monthlyLevels.length) {
     console.error(`Invalid level ${level}, max is ${monthlyLevels.length}`);
-    return null; // Return null instead of creating a default wire
+    return createDefaultWire(); // Use a default wire instead of returning null
   }
   
   // Get level parameters
