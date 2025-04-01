@@ -2871,6 +2871,38 @@ function submitScore(playerName, levelTimes) {
   });
 }
 
+// Add this function to check if a time is in the top 5
+function checkIfTopFiveTime(totalTime, callback) {
+  const monthLeaderboardRef = selectedMonth ? 
+    firebase.database().ref(`leaderboard/${selectedMonth}`) : 
+    leaderboardRef;
+  
+  // Get top 5 times plus one extra to compare
+  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(6).once('value')
+    .then(snapshot => {
+      const leaderboardData = [];
+      
+      // Convert snapshot to array
+      snapshot.forEach(childSnapshot => {
+        leaderboardData.push({
+          time: childSnapshot.val().totalTime || 0
+        });
+      });
+      
+      // Sort by time (lowest first)
+      leaderboardData.sort((a, b) => a.time - b.time);
+      
+      // Check if this time would be in the top 5
+      const isTopFive = leaderboardData.length < 5 || totalTime <= leaderboardData[4].time;
+      callback(isTopFive);
+    })
+    .catch(error => {
+      console.error("Error checking for top 5:", error);
+      // If error, assume it's not top 5 to be safe
+      callback(false);
+    });
+}
+
 // fetch best times for each level
 function fetchBestTimes(callback) {
   // Structure to store best times
@@ -2882,7 +2914,7 @@ function fetchBestTimes(callback) {
     level5: { time: Number.MAX_VALUE, name: "" },
     total: { time: Number.MAX_VALUE, name: "" }
   };
-  
+
   // Use the monthly leaderboard if available
   const monthLeaderboardRef = selectedMonth ? 
     firebase.database().ref(`leaderboard/${selectedMonth}`) : 
@@ -3128,30 +3160,37 @@ function victory() {
 
     // First check if there's a new record before proceeding
     fetchBestTimes(bestTimes => {
-      const totalRecordTime = bestTimes.total;
-      const isNewTotalRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
-      
-      // Also check if level 5 specifically was a record
-      const level5Time = levelTimes[4];
-      const level5Record = bestTimes.level5;
-      const isLevel5Record = level5Time > 0 && (!level5Record || !level5Record.time || level5Time <= level5Record.time);
-      
-      // If either is a new record, show keyboard first
-      if (isNewTotalRecord || isLevel5Record) {
-        // Store record info for later use
-        window.pendingRecords = {
-          totalGame: isNewTotalRecord,
-          level5: isLevel5Record
-        };
-        
-        // Show "New Record" prompt with keyboard
-        showNewRecordPrompt(isNewTotalRecord);
+  const totalRecordTime = bestTimes.total;
+  const isNewTotalRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
+  
+  // Also check if level 5 specifically was a record
+  const level5Time = levelTimes[4];
+  const level5Record = bestTimes.level5;
+  const isLevel5Record = level5Time > 0 && (!level5Record || !level5Record.time || level5Time <= level5Record.time);
+  
+  if (isNewTotalRecord || isLevel5Record) {
+    // It's a #1 record
+    window.pendingRecords = {
+      totalGame: isNewTotalRecord,
+      level5: isLevel5Record
+    };
+    
+    // Show "New Record" prompt with keyboard
+    showNewRecordPrompt(isNewTotalRecord);
+  } else {
+    // Check if it's a top 5 time
+    checkIfTopFiveTime(totalTime, isTopFive => {
+      if (isTopFive) {
+        // Top 5 but not #1 - show different prompt
+        showNameEntryPrompt("TOP 5 TIME!");
       } else {
-        // No new records, show scores immediately
+        // Not a top time, just show scores
         showGameCompletionScores(bestTimes);
         addGameControlButtons();
       }
     });
+  }
+});
   }
 }
 
@@ -3201,6 +3240,51 @@ function showNewRecordPrompt(isNewTotalRecord) {
       recordMesh.visible = true;
     }
   }, 250);
+  
+  // Show keyboard with short delay
+  setTimeout(() => {
+    keyboardActive = true;
+    playerName = ""; 
+    nameEntered = false;
+    createImprovedVirtualKeyboard();
+  }, 1000);
+}
+
+function showNameEntryPrompt(headerText) {
+  // Create header text
+  const promptGeometry = new THREE.TextGeometry(headerText, { 
+    font: font, 
+    size: 0.03,
+    height: 0.008 
+  });
+  const promptMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00ffff,
+    emissive: 0x00ffff,
+    emissiveIntensity: 0.5
+  });
+  const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
+  promptGeometry.computeBoundingBox();
+  const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
+  promptMesh.position.set(promptOffset, 1.5, -0.75);
+  scene.add(promptMesh);
+  
+  // Add "Enter your name:" text
+  const subPromptGeometry = new THREE.TextGeometry('Enter your name for the leaderboard:', { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const subPromptMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const subPromptMesh = new THREE.Mesh(subPromptGeometry, subPromptMaterial);
+  subPromptGeometry.computeBoundingBox();
+  const subPromptOffset = -0.5 * (subPromptGeometry.boundingBox.max.x - subPromptGeometry.boundingBox.min.x);
+  subPromptMesh.position.set(subPromptOffset, 1.45, -0.75);
+  scene.add(subPromptMesh);
+  
+  // Store these for later cleanup
+  promptMesh.userData.isNotification = true;
+  subPromptMesh.userData.isNotification = true;
+  gameCompletionMeshes.push(promptMesh, subPromptMesh);
   
   // Show keyboard with short delay
   setTimeout(() => {
