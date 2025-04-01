@@ -688,13 +688,14 @@ async function enterVR(monthId) {
    
 
 async function loadMonthLevels(monthId) {
+  // March 2025 hardcoded special case
   if (monthId === "2025-03") {
     console.log("Using hardcoded parameters for March 2025");
     
-    // Create March 2025 default levels with correct rotation offsets
+    // Create March 2025 levels with actual data
     const marchLevels = [
       {
-        name: "Gentle Start",
+        name: "Level 1",
         difficulty: 1,
         params: {
           frequencies: [8, 6, 6],
@@ -703,57 +704,39 @@ async function loadMonthLevels(monthId) {
         }
       },
       {
-        name: "Twisted Path",
+        name: "Level 2",
         difficulty: 2,
         params: {
           frequencies: [7, 5, 6],
           amplitudes: [0.07, 0.08, 0.07],
-          rotationOffset: Math.PI / 5.3,
-          heightVar: 0.06,
-          radiusVar: 0.1
+          rotationOffset: Math.PI / 5.3
         }
       },
       {
-        name: "Quantum Wave",
+        name: "Level 3",
         difficulty: 3,
         params: {
           frequencies: [9, 7, 6],
           amplitudes: [0.07, 0.08, 0.07],
-          rotationOffset: 0,
-          sections: [
-            {type: "ascent", factor: 0.12},
-            {type: "oscillate", factor: 0.06},
-            {type: "descent", factor: 0.12},
-            {type: "smooth", factor: 0.2}
-          ],
-          heightFactor: 0.15,
-          radiusVariation: 0.1
+          rotationOffset: 0
         }
       },
       {
-        name: "Prime Pattern",
+        name: "Level 4",
         difficulty: 4,
         params: {
           frequencies: [11, 7, 17],
           amplitudes: [0.07, 0.09, 0.06],
-          rotationOffset: Math.PI / 5.8,
-          sections: [
-            {type: "ascent", factor: 0.15},
-            {type: "oscillate", factor: 0.07},
-            {type: "descent", factor: 0.15},
-            {type: "smooth", factor: 0.1}
-          ]
+          rotationOffset: Math.PI / 6.3
         }
       },
       {
-        name: "Cosmic Loop",
+        name: "Level 5",
         difficulty: 5,
         params: {
           frequencies: [10, 8, 12],
           amplitudes: [0.08, 0.08, 0.06],
-          rotationOffset: Math.PI / 4.97,
-          heightFactor: 0.14,
-          radiusVariation: 0.16
+          rotationOffset: Math.PI / 1.6
         }
       }
     ];
@@ -761,10 +744,10 @@ async function loadMonthLevels(monthId) {
     // Cache and use these hardcoded values
     cachedMonths[monthId] = marchLevels;
     monthlyLevels = marchLevels;
-
     return;
   }
 
+  // All other months (including April) will use Firebase
   // Check if we already have this month's data cached
   if (cachedMonths[monthId]) {
     monthlyLevels = cachedMonths[monthId];
@@ -772,7 +755,7 @@ async function loadMonthLevels(monthId) {
     return;
   }
   
-  // First try loading from the newer location (for April 2025 and newer)
+  // Try loading from Firebase
   try {
     const newPathRef = firebase.database().ref(`monthlyWires/${monthId}`);
     const newPathSnapshot = await newPathRef.once('value');
@@ -795,32 +778,15 @@ async function loadMonthLevels(monthId) {
       // Cache the month data
       cachedMonths[monthId] = levelsArray;
       monthlyLevels = levelsArray;
-      console.log(`Loaded month data from new path for ${monthId}:`, monthlyLevels);
+      console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
       return;
     }
   } catch (error) {
-    console.log(`No data at new path for ${monthId}, trying legacy path:`, error);
+    console.log(`No data found for ${monthId}:`, error);
   }
   
-  // If we get here, try the old path
-  try {
-    const snapshot = await levelsRef.child(monthId).once('value');
-    const monthData = snapshot.val();
-    
-    if (monthData && monthData.levels) {
-      // Cache the month data
-      cachedMonths[monthId] = monthData.levels;
-      monthlyLevels = monthData.levels;
-      console.log(`Loaded month data from legacy path for ${monthId}:`, monthlyLevels);
-    } else {
-      console.error(`No levels found for month ${monthId}`);
-      // Fall back to built-in levels
-      monthlyLevels = [];
-    }
-  } catch (error) {
-    console.error(`Error loading levels for month ${monthId}:`, error);
-    monthlyLevels = [];
-  }
+  console.error(`No levels found for month ${monthId}`);
+  monthlyLevels = [];
 }
 
 
@@ -1664,7 +1630,7 @@ setTimeout(flash, flashDuration);
 flash();
 }
 
-// decide which wire creation method to use
+
 function createWire(level) {
   // Remove old wire if it exists
   if (wire) {
@@ -1672,20 +1638,14 @@ function createWire(level) {
     if (wire.geometry) wire.geometry.dispose();
   }
   
-  // Check if we're using monthly levels
-  if (selectedMonth && monthlyLevels.length > 0) {
-    return createMonthlyWire(level);
-  } else {
-    // Fall back to original wire patterns
-    return createBuiltinWire(level);
-  }
+  return createMonthlyWire(level);
 }
 
 function createMonthlyWire(level) {
   // Make sure we're not exceeding array bounds
   if (level < 1 || level > monthlyLevels.length) {
     console.error(`Invalid level ${level}, max is ${monthlyLevels.length}`);
-    return createBuiltinWire(level); // Fallback
+    return null; // Return null instead of creating a default wire
   }
   
   // Get level parameters
@@ -1782,178 +1742,6 @@ function getSectionFactor(section, t) {
 }
 
 
-
-function createBuiltinWire(level = 1) {
-// Remove old wire if it exists
-if (wire) {
-scene.remove(wire);
-if (wire.geometry) wire.geometry.dispose();
-}
-
-const points = [];
-const segments = 200;
-const radius = 0.75;
-
-// Add rotation offset for different levels
-const rotationOffset = level === 2 ? Math.PI / 5.3 : 
-level === 3 ? Math.PI / 1.1 : 
-level === 4 ? Math.PI / 6.3 : 
-level === 5 ? Math.PI / 1.6 : 0;
-
-for (let i = 0; i <= segments; i++) {
-const t = i / segments;
-const angle = t * Math.PI * 2;
-
-let waveX, waveY, waveZ, x, y, z;
-
-/* smooth testing wire
-if (level === 0) {
-      // Test level - perfectly smooth circular wire
-      x = Math.cos(angle) * radius;
-      y = 1.4; // Fixed height
-      z = Math.sin(angle) * radius;
-    }
-  */
-
-if (level === 1) {
-// Level 1 wire pattern
-waveX = Math.sin(angle * 8) * 0.05;
-waveY = Math.cos(angle * 6) * 0.05;
-x = (Math.cos(angle) * radius) + waveX;
-y = 1.4 + waveY;
-z = (Math.sin(angle) * radius) + waveX;
-} 
-else if (level === 2) {
-// Level 2 wire pattern 
-waveX = Math.sin(angle * 7) * 0.07 + Math.cos(angle * 3) * 0.04;
-waveY = Math.cos(angle * 5) * 0.08 + Math.sin(angle * 9) * 0.03;
-waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 4) * 0.05;
-
-// Create gentle undulations in height
-const heightVar = Math.sin(angle * 3) * 0.06;
-
-const rotatedAngle = angle + rotationOffset;
-// Create an elliptical path 
-x = (Math.cos(rotatedAngle) * radius * (1 + Math.sin(angle * 2) * 0.1)) + waveX;
-y = 1.4 + waveY + heightVar;
-z = (Math.sin(rotatedAngle) * radius * (1 + Math.cos(angle * 2) * 0.08)) + waveZ;
-}
-else if (level === 5) {
-// Level 3 wire pattern
-waveX = Math.sin(angle * 10) * 0.08;
-waveY = Math.cos(angle * 8) * 0.08 + Math.sin(angle * 16) * 0.03;
-waveZ = Math.sin(angle * 12) * 0.06;
-
-const rotatedAngle = angle + rotationOffset;
-x = (Math.cos(rotatedAngle) * radius) + waveX;
-y = 1.4 + waveY;
-z = (Math.sin(rotatedAngle) * radius) + waveZ;
-}
-else if (level === 4) {
-// Level 4 wire pattern - most complex but still navigable
-
-// Use prime number frequencies for less predictable patterns
-waveX = Math.sin(angle * 11) * 0.07 + Math.cos(angle * 5) * 0.05;
-waveY = Math.cos(angle * 7) * 0.09 + Math.sin(angle * 13) * 0.04;
-waveZ = Math.sin(angle * 17) * 0.06 + Math.cos(angle * 3) * 0.07;
-
-// Add some controlled chaos with sectional variations
-// Divide the wire into sections with different behaviors
-const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
-
-// Base Y position that's consistent across all sections
-y = 1.4 + waveY + Math.sin(angle * 2) * 0.07;
-
-// Apply section-specific modifications to y-coordinate
-const sectionFactor = section === 0 ? t * 4 : 
-section === 1 ? (t - 0.25) * 4 :
-section === 2 ? (t - 0.5) * 4 :
-(t - 0.75) * 4;
-
-if (section === 0) {
-// First quarter - spiral up - add to base y
-y += (sectionFactor * 0.15);
-} else if (section === 3) {
-// Fourth quarter - smooth transition back
-// Use a sine curve for smooth transition
-y += Math.sin(sectionFactor * Math.PI) * 0.08;
-}
-
-// Create smooth transition variations in radius
-const radiusVar = 1 + 0.15 * Math.sin(angle * 2) - 0.05 * Math.cos(angle * 5);
-
-const rotatedAngle = angle + rotationOffset;
-x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
-// y is already set above
-z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
-}
-
-else if (level === 3) {
-  // Level 5 - challenging but navigable
-  // Use moderate frequency combinations
-  waveX = Math.sin(angle * 9) * 0.07 + Math.cos(angle * 5) * 0.05;
-  waveY = Math.cos(angle * 7) * 0.08 + Math.sin(angle * 4) * 0.06;
-  waveZ = Math.sin(angle * 6) * 0.07 + Math.cos(angle * 3) * 0.05;
-
-  // Create gentle undulation with variable height
-  const heightFactor = Math.sin(angle * 2) * 0.15;
-  y = 1.4 + waveY + heightFactor;
-  
-  // Create interesting path with 4 distinct sections
-  const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
-  const sectionFactor = section === 0 ? t * 4 : 
-                        section === 1 ? (t - 0.25) * 4 :
-                        section === 2 ? (t - 0.5) * 4 : 
-                        (t - 0.75) * 4;
-  
-  // Section-specific modifications
-  if (section === 0) {
-    // First quarter - gradual ascent
-    y += Math.sin(sectionFactor * Math.PI * 0.5) * 0.12;
-  } else if (section === 1) {
-    // Second quarter - oscillating path
-    waveX += Math.sin(sectionFactor * Math.PI * 3) * 0.06;
-    waveZ += Math.cos(sectionFactor * Math.PI * 3) * 0.06;
-  } else if (section === 2) {
-    // Third quarter - gentle descent with wider radius
-    y -= Math.sin(sectionFactor * Math.PI * 0.5) * 0.12;
-    waveX *= 1.2;
-    waveZ *= 1.2;
-  } else {
-    // Fourth quarter - smooth transition back to start
-    waveX *= (1.2 - sectionFactor * 0.2);
-    waveZ *= (1.2 - sectionFactor * 0.2);
-  }
-
-  // Add some controlled radius variation
-  const radiusVar = 1 + Math.sin(angle * 2) * 0.1;
-  
-  const rotatedAngle = angle + rotationOffset;
-  x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
-  // y is already set above
-  z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
-}
-
-points.push(new THREE.Vector3(x, y, z));
-}
-
-wirePoints = points;
-const geometry = new THREE.BufferGeometry().setFromPoints(points);
-const colors = new Float32Array(points.length * 3);
-for (let i = 0; i < points.length; i++) {
-colors[i * 3] = 1; // R
-colors[i * 3 + 1] = 0; // G
-colors[i * 3 + 2] = 1; // B
-}
-geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
-
-wire = new THREE.Line(geometry, wireMaterial);
-scene.add(wire);
-
-console.log(`Wire for level ${level} created:`, wire);
-return wire;
-}
 
 function explodeRing() {
   if (isExploding) return; // Prevent multiple explosions
