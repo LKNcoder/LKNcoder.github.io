@@ -542,7 +542,29 @@ function fetchLeaderboardForTooltip(monthId, tooltipElement) {
     });
 }
 
-
+// cleans up the visual effects
+function cleanupVisualEffects() {
+  // Clean up explosion fragments
+  for (let i = 0; i < explosionFragments.length; i++) {
+    if (explosionFragments[i]) {
+      scene.remove(explosionFragments[i]);
+      if (explosionFragments[i].geometry) explosionFragments[i].geometry.dispose();
+      if (explosionFragments[i].material) explosionFragments[i].material.dispose();
+    }
+  }
+  explosionFragments = [];
+  explosionStartTime = null;
+  
+  // Clean up confetti
+  for (let i = 0; i < confettiParticles.length; i++) {
+    if (confettiParticles[i]) {
+      scene.remove(confettiParticles[i]);
+      if (confettiParticles[i].material) confettiParticles[i].material.dispose();
+    }
+  }
+  confettiParticles = [];
+  confettiStartTime = null;
+}
 
 function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
@@ -606,7 +628,6 @@ function createMonthButton(month, index, latestMonth) {
   
   return button;
 }
-
 
 
 async function enterVR(monthId) {
@@ -2066,26 +2087,7 @@ function onSelectStart(event) {
     }
   }
 
-  // clean up visual effects
-function cleanupVisualEffects() {
-  // Clean up explosion fragments
-  for (let i = 0; i < explosionFragments.length; i++) {
-    scene.remove(explosionFragments[i]);
-    if (explosionFragments[i].geometry) explosionFragments[i].geometry.dispose();
-    if (explosionFragments[i].material) explosionFragments[i].material.dispose();
-  }
-  explosionFragments = [];
-  explosionStartTime = null;
-  
-  // Clean up confetti
-  for (let i = 0; i < confettiParticles.length; i++) {
-    scene.remove(confettiParticles[i]);
-    if (confettiParticles[i].material) confettiParticles[i].material.dispose();
-  }
-  confettiParticles = [];
-  confettiStartTime = null;
-}
-
+ 
   // Only handle ring grabbing if game is not completed
   if (!gameCompleted) {
     const ringBox = new THREE.Box3().setFromObject(ring);
