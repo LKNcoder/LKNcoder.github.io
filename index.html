@@ -1861,7 +1861,7 @@ function checkCollision() {
 
   // Get the ring's actual tube thickness for more accurate collision
   const tubeDiameter = 0.00625 * 2; // From your TorusGeometry
-  const thresholdDistance = tubeDiameter * 0.55; // Slightly less than the actual tube thickness
+  const thresholdDistance = tubeDiameter * 0.15; // Slightly less than the actual tube thickness
   
   const ringVertices = ring.geometry.attributes.position.array;
   const ringMatrixWorld = ring.matrixWorld;
@@ -1898,7 +1898,7 @@ function checkCollision() {
     const segmentLength = tempLineVector.length();
     
     // Smaller segment multiplier to avoid false collisions
-    const dynamicThreshold = Math.max(thresholdDistance, segmentLength * 0.015);
+    const dynamicThreshold = Math.max(thresholdDistance, segmentLength * 0.005);
     
     for (const vertex of transformedRingVertices) {
       // Calculate closest point on line segment to the vertex
