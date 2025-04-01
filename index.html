@@ -228,7 +228,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 4; // Track current level
+let currentLevel = 5; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 
@@ -801,7 +801,7 @@ async function loadMonthLevels(monthId) {
 
 function resetGameForNewMonth() {
   // Reset game state for the new month
-  currentLevel = 4;
+  currentLevel = 5;
   levelTimes = [];
   startTime = null;
   elapsedTime = 0;
