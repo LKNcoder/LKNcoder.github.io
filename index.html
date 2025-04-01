@@ -1639,19 +1639,46 @@ flash();
 }
 
 
+function createWire(level) {
+  console.log(`Creating wire for level ${level}`);
+  
+  // If we have valid monthly levels data, use it
+  if (monthlyLevels && monthlyLevels.length > 0) {
+    console.log(`Using monthly wire data, ${monthlyLevels.length} levels available`);
+    return createMonthlyWire(level);
+  }
+  
+  // Otherwise, fallback to March 2025 levels
+  console.log('No monthly wire data available, falling back to March 2025 levels');
+  loadMonthLevels("2025-03").then(() => {
+    console.log('Loaded March 2025 fallback data');
+    return createMonthlyWire(level);
+  });
+}
+
 function createMonthlyWire(level) {
   console.log(`Creating wire for level ${level}, monthly levels length: ${monthlyLevels ? monthlyLevels.length : 0}`);
   
-  // Check if monthlyLevels is empty and create a default wire if needed
+  // Check if monthlyLevels is empty
   if (!monthlyLevels || monthlyLevels.length === 0) {
-    console.error("No monthly levels available, creating default wire");
-    return createDefaultWire();
+    console.error("No monthly levels available, falling back to March 2025");
+    // Fall back to March 2025 (loadMonthLevels will set the monthlyLevels variable)
+    loadMonthLevels("2025-03").then(() => {
+      if (monthlyLevels && monthlyLevels.length > 0) {
+        return createMonthlyWire(level);
+      } else {
+        console.error("Critical error: Cannot load any level data");
+        return null;
+      }
+    });
+    return null;
   }
   
   // Make sure we're not exceeding array bounds
   if (level < 1 || level > monthlyLevels.length) {
     console.error(`Invalid level ${level}, max is ${monthlyLevels.length}`);
-    return createDefaultWire(); // Use a default wire instead of returning null
+    // Use level 1 instead of going out of bounds
+    level = 1;
   }
   
   // Get level parameters
