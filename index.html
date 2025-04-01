@@ -1856,7 +1856,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function checkCollision() {
-if (!ring.visible) return false;
+if (!ring.visible || isQuitting) return false;
 
 const ringVertices = ring.geometry.attributes.position.array;
 const ringMatrixWorld = ring.matrixWorld;
@@ -2460,7 +2460,7 @@ sphere2.position.copy(controller2.position);
 }
 
 // Check for collisions
-if (!isExploding && !transitionImmunity && !gameCompleted && checkCollision()) {
+if (!isExploding && !transitionImmunity && !gameCompleted && !isQuitting && checkCollision()) {
     handleCollision();
   }
 
