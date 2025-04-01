@@ -266,6 +266,7 @@ let endGameMusic;
 let selectedMonth = null;
 let monthlyLevels = [];
 let cachedMonths = {};
+let isQuitting = false;
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -1953,6 +1954,7 @@ function onSelectStart(event) {
         }
         else if (button.userData.buttonType === 'quit') {
   console.log('Quitting game...');
+  isQuitting = true;
   // Stop end game music
   if (endGameMusic) {
     endGameMusic.pause();
@@ -1964,12 +1966,15 @@ function onSelectStart(event) {
   // Stronger haptic feedback
   triggerHapticFeedbackByHandedness('left', 0.8, 200);
   triggerHapticFeedbackByHandedness('right', 0.8, 200);
+
+  if (ring) ring.visible = false;
   
   // Exit VR session after a short delay to let sound finish
   setTimeout(() => {
     if (renderer.xr.isPresenting) {
       renderer.xr.getSession().end();
     }
+    isQuitting = false;  // reset flag
   }, 300); // 300ms delay
   
   return;
