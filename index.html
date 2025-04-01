@@ -921,9 +921,10 @@ for (let i = 1; i <= 5; i++) {
   music.loop = true; // Make music loop
   // custom looping mechanism that restarts slightly before the end
   music.addEventListener('timeupdate', function() {
-    // If we're 1 seconds before the end, restart
+    
+// If we're 0.6 seconds before the end, restart
     // Adjust this value if needed for smoother transition
-    if (this.duration - this.currentTime < 1) {
+    if (this.duration - this.currentTime < 0.6) {
       this.currentTime = 0;
     }
   });
