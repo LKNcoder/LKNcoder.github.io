@@ -921,8 +921,7 @@ for (let i = 1; i <= 5; i++) {
   music.loop = true; // Make music loop
   // custom looping mechanism that restarts slightly before the end
   music.addEventListener('timeupdate', function() {
-    
-// If we're 0.5 seconds before the end, restart
+    // If we're 0.5 seconds before the end, restart
     // Adjust this value if needed for smoother transition
     if (this.duration - this.currentTime < 0.5) {
       this.currentTime = 0;
@@ -1643,6 +1642,14 @@ flash();
 function createWire(level) {
   console.log(`Creating wire for level ${level}`);
   
+  // IMPORTANT: Always remove any existing wire first
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+    if (wire.material) wire.material.dispose();
+    wire = null;
+  }
+  
   // If we have valid monthly levels data, use it
   if (monthlyLevels && monthlyLevels.length > 0) {
     console.log(`Using monthly wire data, ${monthlyLevels.length} levels available`);
@@ -1651,10 +1658,27 @@ function createWire(level) {
   
   // Otherwise, fallback to March 2025 levels
   console.log('No monthly wire data available, falling back to March 2025 levels');
+  
+  // Handle async loading properly - return a temporary placeholder but replace it later
+  // when data is loaded
+  const tempGeometry = new THREE.BufferGeometry();
+  const tempMaterial = new THREE.LineBasicMaterial({ color: 0x000000, visible: false });
+  wire = new THREE.Line(tempGeometry, tempMaterial);
+  scene.add(wire);
+  
   loadMonthLevels("2025-03").then(() => {
     console.log('Loaded March 2025 fallback data');
-    return createMonthlyWire(level);
+    
+    // Remove the temporary wire
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+    if (wire.material) wire.material.dispose();
+    
+    // Now create the actual wire
+    wire = createMonthlyWire(level);
   });
+  
+  return wire;
 }
 
 function createMonthlyWire(level) {
@@ -2295,14 +2319,24 @@ function proceedToNextLevel() {
   
   ring.visible = false;
   transitionImmunity = true;
+  
+  // Wait 500ms for visual transition
   setTimeout(() => {
     currentLevel++;
     levelCompleted = false;
-    // Update the level text
     updateLevelText();
 
-    // Create the new wire
-    wire = createWire(currentLevel);
+    // CRITICAL: First make sure any existing wire is completely removed
+    if (wire) {
+      scene.remove(wire);
+      if (wire.geometry) wire.geometry.dispose();
+      if (wire.material) wire.material.dispose();
+      wire = null;
+      wirePoints = [];
+    }
+
+    // Now create the new wire with the global reference
+    createWire(currentLevel);
 
     // Reset the ring position
     ring.position.copy(ringStartPosition);
@@ -2322,21 +2356,21 @@ function proceedToNextLevel() {
 
     // Reset timer display
     if (timerMesh && timerFont) {
-    timerMesh.geometry.dispose();
-    timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
-      font: timerFont, size: 0.02, height: 0.005,
-    });
-    timerMesh.geometry.computeBoundingBox();
-    timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
-    // center the geometry 
-    timerMesh.geometry.translate(
-      -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
-      -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
-      0
-    );
-    timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-    timerMesh.visible = true; 
-  }
+      timerMesh.geometry.dispose();
+      timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+        font: timerFont, size: 0.02, height: 0.005,
+      });
+      timerMesh.geometry.computeBoundingBox();
+      timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      // center the geometry 
+      timerMesh.geometry.translate(
+        -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+        -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+        0
+      );
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+      timerMesh.visible = true; 
+    }
   }, 500);
 }
 
