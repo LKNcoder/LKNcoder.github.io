@@ -228,7 +228,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 4; // Track current level
+let currentLevel = 1; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 
@@ -333,18 +333,75 @@ styleElement.textContent = `
 `;
 document.head.appendChild(styleElement);
   
-  // STEP 2: Fetch the real data in the background
+  // Fetch the real data in the background
   Promise.all([
-    levelsRef.once('value'),
-    firebase.database().ref('monthlyWires').once('value')
-  ])
-  .then(([legacySnapshot, newFormatSnapshot]) => {
-    // ... rest of the function remains the same
-  })
-  .catch(error => {
-    console.error("Error loading months:", error);
-    createDefaultMonths();
+  levelsRef.once('value'),
+  firebase.database().ref('monthlyWires').once('value')
+])
+.then(([legacySnapshot, newFormatSnapshot]) => {
+  // Process both types of data
+  const availableMonths = [];
+  
+  // Process legacy format data
+  legacySnapshot.forEach(monthSnapshot => {
+    const monthId = monthSnapshot.key;
+    const monthData = monthSnapshot.val();
+    if (monthData) {
+      // Extract month and year from ID (format: "YYYY-MM")
+      const [year, month] = monthId.split('-');
+      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+      const monthName = monthDate.toLocaleString('default', { month: 'long' });
+      
+      availableMonths.push({
+        id: monthId,
+        name: `${monthName} ${year}`,
+        theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
+      });
+    }
   });
+  
+  // Process new format data
+  newFormatSnapshot.forEach(monthSnapshot => {
+    const monthId = monthSnapshot.key;
+    // Skip if we already added this month from legacy data
+    if (!availableMonths.some(m => m.id === monthId)) {
+      // Extract month and year from ID (format: "YYYY-MM")
+      const [year, month] = monthId.split('-');
+      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+      const monthName = monthDate.toLocaleString('default', { month: 'long' });
+      
+      availableMonths.push({
+        id: monthId,
+        name: `${monthName} ${year}`,
+        theme: `Levels 1-5`  // Default theme
+      });
+    }
+  });
+  
+  if (availableMonths.length > 0) {
+    // Generate buttons with the fetched data
+    generateMonthButtons(availableMonths);
+  } else {
+    console.warn("No months found in Firebase, using defaults");
+    // If no months found, use default data
+    const defaultMonths = [
+      {
+        id: "2025-04",
+        name: "April 2025",
+        theme: "Levels 1-5"
+      },
+      {
+        id: "2025-03",
+        name: "March 2025",
+        theme: "Levels 6-10"
+      }
+    ];
+    
+    // Generate buttons with default data
+    generateMonthButtons(defaultMonths);
+    
+  }
+});
 }
 
 
@@ -438,29 +495,6 @@ function generateMonthButtons(monthsArray) {
   }
 }
 
-function createDefaultMonths() {
-  // Create default months with March 2025 and April 2025
-  const monthsArray = [
-    {
-      id: "2025-04",
-      name: "April 2025",
-      theme: "Levels 1-5"
-    },
-    {
-      id: "2025-03",
-      name: "March 2025",
-      theme: "Levels 6-10"
-    }
-  ];
-  
-  // Generate buttons including "Coming Soon" for May
-  generateMonthButtons(monthsArray);
-  
-  // Create the default monthly data in Firebase
-  createDefaultMonthData();
-}
-
-
 
 
 function fetchLeaderboardForTooltip(monthId, tooltipElement) {
@@ -507,84 +541,7 @@ function fetchLeaderboardForTooltip(monthId, tooltipElement) {
     });
 }
 
-function createDefaultMonthData() {
-  // Check if March 2025 exists
-  levelsRef.child("2025-03").once("value", snapshot => {
-    if (!snapshot.exists()) {
-      // If it doesn't exist, create default level data
-      levelsRef.child("2025-03").set({
-        name: "March 2025",
-        theme: "Levels 1-5",
-        levels: [
-          {
-            name: "Gentle Start",
-            difficulty: 1,
-            params: {
-              frequencies: [8, 6, 6],
-              amplitudes: [0.05, 0.05, 0.05],
-              rotationOffset: 0
-            }
-          },
-          {
-            name: "Twisted Path",
-            difficulty: 2,
-            params: {
-              frequencies: [7, 5, 6],
-              amplitudes: [0.07, 0.08, 0.07],
-              rotationOffset: Math.PI / 5.3,
-              heightVar: 0.06,
-              radiusVar: 0.1
-            }
-          },
-          {
-            name: "Quantum Wave",
-            difficulty: 3,
-            params: {
-              frequencies: [9, 7, 6],
-              amplitudes: [0.07, 0.08, 0.07],
-              rotationOffset: Math.PI / 1.1,
-              sections: [
-                {type: "ascent", factor: 0.12},
-                {type: "oscillate", factor: 0.06},
-                {type: "descent", factor: 0.12},
-                {type: "smooth", factor: 0.2}
-              ],
-              heightFactor: 0.15,
-              radiusVariation: 0.1
-            }
-          },
-          {
-            name: "Prime Pattern",
-            difficulty: 4,
-            params: {
-              frequencies: [11, 7, 17],
-              amplitudes: [0.07, 0.09, 0.06],
-              rotationOffset: Math.PI / 5.4,
-              sections: [
-                {type: "ascent", factor: 0.15},
-                {type: "oscillate", factor: 0.07},
-                {type: "descent", factor: 0.15},
-                {type: "smooth", factor: 0.1}
-              ]
-            }
-          },
-          {
-            name: "Cosmic Loop",
-            difficulty: 5,
-            params: {
-              frequencies: [10, 8, 12],
-              amplitudes: [0.08, 0.08, 0.06],
-              rotationOffset: Math.PI / 1.6,
-              heightFactor: 0.14,
-              radiusVariation: 0.16
-            }
-          }
-        ]
-      });
-      console.log("Created default month data for March 2025");
-    }
-  });
-}
+
 
 function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
@@ -779,7 +736,7 @@ async function loadMonthLevels(monthId) {
         params: {
           frequencies: [11, 7, 17],
           amplitudes: [0.07, 0.09, 0.06],
-          rotationOffset: Math.PI / 2.6,
+          rotationOffset: Math.PI / 5.6,
           sections: [
             {type: "ascent", factor: 0.15},
             {type: "oscillate", factor: 0.07},
@@ -870,7 +827,7 @@ async function loadMonthLevels(monthId) {
 
 function resetGameForNewMonth() {
   // Reset game state for the new month
-  currentLevel = 4;
+  currentLevel = 1;
   levelTimes = [];
   startTime = null;
   elapsedTime = 0;
