@@ -1855,12 +1855,16 @@ camera.updateProjectionMatrix();
 renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// Replace the existing checkCollision function with this more accurate version
 function checkCollision() {
   if (!ring.visible || isQuitting) return false;
 
+  // Get the ring's actual tube thickness for more accurate collision
+  const tubeDiameter = 0.00625 * 2; // From your TorusGeometry
+  const thresholdDistance = tubeDiameter * 0.7; // Slightly less than the actual tube thickness
+  
   const ringVertices = ring.geometry.attributes.position.array;
   const ringMatrixWorld = ring.matrixWorld;
-  const thresholdDistance = 0.01; // Base threshold distance
   
   // Create a transformed ring vertices array for more efficient checking
   const transformedRingVertices = [];
@@ -1881,7 +1885,7 @@ function checkCollision() {
   }
   
   // If no point collision found, check the segments between points
-  // This handles the steep sections where points might be far apart
+  // but with a much more conservative threshold
   const tempPointOnLine = new THREE.Vector3();
   const tempLineStart = new THREE.Vector3();
   const tempLineEnd = new THREE.Vector3();
@@ -1893,9 +1897,8 @@ function checkCollision() {
     tempLineVector.subVectors(tempLineEnd, tempLineStart);
     const segmentLength = tempLineVector.length();
     
-    // Calculate a dynamic threshold for this segment based on its length
-    // Longer segments need larger thresholds
-    const dynamicThreshold = Math.max(thresholdDistance, segmentLength * 0.1);
+    // Smaller segment multiplier to avoid false collisions
+    const dynamicThreshold = Math.max(thresholdDistance, segmentLength * 0.03);
     
     for (const vertex of transformedRingVertices) {
       // Calculate closest point on line segment to the vertex
@@ -1904,7 +1907,7 @@ function checkCollision() {
       // Get the actual closest point
       tempPointOnLine.copy(tempLineStart).addScaledVector(tempLineVector, t);
       
-      // Check distance to closest point
+      // Check distance to closest point with more precise threshold
       const distance = vertex.distanceTo(tempPointOnLine);
       if (distance < dynamicThreshold) {
         return true;
