@@ -548,7 +548,7 @@ function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
   button.className = 'monthButton';
   
-  // First, store the month ID directly on the button as a data attribute
+  // Store the month ID as a data attribute for easy access
   button.dataset.monthId = month.id;
   
   // Create HTML content
@@ -558,22 +558,34 @@ function createMonthButton(month, index, latestMonth) {
     ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
   `;
   
-  // This uses the EXACT SAME pattern as the working direct button
-  button.onclick = function() {
-    // Get the month ID from the dataset we stored
+  // Clear and set up the button click handler
+  button.onclick = function(event) {
+    // Prevent event bubbling if needed
+    event.stopPropagation();
+    
+    // Get the month ID from the dataset
     const monthId = this.dataset.monthId;
     
-    // Show a visual alert for debugging (you'll see this in VR)
+    // Visual feedback
     this.style.backgroundColor = '#00ffff';
     
-    // Call enterVR with the explicit month ID - this matches your direct button
+    // Reset any global state flags
+    isQuitting = false;
+    gameCompleted = false;
+    isExploding = false;
+    isFlashing = false;
+    
+    // Clear any existing confetti and fragments
+    cleanupVisualEffects();
+    
+    // Call enterVR with the month ID
     enterVR(monthId);
     
-    // Reset color after delay
+    // Reset the button color after a short delay
     setTimeout(() => this.style.backgroundColor = '', 300);
   };
   
-  // Create tooltip (rest of your tooltip code remains the same)
+  // Create the tooltip for leaderboard display
   const tooltip = document.createElement('div');
   tooltip.className = 'leaderboardTooltip';
   tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
@@ -2008,33 +2020,71 @@ function onSelectStart(event) {
         else if (button.userData.buttonType === 'quit') {
   console.log('Quitting game...');
   isQuitting = true;
-  // Stop end game music
-  if (endGameMusic) {
-    endGameMusic.pause();
+  
+  // Stop all sounds and music immediately
+  if (endGameMusic) endGameMusic.pause();
+  if (currentMusic) currentMusic.pause();
+  if (victorySound) victorySound.pause();
+  if (applauseSound) applauseSound.pause();
+  if (longApplauseSound) longApplauseSound.pause();
+  if (longHornsSound) longHornsSound.pause();
+  
+  // Cancel any ongoing animations
+  isFlashing = false;
+  isExploding = false;
+  
+  // Clear any active timers
+  const highestTimeoutId = setTimeout(";");
+  for (let i = 0; i < highestTimeoutId; i++) {
+    clearTimeout(i);
   }
   
-  // Play collision sound for feedback
-  contactSound.play().catch(error => console.log('Sound play error:', error));
+  // Clean up visual effects
+  cleanupVisualEffects();
   
-  // Stronger haptic feedback
+  // Hide everything except background particles
+  if (ring) ring.visible = false;
+  if (wire) wire.visible = false;
+  if (textMesh) textMesh.visible = false;
+  if (timerMesh) timerMesh.visible = false;
+  
+  // Play feedback sound and haptics
+  contactSound.play().catch(error => console.log('Sound play error:', error));
   triggerHapticFeedbackByHandedness('left', 0.8, 200);
   triggerHapticFeedbackByHandedness('right', 0.8, 200);
-
-  if (ring) ring.visible = false;
   
-  // Exit VR session after a short delay to let sound finish
+  // Exit VR session after a short delay
   setTimeout(() => {
     if (renderer.xr.isPresenting) {
       renderer.xr.getSession().end();
     }
-    isQuitting = false;  // reset flag
-  }, 300); // 300ms delay
+  }, 300);
   
   return;
 }
       }
     }
   }
+
+  // clean up visual effects
+function cleanupVisualEffects() {
+  // Clean up explosion fragments
+  for (let i = 0; i < explosionFragments.length; i++) {
+    scene.remove(explosionFragments[i]);
+    if (explosionFragments[i].geometry) explosionFragments[i].geometry.dispose();
+    if (explosionFragments[i].material) explosionFragments[i].material.dispose();
+  }
+  explosionFragments = [];
+  explosionStartTime = null;
+  
+  // Clean up confetti
+  for (let i = 0; i < confettiParticles.length; i++) {
+    scene.remove(confettiParticles[i]);
+    if (confettiParticles[i].material) confettiParticles[i].material.dispose();
+  }
+  confettiParticles = [];
+  confettiStartTime = null;
+}
 
   // Only handle ring grabbing if game is not completed
   if (!gameCompleted) {
@@ -2150,6 +2200,7 @@ function restartGame() {
 
 // clean up game scene
 function cleanupGameScene() {
+  cleanupVisualEffects();
   // Clean up game completion meshes
   gameCompletionMeshes.forEach(mesh => {
     scene.remove(mesh);
@@ -2180,6 +2231,8 @@ function cleanupGameScene() {
   // Reset game state variables
   gameCompleted = false;
   levelCompleted = false;
+  isFlashing = false;
+  isExploding = false;
   currentLevel = 1;
   levelTimes = [];
   
@@ -2192,11 +2245,20 @@ function cleanupGameScene() {
     endGameMusic.pause();
   }
   
-  // Reset ring and wire visibility
+  // Clean up wire
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+    if (wire.material) wire.material.dispose();
+    wire = null;
+    wirePoints = [];
+  }
+  
+  // Reset ring but keep it invisible until needed again
   if (ring) {
     ring.position.copy(ringStartPosition);
     ring.rotation.set(0, Math.PI / 2, 0);
-    ring.visible = true;
+    ring.visible = false;  // Changed from true to false
   }
   
   // Clear any record holder references
