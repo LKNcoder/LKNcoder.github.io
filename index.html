@@ -1856,26 +1856,76 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function checkCollision() {
-if (!ring.visible || isQuitting) return false;
+  if (!ring.visible || isQuitting) return false;
 
-const ringVertices = ring.geometry.attributes.position.array;
-const ringMatrixWorld = ring.matrixWorld;
-const thresholdDistance = 0.01; // Adjust this value as needed
+  const ringVertices = ring.geometry.attributes.position.array;
+  const ringMatrixWorld = ring.matrixWorld;
+  const thresholdDistance = 0.01; // Base threshold distance
+  
+  // Create a transformed ring vertices array for more efficient checking
+  const transformedRingVertices = [];
+  for (let i = 0; i < ringVertices.length; i += 3) {
+    const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
+    vertex.applyMatrix4(ringMatrixWorld);
+    transformedRingVertices.push(vertex);
+  }
 
-for (let i = 0; i < ringVertices.length; i += 3) {
-const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
-vertex.applyMatrix4(ringMatrixWorld);
-
-for (let j = 0; j < wirePoints.length; j++) {
-const distance = vertex.distanceTo(wirePoints[j]);
-if (distance < thresholdDistance) {
-console.log('Collision detected');
-return true;
+  // First check the existing point-based detection (for performance)
+  for (const vertex of transformedRingVertices) {
+    for (let j = 0; j < wirePoints.length; j++) {
+      const distance = vertex.distanceTo(wirePoints[j]);
+      if (distance < thresholdDistance) {
+        return true;
+      }
+    }
+  }
+  
+  // If no point collision found, check the segments between points
+  // This handles the steep sections where points might be far apart
+  const tempPointOnLine = new THREE.Vector3();
+  const tempLineStart = new THREE.Vector3();
+  const tempLineEnd = new THREE.Vector3();
+  const tempLineVector = new THREE.Vector3();
+  
+  for (let i = 0; i < wirePoints.length - 1; i++) {
+    tempLineStart.copy(wirePoints[i]);
+    tempLineEnd.copy(wirePoints[i + 1]);
+    tempLineVector.subVectors(tempLineEnd, tempLineStart);
+    const segmentLength = tempLineVector.length();
+    
+    // Calculate a dynamic threshold for this segment based on its length
+    // Longer segments need larger thresholds
+    const dynamicThreshold = Math.max(thresholdDistance, segmentLength * 0.1);
+    
+    for (const vertex of transformedRingVertices) {
+      // Calculate closest point on line segment to the vertex
+      const t = calculateClosestPointOnLineParameter(vertex, tempLineStart, tempLineEnd);
+      
+      // Get the actual closest point
+      tempPointOnLine.copy(tempLineStart).addScaledVector(tempLineVector, t);
+      
+      // Check distance to closest point
+      const distance = vertex.distanceTo(tempPointOnLine);
+      if (distance < dynamicThreshold) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
-}
-}
 
-return false;
+// Helper function to calculate the closest point parameter on a line
+function calculateClosestPointOnLineParameter(point, lineStart, lineEnd) {
+  const lineVector = new THREE.Vector3().subVectors(lineEnd, lineStart);
+  const pointVector = new THREE.Vector3().subVectors(point, lineStart);
+  
+  const lineLengthSq = lineVector.lengthSq();
+  if (lineLengthSq === 0) return 0; // lineStart and lineEnd are the same point
+  
+  // Calculate projection and clamp to segment
+  const t = Math.max(0, Math.min(1, pointVector.dot(lineVector) / lineLengthSq));
+  return t;
 }
 
 function onSelectStart(event) {
