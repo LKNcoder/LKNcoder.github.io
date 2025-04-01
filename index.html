@@ -157,7 +157,7 @@
         }
         #minimap {
             position: absolute;
-            bottom: 20px;
+            bottom: 50px;
             right: 20px;
             width: 450px;
             height: 450px;
@@ -360,6 +360,8 @@
         USE ARROW KEYS TO MANEUVER • SPACE TO ACCELERATE
     </div>
 
+    <!-- Vibe Jam link  -->
+    <a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -879,65 +881,36 @@ function showControlsOverlay() {
 
 // initialize mobile controls
 function initMobileControls() {
-    if (isMobile) {
-        // Add tap event listener to toggle acceleration
-        renderer.domElement.addEventListener('touchstart', function(e) {
-            e.preventDefault(); // Prevent default to avoid scrolling/zooming
-            isAccelerating = true;
-            updateFlightSound(true);
-        }, { passive: false });
-        
-        renderer.domElement.addEventListener('touchend', function(e) {
-            e.preventDefault();
-            isAccelerating = false;
-            updateFlightSound(false);
-        }, { passive: false });
-        
-        // Request device orientation permissions (required on iOS 13+ and some Android)
-        if (typeof DeviceOrientationEvent !== 'undefined' && 
-            typeof DeviceOrientationEvent.requestPermission === 'function') {
-            
-            // Create permission button
-            const permissionBtn = document.createElement('button');
-            permissionBtn.textContent = 'Enable Motion Controls';
-            permissionBtn.style.position = 'absolute';
-            permissionBtn.style.top = '50%';
-            permissionBtn.style.left = '50%';
-            permissionBtn.style.transform = 'translate(-50%, -50%)';
-            permissionBtn.style.zIndex = '1000';
-            permissionBtn.style.padding = '15px 25px';
-            permissionBtn.style.fontSize = '18px';
-            permissionBtn.style.backgroundColor = '#ff3333';
-            permissionBtn.style.color = 'white';
-            permissionBtn.style.border = 'none';
-            permissionBtn.style.borderRadius = '5px';
-            permissionBtn.style.display = 'none'; // Hide initially
-            
-            document.body.appendChild(permissionBtn);
-            
-            // Only show the button when needed (during game init)
-            window.showMotionPermissionButton = function() {
-                permissionBtn.style.display = 'block';
-            };
-            
-            permissionBtn.addEventListener('click', function() {
-                DeviceOrientationEvent.requestPermission()
-                    .then(response => {
-                        if (response === 'granted') {
-                            // Permission granted, enable orientation events
-                            window.addEventListener('deviceorientation', handleDeviceOrientation);
-                            permissionBtn.style.display = 'none'; // Hide button
-                        } else {
-                            alert('Motion control access denied. You can still play using on-screen controls.');
-                        }
-                    })
-                    .catch(console.error);
-            });
-        }
-    }
+    if (!isMobile) return;
+    
+    // Clear any existing touch listeners
+    renderer.domElement.removeEventListener('touchstart', handleTouchStart);
+    renderer.domElement.removeEventListener('touchend', handleTouchEnd);
+    
+    // Add tap event listener to toggle acceleration
+    renderer.domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    // Show mobile instructions
+    document.getElementById('controlsOverlay').innerHTML = 
+        'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
+    document.getElementById('controlsOverlay').style.opacity = "1";
+    setTimeout(() => {
+        document.getElementById('controlsOverlay').style.opacity = "0";
+    }, 5000);
 }
 
+function handleTouchStart(e) {
+    e.preventDefault();
+    isAccelerating = true;
+    updateFlightSound(true);
+}
 
+function handleTouchEnd(e) {
+    e.preventDefault();
+    isAccelerating = false;
+    updateFlightSound(false);
+}
 
  // Initialize the game
  init();
@@ -1008,6 +981,25 @@ function initMobileControls() {
     if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', handleDeviceOrientation);
     }
+
+    if (isMobile) {
+    optimizeForMobile();
+    
+    // Replace standard control instructions
+    if (document.getElementById('controlsOverlay')) {
+        document.getElementById('controlsOverlay').innerHTML = 
+            'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
+    }
+    
+    // Set up mobile-specific game properties
+    baseVelocity = 0.5; // Slower base speed for easier control
+    turnSpeed *= 0.8; // Gentler turns
+    damping = 0.8; // More damping for smoother controls
+    
+    // Disable or simplify heavy effects
+    MAX_SMOKE_PARTICLES = 2000;
+    MAX_EXPLOSION_PARTICLES = 5000;
+}
     
     // Create camera with proper perspective
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -1071,6 +1063,85 @@ function initMobileControls() {
     lastTime = 0; // Reset lastTime
     requestAnimationFrame(animate);
 }    
+
+function optimizeForMobile() {
+    if (!isMobile) return;
+    
+    // Set up full screen button
+    const fullscreenBtn = document.createElement('button');
+    fullscreenBtn.innerHTML = '📱 Full Screen';
+    fullscreenBtn.style.position = 'absolute';
+    fullscreenBtn.style.top = '50%';
+    fullscreenBtn.style.left = '50%';
+    fullscreenBtn.style.transform = 'translate(-50%, -50%)';
+    fullscreenBtn.style.zIndex = '2000';
+    fullscreenBtn.style.padding = '15px 25px';
+    fullscreenBtn.style.fontSize = '18px';
+    fullscreenBtn.style.backgroundColor = '#ff3333';
+    fullscreenBtn.style.color = 'white';
+    fullscreenBtn.style.border = 'none';
+    fullscreenBtn.style.borderRadius = '5px';
+    
+    fullscreenBtn.addEventListener('click', function() {
+        // Request fullscreen
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+            document.documentElement.msRequestFullscreen();
+        }
+        
+        // Request device orientation permission and enable controls
+        if (typeof DeviceOrientationEvent !== 'undefined' && 
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+            
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        window.addEventListener('deviceorientation', handleDeviceOrientation);
+                        initMobileControls();
+                    }
+                })
+                .catch(console.error);
+        } else {
+            window.addEventListener('deviceorientation', handleDeviceOrientation);
+            initMobileControls();
+        }
+        
+        // Hide button after clicked
+        this.style.display = 'none';
+        
+        // Lock screen to landscape if possible
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(err => console.log(err));
+        }
+    });
+    
+    document.body.appendChild(fullscreenBtn);
+    
+    // Scale down HUD and minimap
+    const hud = document.getElementById('hud');
+    const minimap = document.getElementById('minimap');
+    
+    if (hud) {
+        hud.style.fontSize = '12px';
+        hud.style.padding = '8px';
+        hud.style.maxWidth = '30%';
+    }
+    
+    if (minimap) {
+        minimap.style.width = '120px';
+        minimap.style.height = '120px';
+        minimap.style.bottom = '60px';
+        minimap.style.right = '10px';
+        
+        // Update minimap renderer size
+        if (minimapRenderer) {
+            minimapRenderer.setSize(120, 120);
+        }
+    }
+}
 
 
         function initSoundPool() {
@@ -1882,35 +1953,18 @@ function getCardinalDirection(direction) {
     */
 
     function initEnemyExplosionMaterials() {
-    // Create shared materials if they don't exist
-    if (!enemyExplosionMaterialPool.yellow) {
-        enemyExplosionMaterialPool.yellow = new THREE.MeshBasicMaterial({
-            color: 0xffff40, // Yellow
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide
-        });
-
-        enemyExplosionMaterialPool.orange = new THREE.MeshBasicMaterial({
-            color: 0xff8000, // Orange
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide
-        });
-
-        enemyExplosionMaterialPool.red = new THREE.MeshBasicMaterial({
-            color: 0xff2000, // Red
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide
-        });
+    // Instead of creating different materials, we'll use the same shader materials
+    // as player explosions to ensure consistent visuals for all explosions
+    
+    // Initialize the player explosion materials first if needed
+    if (!explosionMaterialPool.yellow) {
+        initExplosionTextures();
     }
+    
+    // Share the same material pool for consistency
+    enemyExplosionMaterialPool.yellow = explosionMaterialPool.yellow;
+    enemyExplosionMaterialPool.orange = explosionMaterialPool.orange;
+    enemyExplosionMaterialPool.red = explosionMaterialPool.red;
 }
 
     function initExplosionTextures() {
@@ -1971,21 +2025,21 @@ function createExplosion(position, isPlayerEvent = false, createGroundScorch = t
     const isLargeExplosion = isPlayerEvent; // Player explosions should be larger
     
     // Calculate core fireball and debris counts based on importance
-    const maxFireballParticles = isLargeExplosion ? 30 : 15;  // Core explosion particles
-    const maxDebrisParticles = isLargeExplosion ? 40 : 20;    // Flying debris particles
-    const maxSecondaryParticles = isLargeExplosion ? 20 : 10; // Secondary wave particles
+    const maxFireballParticles = isPlayerEvent ? 30 : 20;  // Increased from 15 to 20
+    const maxDebrisParticles = isPlayerEvent ? 40 : 25;    // Increased from 20 to 25 
+    const maxSecondaryParticles = isPlayerEvent ? 20 : 12; // Increased from 10 to 12
     
     // STAGE 1: Initial fireball (bright center, fast expansion)
-    createExplosionCore(position, maxFireballParticles, isLargeExplosion);
+    createExplosionCore(position, maxFireballParticles, isPlayerEvent);
     
     // STAGE 2: Flying debris (with trails)
     setTimeout(() => {
-        if (gameActive) createExplosionDebris(position, maxDebrisParticles, isLargeExplosion);
+        if (gameActive) createExplosionDebris(position, maxDebrisParticles, isPlayerEvent);
     }, 50);
     
     // STAGE 3: Secondary blast wave
     setTimeout(() => {
-        if (gameActive) createExplosionSecondary(position, maxSecondaryParticles, isLargeExplosion);
+        if (gameActive) createExplosionSecondary(position, maxSecondaryParticles, isPlayerEvent);
     }, 150);
     
     // Handle remaining explosion logic - create a scorch mark but NO smoke from explosion directly
@@ -1999,12 +2053,16 @@ function createExplosion(position, isPlayerEvent = false, createGroundScorch = t
         screenShakeIntensity = 3.0; // More intense shake
         playSound('explosion');
     } else {
+        // Add smaller screen shake for enemy explosions too
+        screenShakeTime = 1.0;
+        screenShakeIntensity = 1.5;
         playEnemyExplosionSound(); 
     }
 }
 
 // CORE EXPLOSION - bright expanding fireball
 function createExplosionCore(position, count, isLarge) {
+    // Create the shared texture if it doesn't exist yet
     if (!window.explosionCoreTexture) {
         // Create a better explosion texture with internal structure
         const canvas = document.createElement('canvas');
@@ -2051,7 +2109,8 @@ function createExplosionCore(position, count, isLarge) {
     const geometry = new THREE.PlaneGeometry(1, 1);
     
     for (let i = 0; i < count; i++) {
-        // Create shader material with emissive effect
+        // Create shader material with emissive effect - uses the same advanced shader
+        // for both player and enemy explosions
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 map: { value: window.explosionCoreTexture },
@@ -2095,7 +2154,7 @@ function createExplosionCore(position, count, isLarge) {
         const particle = new THREE.Mesh(geometry, material);
         particle.position.copy(position.clone());
         
-        // Start with smaller size, will expand rapidly
+        // Size still depends on whether it's player or enemy
         const size = isLarge ? 
             THREE.MathUtils.randFloat(3.0, 8.0) : 
             THREE.MathUtils.randFloat(2.0, 6.0);
@@ -3454,25 +3513,127 @@ function onKeyUp(event) {
 }
         
 function handleDeviceOrientation(event) {
-    if (!gameActive) return;
+    if (!gameActive || !isMobile) return;
     
-    // Calculate tilt angles
-    const beta = event.beta;  // x-axis (-180 to 180)
-    const gamma = event.gamma; // y-axis (-90 to 90)
+    // alpha: rotation around z-axis (0-360)
+    // beta: front-back tilt (-180 to 180, front is positive)
+    // gamma: left-right tilt (-90 to 90, right is positive)
+    const alpha = event.alpha || 0;
+    const beta = event.beta || 0;
+    const gamma = event.gamma || 0;
     
-    // Convert to normalized -1 to 1 values with improved responsiveness
-    const normalizedBeta = Math.max(Math.min(beta / 35, 1), -1); // More sensitive (35 instead of 45)
-    const normalizedGamma = Math.max(Math.min(gamma / 35, 1), -1);
-    
-    // Apply controls with filtering to reduce jitter
-    keys.ArrowUp = normalizedBeta < -0.15;     // Slightly more sensitive
-    keys.ArrowDown = normalizedBeta > 0.15;
-    keys.ArrowLeft = normalizedGamma < -0.15;
-    keys.ArrowRight = normalizedGamma > 0.15;
-}
+    // Store initial orientation on first reading if not calibrated
+    if (!window.hasOwnProperty('calibratedOrientation')) {
+        window.calibratedOrientation = {
+            alpha: alpha,
+            beta: beta,
+            gamma: gamma,
+            initialized: true
+        };
         
+        // Create recalibrate button
+        const calibrateBtn = document.createElement('button');
+        calibrateBtn.innerHTML = '🔄 Calibrate';
+        calibrateBtn.style.position = 'absolute';
+        calibrateBtn.style.bottom = '10px';
+        calibrateBtn.style.left = '10px';
+        calibrateBtn.style.padding = '8px 12px';
+        calibrateBtn.style.fontSize = '14px';
+        calibrateBtn.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        calibrateBtn.style.color = 'white';
+        calibrateBtn.style.border = 'none';
+        calibrateBtn.style.borderRadius = '5px';
+        calibrateBtn.style.zIndex = '2000';
+        
+        calibrateBtn.addEventListener('click', function() {
+            // Recalibrate based on current orientation
+            window.calibratedOrientation = {
+                alpha: alpha,
+                beta: beta,
+                gamma: gamma,
+                initialized: true
+            };
+            
+            // Show feedback
+            const feedback = document.createElement('div');
+            feedback.textContent = 'Controls Calibrated!';
+            feedback.style.position = 'absolute';
+            feedback.style.top = '50%';
+            feedback.style.left = '50%';
+            feedback.style.transform = 'translate(-50%, -50%)';
+            feedback.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            feedback.style.color = 'white';
+            feedback.style.padding = '10px 20px';
+            feedback.style.borderRadius = '5px';
+            feedback.style.zIndex = '2001';
+            document.body.appendChild(feedback);
+            
+            setTimeout(() => {
+                document.body.removeChild(feedback);
+            }, 2000);
+        });
+        
+        document.body.appendChild(calibrateBtn);
+    }
     
-        function updateMissile(delta) {
+    // Calculate relative orientation based on calibrated values
+    const relBeta = beta - window.calibratedOrientation.beta;
+    const relGamma = gamma - window.calibratedOrientation.gamma;
+    
+    // Map the orientation to missile controls:
+    
+    // 1. Left/Right turns (gamma)
+    // When device is tilted left/right, turn missile
+    // -30 to +30 degrees for full turn
+    const yawInput = clamp(relGamma / 30, -1, 1);
+    
+    // 2. Up/Down controls (beta)
+    // Device facing up = missile down, device facing down = missile up
+    // We want neutral to be perpendicular to ground (beta = 90)
+    const pitchOffset = 90 - beta;
+    const pitchInput = clamp(pitchOffset / 30, -1, 1);
+    
+    // Apply to missile controls
+    keys.ArrowLeft = yawInput < -0.15;
+    keys.ArrowRight = yawInput > 0.15;
+    keys.ArrowUp = pitchInput > 0.15;
+    keys.ArrowDown = pitchInput < -0.15;
+    
+    // For more precise analog controls, store the actual values too
+    missile.userData.mobileControls = {
+        yawInput: yawInput,
+        pitchInput: pitchInput
+    };
+}
+
+// Helper function to clamp values
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+// Update the updateMissile function to use analog controls on mobile
+function updateMissileForMobile() {
+    // Add this code in your updateMissile function
+    
+    // Get input values - on mobile, use analog values for smoother control
+    let pitchInput, yawInput;
+    
+    if (isMobile && missile.userData.mobileControls) {
+        // Use analog values from mobile
+        pitchInput = -missile.userData.mobileControls.pitchInput;
+        yawInput = missile.userData.mobileControls.yawInput;
+    } else {
+        // Use keyboard controls (digital)
+        pitchInput = (keys.ArrowUp ? -1 : 0) + (keys.ArrowDown ? 1 : 0);
+        yawInput = (keys.ArrowLeft ? 1 : 0) + (keys.ArrowRight ? -1 : 0);
+    }
+    
+    // Apply to turn velocity with damping
+    turnVelocity.x = turnVelocity.x * damping + (pitchInput * turnSpeed) * (1 - damping);
+    turnVelocity.y = turnVelocity.y * damping + (yawInput * turnSpeed) * (1 - damping);
+}
+    
+    function updateMissile(delta) {
     if (!gameActive) return;
 
     const dt = delta;
@@ -4650,7 +4811,9 @@ function handleLaunchAnimation(delta) {
 function handleResetDelay(delta) {
     // While waiting to reset, keep camera focused on explosion
     resetDelay -= delta;
+    
     if (cameraTarget) {
+        // Keep camera focused on explosion point without moving
         camera.position.lerp(new THREE.Vector3(
             cameraTarget.x + 10,
             cameraTarget.y + 15,
@@ -4674,13 +4837,25 @@ function handleResetDelay(delta) {
         resetMissile();
         cameraTarget = null;
         
-        // Set smoothed look values to help with transition
+        // SKIP the launch animation - go directly to normal flight
+        launchAnimation = false;
+        
+        // Position camera directly behind missile with proper offset
+        const targetCameraPos = missile.position.clone().sub(
+            missileDirection.clone().multiplyScalar(cameraOffset.z)
+        );
+        targetCameraPos.y += cameraOffset.y;
+        
+        // Set camera position and look target immediately
+        camera.position.copy(targetCameraPos);
+        camera.lookAt(missile.position);
+        
+        // Update smoothed positions to prevent any lingering interpolation
         smoothedCameraPosition.copy(camera.position);
         smoothedCameraLookAt.copy(missile.position);
         
-        // Restart the launch animation when resetting
-        launchAnimation = true;
-        launchAnimationTime = 0;
+        // Set velocity to base value
+        velocity = baseVelocity;
 
         playSound('missile2');
     }
