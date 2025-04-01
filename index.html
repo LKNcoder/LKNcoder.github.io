@@ -228,7 +228,7 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1; // Track current level
+let currentLevel = 4; // Track current level
 let levelTimes = []; // Array to store completion times for each level
 
 
@@ -870,7 +870,7 @@ async function loadMonthLevels(monthId) {
 
 function resetGameForNewMonth() {
   // Reset game state for the new month
-  currentLevel = 1;
+  currentLevel = 4;
   levelTimes = [];
   startTime = null;
   elapsedTime = 0;
@@ -2235,6 +2235,10 @@ grabbingController = null;
 // restart Game 
 function restartGame() {
   levelCompleted = false;
+
+  // Add collision immunity during transition
+  transitionImmunity = true;
+
   // Clean up game completion meshes
   gameCompletionMeshes.forEach(mesh => {
     scene.remove(mesh);
@@ -2252,15 +2256,23 @@ function restartGame() {
   startTime = null;
   elapsedTime = 0;
   
-  // Show ring and reset position
+  // remove old wire before positioning ring
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+  }
+  
+  // Reset game state
   gameCompleted = false;
-  ring.position.copy(ringStartPosition);
-  ring.rotation.set(0, Math.PI / 2, 0);
-  ring.visible = true;
   
   // Create new wire for level 1
   wire = createWire(currentLevel);
   wire.visible = true;
+
+  // Now position ring (after wire is created)
+  ring.position.copy(ringStartPosition);
+  ring.rotation.set(0, Math.PI / 2, 0);
+  ring.visible = true;
   
    // Update level text and timer
    updateLevelText();
@@ -2268,6 +2280,11 @@ function restartGame() {
   
   // Play chime sound to indicate restart
   chimeSound.play().catch(error => console.log('Sound play error:', error));
+
+  // Remove immunity after a short delay
+  setTimeout(() => {
+    transitionImmunity = false;
+  }, 300);
 }
 
 // clean up game scene
