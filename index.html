@@ -775,20 +775,28 @@ async function loadMonthLevels(monthId) {
         }
       }
       
+        // Only proceed if we actually found levels
+    if (levelsArray.length > 0) {
       // Cache the month data
       cachedMonths[monthId] = levelsArray;
       monthlyLevels = levelsArray;
       console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
       return;
     }
-  } catch (error) {
-    console.log(`No data found for ${monthId}:`, error);
   }
   
-  console.error(`No levels found for month ${monthId}`);
-  monthlyLevels = [];
+  // If we reach here, no valid levels were found
+  console.error(`No levels found for month ${monthId}, falling back to March 2025`);
+  monthlyLevels = []; // Clear any existing levels
+  await loadMonthLevels("2025-03"); // Fall back to March 2025
+  
+} catch (error) {
+  console.error(`Error loading data for ${monthId}:`, error);
+  console.log(`Falling back to March 2025`);
+  monthlyLevels = []; // Clear any existing levels
+  await loadMonthLevels("2025-03"); // Fall back to March 2025
 }
-
+}
 
 
 function resetGameForNewMonth() {
