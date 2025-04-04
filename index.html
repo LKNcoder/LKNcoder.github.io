@@ -6691,7 +6691,189 @@ function handleResetDelay(delta) {
         }
     }
 }
+
+// Mobile UI fix that overrides everything else
+(function() {
+  // Only run on mobile devices
+  if (!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) return;
+  
+  console.log("Applying emergency mobile UI fix");
+  
+  // Force viewport settings
+  let meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'viewport';
+    document.head.appendChild(meta);
+  }
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+  
+  // Create style element with !important flags to override everything
+  const style = document.createElement('style');
+  style.innerHTML = `
+    /* Force full screen */
+    body, html {
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+      position: fixed !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    
+    /* HUD */
+    #hud {
+      left: 5px !important;
+      top: 5px !important;
+      transform: scale(0.7) !important;
+      transform-origin: top left !important;
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid #ff3333 !important;
+      z-index: 1000 !important;
+      width: 120px !important;
+      padding: 5px !important;
+    }
+    
+    .meters-container {
+      gap: 15px !important;
+      width: 110px !important;
+    }
+    
+    .meter-group {
+      width: 40px !important;
+    }
+    
+    .vertical-meter-container {
+      height: 150px !important;
+    }
+    
+    .meter-value {
+      font-size: 16px !important;
+    }
+    
+    /* Minimap */
+    #minimap {
+      bottom: 5px !important;
+      left: 5px !important;
+      width: 120px !important;
+      height: 120px !important;
+      transform: scale(1) !important;
+      transform-origin: bottom left !important;
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid #ff3333 !important;
+      z-index: 900 !important;
+    }
+    
+    /* Leaderboard */
+    #leaderboard {
+      top: 5px !important;
+      right: 5px !important;
+      width: 140px !important;
+      transform: scale(0.7) !important;
+      transform-origin: top right !important;
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid #ff3333 !important;
+      font-size: 10px !important;
+      padding: 5px !important;
+      z-index: 800 !important;
+    }
+    
+    .leaderboard-table {
+      font-size: 10px !important;
+      width: 130px !important;
+    }
+    
+    .leaderboard-table th, .leaderboard-table td {
+      padding: 2px !important;
+    }
+    
+    /* Controls overlay */
+    #controlsOverlay {
+      font-size: 12px !important;
+      padding: 5px !important;
+      bottom: auto !important;
+      top: 50% !important;
+      background-color: rgba(0, 0, 0, 0.6) !important;
+      border-radius: 5px !important;
+      z-index: 2000 !important;
+    }
+    
+    /* Game over screen */
+    #gameOverScreen {
+      width: 80% !important;
+      max-width: 250px !important;
+      padding: 15px !important;
+    }
+    
+    #gameOverScreen h2 {
+      font-size: 24px !important;
+    }
+    
+    button {
+      min-height: 44px !important;
+      min-width: 44px !important;
+    }
+    
+    /* Vibe Jam link */
+    [href="https://jam.pieter.com"] {
+      font-size: 10px !important;
+      padding: 3px !important;
+      z-index: 9999 !important;
+    }
+  `;
+  
+  // Add the style to the document
+  document.head.appendChild(style);
+  
+  // Resize minimap renderer if it exists
+  if (window.minimapRenderer) {
+    window.minimapRenderer.setSize(120, 120);
+  }
+  
+  // Force renderer pixel ratio to improve performance
+  if (window.renderer) {
+    window.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+  }
+  
+  // Create a status message that will disappear
+  const statusMsg = document.createElement('div');
+  statusMsg.style.position = 'absolute';
+  statusMsg.style.top = '50%';
+  statusMsg.style.left = '50%';
+  statusMsg.style.transform = 'translate(-50%, -50%)';
+  statusMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  statusMsg.style.color = 'white';
+  statusMsg.style.padding = '10px';
+  statusMsg.style.borderRadius = '5px';
+  statusMsg.style.zIndex = '10000';
+  statusMsg.style.fontSize = '12px';
+  statusMsg.textContent = 'Mobile UI Fixed';
+  document.body.appendChild(statusMsg);
+  
+  // Remove message after 2 seconds
+  setTimeout(() => {
+    statusMsg.style.transition = 'opacity 1s';
+    statusMsg.style.opacity = '0';
+    setTimeout(() => document.body.removeChild(statusMsg), 1000);
+  }, 2000);
+  
+  // Force redraw of critical elements
+  ['hud', 'minimap', 'leaderboard'].forEach(id => {
+    const elem = document.getElementById(id);
+    if (elem) {
+      elem.style.display = 'none';
+      setTimeout(() => { elem.style.display = 'block'; }, 50);
+    }
+  });
+})();
+
     </script>
+
+    
 </body>
 </html>
