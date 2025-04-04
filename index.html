@@ -447,6 +447,7 @@
         const FIREBASE_SYNC_INTERVAL = 10; // Sync every 10 seconds
         let smokeTimer = 0;
         let gameEndCheckTimer = 0;
+        let playerSmokeTimer = 0;
         const GAME_END_CHECK_INTERVAL = 2.0;
         const obstacleCheckDistance = 50;
         const pathfindingUpdateRate = 0.2;
@@ -2876,16 +2877,16 @@ function createExplosion(position, isPlayerEvent = false, createGroundScorch = t
     const maxSecondaryParticles = isPlayerEvent ? 20 : 12; // Increased from 10 to 12
     
     // STAGE 1: Initial fireball (bright center, fast expansion)
-    createExplosionCore(position, maxFireballParticles, isPlayerEvent);
+    createExplosionCore(position, maxFireballParticles, true);
     
     // STAGE 2: Flying debris (with trails)
     setTimeout(() => {
-        if (gameActive) createExplosionDebris(position, maxDebrisParticles, isPlayerEvent);
+        if (gameActive) createExplosionDebris(position, maxDebrisParticles, true);
     }, 50);
     
     // STAGE 3: Secondary blast wave
     setTimeout(() => {
-        if (gameActive) createExplosionSecondary(position, maxSecondaryParticles, isPlayerEvent);
+        if (gameActive) createExplosionSecondary(position, maxSecondaryParticles, true);
     }, 150);
     
     // Handle remaining explosion logic - create a scorch mark but NO smoke from explosion directly
@@ -2955,12 +2956,12 @@ function createExplosionCore(position, count, isLarge) {
     const geometry = new THREE.PlaneGeometry(1, 1);
     
     for (let i = 0; i < count; i++) {
-        // Create shader material with emissive effect - uses the same advanced shader
-        // for both player and enemy explosions
+        // Create shader material with emissive effect
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 map: { value: window.explosionCoreTexture },
-                color: { value: new THREE.Color(0xffbb44) }, // Base orange color
+                // Brighter color for enemy explosions to make them more visible
+                color: { value: new THREE.Color(isLarge ? 0xffbb44 : 0xffcc55) }, 
                 time: { value: 0.0 }
             },
             vertexShader: `
@@ -3000,17 +3001,18 @@ function createExplosionCore(position, count, isLarge) {
         const particle = new THREE.Mesh(geometry, material);
         particle.position.copy(position.clone());
         
+        // Make enemy explosion fireballs slightly larger to be more visible
         // Size still depends on whether it's player or enemy
         const size = isLarge ? 
             THREE.MathUtils.randFloat(3.0, 8.0) : 
-            THREE.MathUtils.randFloat(2.0, 6.0);
+            THREE.MathUtils.randFloat(2.5, 7.0); // Increased size for enemy fireballs
             
         particle.scale.set(size, size, 1);
         
         // Randomized outward velocity but keep particles closer to center
         const angle = Math.random() * Math.PI * 2;
         const elevation = (Math.random() * Math.PI - Math.PI/2) * 0.6; // Biased toward horizontal
-        const speed = THREE.MathUtils.randFloat(8, 20); // Slower initial speed for longer effect
+        const speed = THREE.MathUtils.randFloat(8, isLarge ? 20 : 18); // Slightly slower for enemy missiles
         
         const velocity = new THREE.Vector3(
             Math.cos(angle) * Math.cos(elevation) * speed,
@@ -3018,18 +3020,23 @@ function createExplosionCore(position, count, isLarge) {
             Math.sin(angle) * Math.cos(elevation) * speed
         );
         
+        // Slightly longer lifetime for enemy fireballs to make them more noticeable
+        const lifetime = isLarge ? 
+            THREE.MathUtils.randFloat(0.8, 1.6) :
+            THREE.MathUtils.randFloat(1.0, 1.8); // Increased lifetime
+            
         // Make fireball grow rapidly at first, then fade
         particle.userData = {
-            life: THREE.MathUtils.randFloat(0.8, 1.6), // Longer life
-            maxLife: THREE.MathUtils.randFloat(0.8, 1.6),
+            life: lifetime,
+            maxLife: lifetime,
             velocity: velocity,
             isBillboard: true,
             isFireball: true,
             growthPhase: true,
             growthTime: THREE.MathUtils.randFloat(0.3, 0.5), // Time spent growing
-            maxGrowth: isLarge ? THREE.MathUtils.randFloat(1.8, 2.5) : THREE.MathUtils.randFloat(1.6, 2.2),
+            maxGrowth: isLarge ? THREE.MathUtils.randFloat(1.8, 2.5) : THREE.MathUtils.randFloat(1.7, 2.3), // Increased enemy growth
             initialScale: size,
-            acceleration: new THREE.Vector3(0, isLarge ? 2 : 1, 0) // Slight upward acceleration
+            acceleration: new THREE.Vector3(0, isLarge ? 2 : 1.5, 0) // Increased upward acceleration
         };
         
         scene.add(particle);
@@ -4252,7 +4259,48 @@ function handleCrash(impactPoint, createGroundScorch = true) {
     finishFlight();
 }
 
+function createPlayerMissileSmoke() {
+    // Skip if we're at particle limit
+    if (smokeParticles.length > MAX_SMOKE_PARTICLES * 0.9) return;
     
+    const smokeSize = isAccelerating ? 0.5 : 0.3;
+    const smokeGeometry = new THREE.SphereGeometry(smokeSize, 8, 8);
+    
+    // Use consistent gray color for smoke (matching enemy missiles)
+    const smokeMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x555555,  // Gray color matching enemy missiles
+        transparent: true,
+        opacity: isAccelerating ? 0.6 : 0.4,
+        depthWrite: false
+    });
+    
+    const smoke = new THREE.Mesh(smokeGeometry, smokeMaterial);
+    
+    // Position behind missile
+    const missileBackVector = missileDirection.clone().negate();
+    smoke.position.copy(missile.position)
+        .add(missileBackVector.multiplyScalar(4.5))
+        .add(new THREE.Vector3(
+            THREE.MathUtils.randFloatSpread(0.3),
+            THREE.MathUtils.randFloatSpread(0.3),
+            THREE.MathUtils.randFloatSpread(0.3)
+        ));
+    
+    // Smoke behavior - more dynamic when accelerating
+    smoke.userData = {
+        life: isAccelerating ? 1.2 : 0.8,
+        maxLife: isAccelerating ? 1.2 : 0.8,
+        growRate: isAccelerating ? 1.04 : 1.02,
+        velocity: new THREE.Vector3(
+            THREE.MathUtils.randFloatSpread(0.05),
+            THREE.MathUtils.randFloat(isAccelerating ? 0.05 : 0.02, isAccelerating ? 0.15 : 0.08),
+            THREE.MathUtils.randFloatSpread(0.05)
+        )
+    };
+    
+    scene.add(smoke);
+    smokeParticles.push(smoke);
+}
     
 
 
@@ -4294,7 +4342,7 @@ function cleanupScorchMarks() {
             avgFlightTime = sum / flightTimes.length;
         }
         
-        function showGameOver() {
+    function showGameOver() {
     console.log("Showing game over screen!");
     
     // Make sure the game is inactive during transition
@@ -4318,10 +4366,12 @@ function cleanupScorchMarks() {
         // Single winner (with our new code there should always be just one winner)
         const winner = winners[0];
         const isPlayer = winner.id === playerStats.id;
-        const tpm = winner.tpm || calculateTPM(
-    winner.targetsDestroyed, 
-    Math.max(winner.totalPlayTimeSeconds || 0, 1)
-);
+        
+        // Calculate round duration in seconds - use a sensible default for very short rounds
+        const roundDurationInSeconds = Math.max(10, elapsedTime / 1000);
+        
+        // Calculate TPM based on round duration, not the tracked time which may be incorrect
+        const tpm = (winner.targetsDestroyed / (roundDurationInSeconds / 60));
         const formattedTpm = tpm.toFixed(2);
         
         winnerText = `
@@ -4650,6 +4700,18 @@ function updateMissileForMobile() {
         velocity = Math.min(velocity + acceleration * dt, maxVelocity);
     } else {
         velocity = Math.max(velocity - acceleration * dt * 0.6, baseVelocity);
+    }
+
+    // Update smoke trail with variable rate based on acceleration
+    playerSmokeTimer -= delta;
+    if (playerSmokeTimer <= 0) {
+        // Emit smoke more frequently when accelerating
+        playerSmokeTimer = isAccelerating ? 0.03 : 0.06;
+        
+        // Only create smoke if missile is visible and game is active
+        if (missile.visible && gameActive && !launchAnimation && resetDelay <= 0) {
+            createPlayerMissileSmoke();
+        }
     }
     
     // Get input values
@@ -5088,7 +5150,8 @@ function createEnemyMissile() {
     // Assign a specific pilot to this missile
     const pilotIndex = Math.floor(Math.random() * enemyPilotStats.length);
     const pilot = enemyPilotStats[pilotIndex];
-    
+
+        
     // Use pilot's color if available
     const missileColor = pilot.color || new THREE.Color(
         0.3 + Math.random() * 0.7, 
@@ -5182,31 +5245,42 @@ function createEnemyMissile() {
     // Deeper targets and more skilled pilots will use more advanced techniques
     const distanceToTarget = spawnPosition.distanceTo(targetPosition);
     const useAdvancedNavigation = distanceToTarget > citySize * 0.4 || Math.random() < 0.7;
-    const preferHighAltitude = Math.random() < 0.6; // 60% prefer high altitude approach
-    
+        
     // Calculate piloting skill - better pilots use more evasive maneuvers
     const pilotSkillLevel = 0.5 + Math.random() * 0.5; // 0.5 to 1.0
+    const isAggressive = Math.random() < 0.7; // 70% chance to be aggressive
+    const preferHighAltitude = Math.random() < 0.4; // Reduced from 0.6 - fewer missiles taking the high path
     
     // Save properties with enhanced navigation data
     enemyMissile.userData = {
         direction: direction,
         originalDirection: direction.clone(), // Store for return to course
-        speed: THREE.MathUtils.randFloat(0.4, 0.8),
+        speedModifiers: {
+            direct: 1.0,
+            climbing: 0.9,
+            diving: 1.3, // Faster when diving
+            weaving: 1.1 // Slightly faster when weaving
+        },
         smokeTimer: 0,
         pathfindingTimer: 0,
         targetPosition: targetPosition,
         targetBuilding: targetBuilding,
-        guidanceAccuracy: THREE.MathUtils.randFloat(0.85, 0.98),
+        guidanceAccuracy: THREE.MathUtils.randFloat(0.9, 0.98),
         pilotId: pilot.id,
         pilotName: pilot.name,
         // Enhanced navigation properties
-        useAdvancedNavigation: useAdvancedNavigation,
+        useAdvancedNavigation: true,
         preferHighAltitude: preferHighAltitude,
         pilotSkillLevel: pilotSkillLevel,
+        isAggressive: isAggressive,
         navigationState: 'direct', // Options: 'direct', 'climbing', 'diving', 'weaving'
         obstacleAvoidanceVector: null,
+        reactionTime: 0.3 - (pilotSkillLevel * 0.2),
         weaveDirection: Math.random() > 0.5 ? 1 : -1, // Random initial weave direction
-        idealAltitude: Math.random() * 100 + 120 // Random altitude between 120-220
+        idealAltitude: Math.random() * 80 + 100, // Random altitude between 120-220
+        hasPlannedPath: false,
+        pathPoints: [],
+        currentPathIndex: 0
     };
     
     // Align missile with direction
@@ -5320,7 +5394,7 @@ function updateEnemyMissiles(delta) {
             // Remove if lifetime expired
             if (enemyMissile.userData.lifetime <= 0) {
                 // Create explosion at current position
-                createExplosion(enemyMissile.position.clone(), false);
+                createExplosion(enemyMissile.position.clone(), true);
                 
                 // Remove from scene and array
                 scene.remove(enemyMissile);
@@ -5333,7 +5407,7 @@ function updateEnemyMissiles(delta) {
         // Check ground collision
         if (enemyMissile.position.y < 0.5) {
             // Create explosion at impact
-            createExplosion(enemyMissile.position.clone(), false);
+            createExplosion(enemyMissile.position.clone(), true);
             createScorchMark(enemyMissile.position.clone());
             
             // Remove missile
@@ -5367,7 +5441,7 @@ function updateEnemyMissiles(delta) {
                     enemyMissile.position.y,
                     enemyMissile.position.z
                 );
-                createExplosion(impactPoint, false, false);
+                createExplosion(impactPoint, true, false);
                 
                 // If it's a target building, destroy it using the dedicated handler function
                 if (building.userData.isTarget) {
@@ -5402,7 +5476,7 @@ function updateEnemyMissiles(delta) {
         // Check collision with player missile
         if (missile.visible && missile.position.distanceTo(enemyMissile.position) < 3) {
             // Create explosion at impact
-            createExplosion(enemyMissile.position.clone(), false);
+            createExplosion(enemyMissile.position.clone(), true);
             
             // Remove enemy missile
             scene.remove(enemyMissile);
@@ -5426,83 +5500,167 @@ function updateEnemyMissiles(delta) {
 
 // New function to handle advanced navigation for enemy missiles
 function updateMissileNavigation(enemyMissile, raycaster) {
-    if (!enemyMissile.userData.useAdvancedNavigation) return;
+    if (!enemyMissile.userData) return;
     
-    // Check if we're close to target - if so, switch to direct approach
+    // NEW: Apply appropriate speed modifier based on navigation state
+    const speedModifiers = enemyMissile.userData.speedModifiers || { direct: 1.0, climbing: 0.9, diving: 1.3, weaving: 1.1 };
+    const navState = enemyMissile.userData.navigationState || 'direct';
+    enemyMissile.userData.speed = (enemyMissile.userData.baseSpeed || 1.0) * (speedModifiers[navState] || 1.0);
+    
+    // Close to target - switch to direct aggressive approach
     const distanceToTarget = enemyMissile.position.distanceTo(enemyMissile.userData.targetPosition);
-    if (distanceToTarget < 30) {
+    if (distanceToTarget < 50) { // Increased from 30 to be more aggressive earlier
         enemyMissile.userData.navigationState = 'direct';
         
-        // Calculate direction to target
-        const toTarget = new THREE.Vector3().subVectors(
-            enemyMissile.userData.targetPosition,
-            enemyMissile.position
-        ).normalize();
-        
-        // Gradually adjust direction toward target
-        enemyMissile.userData.direction.lerp(toTarget, 0.2).normalize();
+        if (distanceToTarget < 30 && enemyMissile.position.y > enemyMissile.userData.targetPosition.y + 15) {
+            // Close and above target - dive attack!
+            enemyMissile.userData.navigationState = 'diving';
+            
+            // Calculate steeper diving angle
+            const toTarget = new THREE.Vector3().subVectors(
+                enemyMissile.userData.targetPosition,
+                enemyMissile.position
+            ).normalize();
+            
+            // More aggressive dive angle based on skill
+            const diveIntensity = 0.3 + (enemyMissile.userData.pilotSkillLevel * 0.3);
+            enemyMissile.userData.direction.lerp(toTarget, diveIntensity).normalize();
+        } else {
+            // Direct approach with higher responsiveness
+            const toTarget = new THREE.Vector3().subVectors(
+                enemyMissile.userData.targetPosition,
+                enemyMissile.position
+            ).normalize();
+            
+            // CHANGED: More responsive turning based on skill
+            const turnRate = 0.2 + (enemyMissile.userData.pilotSkillLevel * 0.2); // 0.2-0.4
+            enemyMissile.userData.direction.lerp(toTarget, turnRate).normalize();
+        }
         return;
     }
     
-    // Set up raycaster to detect obstacles ahead
+    // Set up raycaster with longer distance for earlier obstacle detection
     raycaster.set(
         enemyMissile.position.clone(),
         enemyMissile.userData.direction.clone()
     );
-    raycaster.far = obstacleCheckDistance;
+    raycaster.far = obstacleCheckDistance * 1.5; // Look further ahead
     
     // Check for intersections with buildings
     const intersects = raycaster.intersectObjects(buildings);
     
     if (intersects.length > 0) {
-        // Obstacle detected! Choose avoidance strategy
-        
-        // Check current altitude
-        const currentAltitude = enemyMissile.position.y;
+        // Obstacle detected!
         const obstacleDistance = intersects[0].distance;
         const obstacleHeight = intersects[0].object.position.y + intersects[0].object.userData.height;
+        const currentAltitude = enemyMissile.position.y;
         
-        // Decide strategy based on pilot preference and current situation
-        if (enemyMissile.userData.preferHighAltitude && 
-            (currentAltitude < enemyMissile.userData.idealAltitude || 
-             obstacleHeight + 30 > currentAltitude)) {
+        // IMPROVED: More intelligent obstacle avoidance strategy
+        // Get missile skill and approach preference
+        const isAggressive = enemyMissile.userData.isAggressive;
+        const skillLevel = enemyMissile.userData.pilotSkillLevel;
+        const preferHighAltitude = enemyMissile.userData.preferHighAltitude;
+        
+        // Check for easy over-the-top path
+        const canClimbOver = currentAltitude + 30 > obstacleHeight || obstacleHeight < 80;
+        
+        // Check if we're high enough to simply dive
+        const isHighEnough = currentAltitude > obstacleHeight + 40;
+        
+        // Aggressive missiles try to dive or weave more often
+        if (isHighEnough && (isAggressive || Math.random() < 0.7)) {
+            // We're high enough to dive over/through
+            enemyMissile.userData.navigationState = 'diving';
+            
+            // Calculate more aggressive diving angle
+            const toTarget = new THREE.Vector3().subVectors(
+                enemyMissile.userData.targetPosition,
+                enemyMissile.position
+            ).normalize();
+            
+            // Aggressive missiles dive more directly
+            const diveRate = isAggressive ? 0.3 : 0.2;
+            enemyMissile.userData.direction.lerp(toTarget, diveRate).normalize();
+        }
+        // High-preference missiles or if obstacle is tall, climb
+        else if (preferHighAltitude || !canClimbOver || Math.random() < 0.4) {
             // Choose climbing strategy
             enemyMissile.userData.navigationState = 'climbing';
-        }
-        else if (currentAltitude > obstacleHeight + 50) {
-            // We're high enough to dive toward target
-            enemyMissile.userData.navigationState = 'diving';
+            
+            // More aggressive climb rate based on skill and obstacle height
+            const heightNeeded = Math.max(20, obstacleHeight - currentAltitude + 30);
+            const climbFactor = Math.min(0.8, heightNeeded / 100);
+            
+            // Update direction with more vertical component
+            enemyMissile.userData.direction.y = Math.min(
+                enemyMissile.userData.direction.y + climbFactor,
+                0.9
+            );
+            enemyMissile.userData.direction.normalize();
         }
         else {
-            // Choose weaving strategy - calculate avoidance vector
+            // Choose weaving strategy with more intelligent vector calculation
+            enemyMissile.userData.navigationState = 'weaving';
+            
+            // Get obstacle position and calculate better avoidance vector
             const obstaclePos = intersects[0].object.position.clone();
-            const missileToObstacle = obstaclePos.sub(enemyMissile.position).normalize();
+            
+            // Calculate distance to obstacle center in xz plane
+            const missilePos2D = new THREE.Vector2(enemyMissile.position.x, enemyMissile.position.z);
+            const obstaclePos2D = new THREE.Vector2(obstaclePos.x, obstaclePos.z);
+            const dist2D = missilePos2D.distanceTo(obstaclePos2D);
+            
+            // Determine if we should go left/right based on target position
+            const targetPos2D = new THREE.Vector2(
+                enemyMissile.userData.targetPosition.x,
+                enemyMissile.userData.targetPosition.z
+            );
+            
+            // Calculate vectors to determine optimal direction
+            const vecToObstacle = new THREE.Vector2().subVectors(obstaclePos2D, missilePos2D).normalize();
+            const vecToTarget = new THREE.Vector2().subVectors(targetPos2D, missilePos2D).normalize();
+            
+            // Cross product in 2D to determine which side of obstacle target is on
+            const cross2D = vecToObstacle.x * vecToTarget.y - vecToObstacle.y * vecToTarget.x;
+            
+            // Choose direction based on cross product and add randomness for unpredictability
+            enemyMissile.userData.weaveDirection = (cross2D > 0) ? 1 : -1;
+            if (Math.random() < 0.2) enemyMissile.userData.weaveDirection *= -1; // 20% chance to do the opposite
             
             // Create perpendicular vector for weaving
-            // Use cross product with up vector for horizontal weaving
+            const missileToObstacle = obstaclePos.sub(enemyMissile.position).normalize();
             const weaveVector = new THREE.Vector3();
             weaveVector.crossVectors(missileToObstacle, new THREE.Vector3(0, 1, 0))
                 .normalize()
                 .multiplyScalar(enemyMissile.userData.weaveDirection);
                 
             // Add slight upward component to avoid terrain
-            weaveVector.y = 0.2;
+            weaveVector.y = 0.3; // More upward component (was 0.2)
             weaveVector.normalize();
             
             // Store avoidance vector
             enemyMissile.userData.obstacleAvoidanceVector = weaveVector;
-            enemyMissile.userData.navigationState = 'weaving';
+            
+            // More aggressive pilots weave more sharply
+            const weaveSharpness = 0.15 + (skillLevel * 0.15); // 0.15-0.3
+            enemyMissile.userData.direction.lerp(weaveVector, weaveSharpness).normalize();
         }
     }
     else {
-        // No obstacles ahead, check if we should return to direct path
+        // No obstacles ahead - optimize path
         
-        // If we're weaving, occasionally switch weave direction
-        if (enemyMissile.userData.navigationState === 'weaving' && Math.random() < 0.1) {
-            enemyMissile.userData.weaveDirection *= -1;
+        // If we're weaving, occasionally switch weave direction or return to direct
+        if (enemyMissile.userData.navigationState === 'weaving') {
+            if (Math.random() < 0.15) { // Increased from 0.1
+                enemyMissile.userData.weaveDirection *= -1;
+            }
+            
+            if (Math.random() < 0.2) { // 20% chance to return to direct after successful weave
+                enemyMissile.userData.navigationState = 'direct';
+            }
         }
         
-        // If we're climbing and reached ideal altitude, return to direct
+        // If we're climbing and reached target altitude, return to direct
         if (enemyMissile.userData.navigationState === 'climbing' && 
             enemyMissile.position.y >= enemyMissile.userData.idealAltitude) {
             enemyMissile.userData.navigationState = 'direct';
@@ -5514,22 +5672,21 @@ function updateMissileNavigation(enemyMissile, raycaster) {
             enemyMissile.userData.navigationState = 'direct';
         }
         
-        // Gradually return to direct path if no obstacles
-        if (Math.random() < 0.1) {
+        // Periodically adjust course toward target
+        if (Math.random() < 0.2) { // Increased from 0.1
             // Calculate direction to target
             const toTarget = new THREE.Vector3().subVectors(
                 enemyMissile.userData.targetPosition,
                 enemyMissile.position
             ).normalize();
             
+            // More aggressive course correction based on skill and state
+            const correctionRate = enemyMissile.userData.isAggressive ? 
+                0.2 + (enemyMissile.userData.pilotSkillLevel * 0.2) : // 0.2-0.4 for aggressive
+                0.1 + (enemyMissile.userData.pilotSkillLevel * 0.1);  // 0.1-0.2 for cautious
+                
             // Gradually adjust direction toward target
-            enemyMissile.userData.direction.lerp(toTarget, 0.1).normalize();
-            
-            // 10% chance to return to direct navigation if we're not climbing/diving
-            if (enemyMissile.userData.navigationState !== 'climbing' && 
-                enemyMissile.userData.navigationState !== 'diving') {
-                enemyMissile.userData.navigationState = 'direct';
-            }
+            enemyMissile.userData.direction.lerp(toTarget, correctionRate).normalize();
         }
     }
 }
@@ -5617,14 +5774,16 @@ function determineRoundWinner() {
         return [winner];
     }
     
+     // Calculate round duration in seconds
+     const roundDurationInSeconds = Math.max(10, elapsedTime / 1000);
+    
     // If there are multiple pilots tied for first place, use TPM as a tiebreaker
-    // Sort tied pilots by TPM (highest first - fastest pilot wins)
     tiedPilots.sort((a, b) => {
-    // Calculate TPM if not already set
-    const aTpm = a.tpm || calculateTPM(a.targetsDestroyed, Math.max(a.totalPlayTimeSeconds || 0, 1));
-    const bTpm = b.tpm || calculateTPM(b.targetsDestroyed, Math.max(b.totalPlayTimeSeconds || 0, 1));
-    return bTpm - aTpm; // Higher TPM (faster pilot) comes first
-});
+        // Calculate TPM using the same round duration for both pilots
+        const aTpm = a.targetsDestroyed / (roundDurationInSeconds / 60);
+        const bTpm = b.targetsDestroyed / (roundDurationInSeconds / 60);
+        return bTpm - aTpm; // Higher TPM (faster pilot) comes first
+    });
     
     // The winner is the fastest pilot (highest TPM)
     const winner = tiedPilots[0];
@@ -6158,6 +6317,10 @@ function checkGameEndConditions() {
 
 function animate(currentTime) {
     animationFrameId = requestAnimationFrame(animate);
+
+    if (gameActive) {
+        elapsedTime = Date.now() - startTime;
+    }
         
     // First frame initialization
     if (!lastTime) {
