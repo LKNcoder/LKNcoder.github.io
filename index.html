@@ -452,10 +452,10 @@
         const obstacleCheckDistance = 50;
         const pathfindingUpdateRate = 0.2;
 
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        const MAX_SMOKE_PARTICLES = isMobile ? 3000 : 10000; 
-        const MAX_EXPLOSION_PARTICLES = isMobile ? 5000 : 20000;
+        
+        const MAX_SMOKE_PARTICLES = 10000; 
+        const MAX_EXPLOSION_PARTICLES = 20000;
 
         const tempVector1 = new THREE.Vector3();
         const tempVector2 = new THREE.Vector3();
@@ -697,149 +697,8 @@ function toggleMute() {
 }
 
 // Track selected missile color
-let selectedMissileColor = "#ff3333"; // Default red color
+let selectedMissileColor = "#5c5c5c"; // Default red color
 
-// Initialize color picker
-function initColorPicker() {
-    const colors = [
-        // Reds
-        // Reds
-        "#ff0000", "#ff3333", "#ff6666", "#cc0000", 
-        // Oranges/Yellows
-        "#ff8800", "#ffaa00", "#ffcc00", "#ffff00", 
-        // Greens
-        "#00cc00", "#00ff00", "#33ff33", 
-        // Blues
-        "#0000ff", "#3333ff", "#0099ff", 
-        // Purples (expanded selection)
-        "#6600cc", "#9900ff", "#cc00ff", "#8800cc", "#aa00ee",
-        // Pinks (new section)
-        "#ff00ff", "#ff66ff", "#ff99ff", "#ff3399", "#cc0099",
-        // Grayscale/Special
-        "#ffffff", "#aaaaaa", "#000000", "#00ffff"
-    ];
-    
-    const colorButtonsContainer = document.getElementById('colorButtons');
-    colorButtonsContainer.innerHTML = ''; // Clear any existing buttons
-
-    // Create color buttons
-    colors.forEach((color) => {
-        const button = document.createElement('div');
-        button.className = 'color-button';
-        button.style.backgroundColor = color;
-        
-        // Select button if it's the default color
-        if (color === selectedMissileColor) {
-            button.classList.add('selected');
-        }
-        
-         // Use more reliable click event instead of mousedown
-          button.addEventListener('click', function(e) {
-            e.stopPropagation(); // Stop event bubbling
-            
-            // Remove selection from all buttons
-            document.querySelectorAll('.color-button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            
-            // Add selection to clicked button
-            this.classList.add('selected');
-            
-            // Update selected color
-            selectedMissileColor = color;
-            
-            // Update missile preview
-           // updateMissilePreviewColor(color); // skip update missile preview
-        });
-
-        // Also handle touch events for mobile
-        button.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            // Same logic as mousedown
-            document.querySelectorAll('.color-button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            this.classList.add('selected');
-            selectedMissileColor = color;
-          //   updateMissilePreviewColor(color);  /skip update missile preview
-        }, {passive: false});
-
-        colorButtonsContainer.appendChild(button);
-    });
-    
-    // Set up 3D missile preview
-   
-}
-
-
-
-
-
-
-// Show and hide controls overlay
-function showControlsOverlay() {
-    // Only show if this is the first time (check if we've shown it before)
-    if (window.controlsShown) return;
-    window.controlsShown = true;
-    
-    const overlay = document.getElementById('controlsOverlay');
-    
-    // Show device-appropriate controls
-    if (isMobile) {
-        overlay.innerHTML = 'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
-    } else {
-        overlay.innerHTML = 'USE ARROW KEYS TO MANEUVER • SPACE TO ACCELERATE';
-    }
-    
-    overlay.style.opacity = "1";
-    
-    // Hide after 4 seconds and never show again
-    setTimeout(() => {
-        hideControlsOverlay();
-    }, 4000);
-}
-
-function hideControlsOverlay() {
-    const overlay = document.getElementById('controlsOverlay');
-    if (overlay) {
-        overlay.style.opacity = "0";
-    }
-}
-
-
-// initialize mobile controls
-function initMobileControls() {
-    if (!isMobile) return;
-    
-    // Clear any existing touch listeners
-    renderer.domElement.removeEventListener('touchstart', handleTouchStart);
-    renderer.domElement.removeEventListener('touchend', handleTouchEnd);
-    
-    // Add tap event listener to toggle acceleration
-    renderer.domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
-    renderer.domElement.addEventListener('touchend', handleTouchEnd, { passive: false });
-    
-    // Show mobile instructions
-    document.getElementById('controlsOverlay').innerHTML = 
-        'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
-    document.getElementById('controlsOverlay').style.opacity = "1";
-    setTimeout(() => {
-        document.getElementById('controlsOverlay').style.opacity = "0";
-    }, 5000);
-}
-
-function handleTouchStart(e) {
-    e.preventDefault();
-    isAccelerating = true;
-    updateFlightSound(true);
-}
-
-function handleTouchEnd(e) {
-    e.preventDefault();
-    isAccelerating = false;
-    updateFlightSound(false);
-}
 
  // Initialize the game
  init();
@@ -850,12 +709,7 @@ function init() {
     initSounds();
     initSoundPool();
 
-    // optimize for mobile
-    if (isMobile) {
-        optimizeForMobile();
-        console.log("Mobile optimizations applied");
-    }
-
+    
     // Set up the scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);  // Sky blue
@@ -938,16 +792,7 @@ function init() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     
-    // Mobile device orientation controls
-    if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', handleDeviceOrientation);
-    }
-
-    if (isMobile) {
-        optimizeForMobile();
-        fixMobileUI(); // Add this new call
-    console.log("Mobile optimizations applied");
-    }
+   
     
         
     // Initialize game directly - no start menu
@@ -973,7 +818,7 @@ function init() {
     
     // Show controls briefly to inform player
     document.getElementById('controlsOverlay').innerHTML = 'USE ARROW KEYS TO MANEUVER • SPACE TO ACCELERATE';
-    showControlsOverlay();
+    
     
     // Start sounds
     playSound('missile');
@@ -1023,137 +868,7 @@ function initPortals() {
     updatePortalMaterials();
 }
 
-function optimizeForMobile() {
-    if (!isMobile) return;
-    
-    // 1. Fix the viewport meta tag dynamically
-    let viewportMeta = document.querySelector('meta[name="viewport"]');
-    if (!viewportMeta) {
-        viewportMeta = document.createElement('meta');
-        viewportMeta.name = 'viewport';
-        document.head.appendChild(viewportMeta);
-    }
-    viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-    
-    // 2. Apply fullscreen styles for better mobile display
-    const style = document.createElement('style');
-    style.textContent = `
-        html, body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            position: fixed;
-        }
-        canvas {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
-            position: fixed;
-            top: 0;
-            left: 0;
-        }
-        #fullscreenBtn {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            padding: 8px 12px;
-            background: rgba(0,0,0,0.5);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            z-index: 10000;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // 3. Add fullscreen button for mobile
-    const fullscreenBtn = document.createElement('button');
-    fullscreenBtn.id = 'fullscreenBtn';
-    fullscreenBtn.innerHTML = '⛶ Full Screen';
-    fullscreenBtn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(e => {
-                console.error('Fullscreen error:', e);
-            });
-            fullscreenBtn.innerHTML = '✕ Exit';
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-                fullscreenBtn.innerHTML = '⛶ Full Screen';
-            }
-        }
-    });
-    document.body.appendChild(fullscreenBtn);
-    
-    // 4. Force renderer to use correct size
-    function resizeGame() {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-    }
-    
-    // Initial sizing and listen for orientation changes
-    resizeGame();
-    window.addEventListener('resize', resizeGame);
-    window.addEventListener('orientationchange', () => {
-        setTimeout(resizeGame, 100);
-    });
-    
-    // 5. Keep existing touch controls setup
-    renderer.domElement.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        isAccelerating = true;
-        updateFlightSound(true);
-    }, { passive: false });
-    
-    renderer.domElement.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        isAccelerating = false;
-        updateFlightSound(false);
-    }, { passive: false });
-    
-    // 6. Setup device orientation controls
-    if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', handleDeviceOrientation);
-    }
-    
-    // 7. Show mobile-specific instructions
-    setTimeout(() => {
-        document.getElementById('controlsOverlay').innerHTML = 
-            'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
-        document.getElementById('controlsOverlay').style.opacity = '1';
-        
-        setTimeout(() => {
-            document.getElementById('controlsOverlay').style.opacity = '0';
-        }, 5000);
-    }, 1000);
 
-    fixMobileRendering(); // Apply mobile rendering fixes
-}
-
-function fixMobileRendering() {
-    // Force power-of-two textures for better mobile compatibility
-    THREE.TextureLoader.prototype.load = function(url, onLoad, onProgress, onError) {
-        const texture = new THREE.Texture();
-        const loader = new Image();
-        loader.crossOrigin = this.crossOrigin;
-        loader.onload = function() {
-            texture.image = loader;
-            // Make non-power-of-two images work on all devices
-            texture.needsUpdate = true;
-            texture.minFilter = THREE.LinearFilter;
-            if (onLoad) onLoad(texture);
-        };
-        loader.onerror = onError;
-        loader.src = url;
-        return texture;
-    };
-    
-    // Set precision to medium for better performance
-    renderer.capabilities.precision = 'mediump';
-}
 
 function initFirebase() {
     // Initialize Firebase
@@ -1554,23 +1269,7 @@ function createHudElements() {
     }
 }
 
-// Add mobile optimizations
-if (isMobile) {
-    // Reduce quality on mobile
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-    directionalLight.shadow.mapSize.width = 512;
-    directionalLight.shadow.mapSize.height = 512;
-    
-    // Reduce particle counts
-    const MAX_SMOKE_PARTICLES = 5000;
-    const MAX_EXPLOSION_PARTICLES = 10000;
-    
-    // Lower city complexity
-    buildingCount = Math.floor(buildingCount * 0.7);
-    
-    // Disable some effects
-    scene.fog.density = 0.0025; // Increase fog density to hide pop-in
-}
+
    
 function logResourceCounts(label) {
     console.log(`${label}: `, {
@@ -2069,7 +1768,7 @@ function setupMinimap() {
     // Add compass indicator
     addMinimapCompass();
 
-    simplifyMinimapForMobile();
+    
 }
 
 function initializeMinimapMarkers() {
@@ -3840,8 +3539,7 @@ function updateParticles(delta) {
             if (particle.userData.velocity) {
                 // Apply acceleration if defined
                 if (particle.userData.acceleration) {
-                    particle.userData.velocity.add(
-                        particle.userData.acceleration.clone().multiplyScalar(delta)
+                    particle.userData.velocity.add(particle.userData.acceleration.clone().multiplyScalar(delta)
                     );
                 }
                 
@@ -4582,7 +4280,7 @@ function onKeyUp(event) {
 }
         
 function handleDeviceOrientation(event) {
-    if (!gameActive || !isMobile) return;
+    if (!gameActive) return;
     
     // alpha: rotation around z-axis (0-360)
     // beta: front-back tilt (-180 to 180, front is positive)
@@ -4669,10 +4367,7 @@ function handleDeviceOrientation(event) {
     keys.ArrowDown = pitchInput < -0.15;
     
     // For more precise analog controls, store the actual values too
-    missile.userData.mobileControls = {
-        yawInput: yawInput,
-        pitchInput: pitchInput
-    };
+    
 }
 
 // Helper function to clamp values
@@ -4680,27 +4375,7 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
-// Update the updateMissile function to use analog controls on mobile
-function updateMissileForMobile() {
-    // Add this code in your updateMissile function
-    
-    // Get input values - on mobile, use analog values for smoother control
-    let pitchInput, yawInput;
-    
-    if (isMobile && missile.userData.mobileControls) {
-        // Use analog values from mobile
-        pitchInput = -missile.userData.mobileControls.pitchInput;
-        yawInput = missile.userData.mobileControls.yawInput;
-    } else {
-        // Use keyboard controls (digital)
-        pitchInput = (keys.ArrowUp ? -1 : 0) + (keys.ArrowDown ? 1 : 0);
-        yawInput = (keys.ArrowLeft ? 1 : 0) + (keys.ArrowRight ? -1 : 0);
-    }
-    
-    // Apply to turn velocity with damping
-    turnVelocity.x = turnVelocity.x * damping + (pitchInput * turnSpeed) * (1 - damping);
-    turnVelocity.y = turnVelocity.y * damping + (yawInput * turnSpeed) * (1 - damping);
-}
+
     
     function updateMissile(delta) {
     if (!gameActive) return;
@@ -6326,110 +6001,7 @@ function checkGameEndConditions() {
     }
 }
 
-function fixMobileUI() {
-  if (!isMobile) return;
-  
-  // 1. Ensure proper viewport meta tag
-  let viewportMeta = document.querySelector('meta[name="viewport"]');
-  if (!viewportMeta) {
-    viewportMeta = document.createElement('meta');
-    viewportMeta.name = 'viewport';
-    document.head.appendChild(viewportMeta);
-  }
-  viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-  
-  // 2. Add mobile-specific CSS
-  const mobileStyles = document.createElement('style');
-  mobileStyles.textContent = `
-    /* Base mobile styles */
-    body {
-      touch-action: manipulation;
-      -webkit-text-size-adjust: 100%;
-    }
-    
-    /* Fix HUD on mobile */
-    #hud {
-      left: 10px !important;
-      top: 10px !important;
-      transform: scale(0.85);
-      transform-origin: top left;
-      background-color: rgba(0, 0, 0, 0.8) !important;
-      border: 2px solid #ff3333 !important;
-    }
-    
-    /* Fix meters container */
-    .meters-container {
-      gap: 20px !important;
-    }
-    
-    .meter-value {
-      font-size: 20px !important;
-    }
-    
-    /* Fix minimap on mobile */
-    #minimap {
-      bottom: 10px !important;
-      left: 10px !important;
-      width: 200px !important;
-      height: 200px !important;
-      transform: scale(0.9);
-      transform-origin: bottom left;
-      background-color: rgba(0, 0, 0, 0.8) !important;
-      border: 2px solid #ff3333 !important;
-    }
-    
-    /* Fix leaderboard on mobile */
-    #leaderboard {
-      top: 10px !important;
-      right: 10px !important;
-      width: 200px !important;
-      transform: scale(0.85);
-      transform-origin: top right;
-      background-color: rgba(0, 0, 0, 0.8) !important;
-      border: 2px solid #ff3333 !important;
-    }
-    
-    .leaderboard-table {
-      font-size: 12px !important;
-    }
-    
-    /* Fix controls overlay */
-    #controlsOverlay {
-      font-size: 16px !important;
-      padding: 10px !important;
-      bottom: auto !important;
-      top: 65% !important;
-    }
-    
-    /* Fix game over screen */
-    #gameOverScreen {
-      width: 90% !important;
-      max-width: 350px !important;
-    }
-    
-    /* Fix buttons */
-    button {
-      min-height: 44px;
-      min-width: 44px;
-    }
-  `;
-  document.head.appendChild(mobileStyles);
-  
-  // 3. Adjust renderer for mobile
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-  
-  // 4. Resize UI elements renderer specifically
-  if (minimapRenderer) {
-    minimapRenderer.setSize(200, 200);
-  }
-  
-  // 5. Force re-render minimap and HUD
-  if (typeof createHudElements === 'function') {
-    createHudElements();
-  }
-  
-  console.log("Mobile UI optimizations applied");
-}
+
 
 
 function animate(currentTime) {
@@ -6558,29 +6130,7 @@ function animate(currentTime) {
     renderer.render(scene, camera);
 }
 
-function simplifyMinimapForMobile() {
-    if (!isMobile) return;
-    
-    // Use simpler geometries for minimap markers
-    if (window.minimapDotPool) {
-        window.minimapDotPool.geometryTarget = new THREE.PlaneGeometry(10, 10); // Larger, easier to see 
-        window.minimapDotPool.geometryRegular = new THREE.PlaneGeometry(8, 8);
-    }
-    
-    // Make player marker bigger
-    if (playerMarker) {
-        const scale = 1.5;
-        playerMarker.scale.set(scale, scale, scale);
-    }
-    
-    // Make colors more vibrant for better visibility
-    if (window.minimapDotPool && window.minimapDotPool.materialTarget) {
-        window.minimapDotPool.materialTarget.color.setRGB(1, 0.3, 0.3); // Brighter red
-    }
-    
-    // Force update
-    updateMinimap();
-}
+
 
 
 
@@ -6692,84 +6242,7 @@ function handleResetDelay(delta) {
     }
 }
 
-// Mobile UI fix that overrides everything else
-(function() {
-  console.log("Applying simple desktop scaling fix");
-  
-  // 1. Force desktop viewport width
-  let meta = document.querySelector('meta[name="viewport"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.name = 'viewport';
-    document.head.appendChild(meta);
-  }
-  meta.content = 'width=1200'; // Force desktop width
-  
-  // 2. Add scaling wrapper when DOM loaded
-  document.addEventListener('DOMContentLoaded', function() {
-    // Check if we're on mobile
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (!isMobile) return;
-    
-    // Create wrapper for entire body content
-    const wrapper = document.createElement('div');
-    wrapper.id = 'scalingWrapper';
-    
-    // Move all body content to wrapper
-    while (document.body.firstChild) {
-      if (document.body.firstChild.id !== 'scalingWrapper') {
-        wrapper.appendChild(document.body.firstChild);
-      } else {
-        break;
-      }
-    }
-    
-    document.body.appendChild(wrapper);
-    
-    // Style the body and wrapper
-    document.body.style.cssText = `
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: black;
-    `;
-    
-    wrapper.style.cssText = `
-      transform-origin: center center;
-      transform: scale(${Math.min(window.innerWidth / 1200, window.innerHeight / 800)});
-      width: 1200px;
-      height: 800px;
-      overflow: hidden;
-      position: relative;
-    `;
-    
-    // Fix canvas size
-    document.querySelectorAll('canvas').forEach(canvas => {
-      if (!canvas.style.width) {
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
-      }
-    });
-    
-    // Disable any existing mobile handling
-    window.isMobile = false;
-    
-    // Add resize handler
-    window.addEventListener('resize', function() {
-      wrapper.style.transform = `scale(${Math.min(window.innerWidth / 1200, window.innerHeight / 800)})`;
-    });
-    
-    console.log("Desktop scaling applied");
-  });
-})();
-
-    </script>
-
-    
+  </script>
+   
 </body>
 </html>
