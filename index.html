@@ -793,7 +793,7 @@ function init() {
     document.addEventListener('keyup', onKeyUp);
     
    
-    
+    setTimeout(scaleGameUI, 100); // Scale UI after a short delay
         
     // Initialize game directly - no start menu
     document.getElementById('hud').style.display = 'block';
@@ -4899,7 +4899,7 @@ function createEnemyMissile() {
     let targetBuilding;
     if (targetBuildings.length > 0) {
         // 70% chance to target a red target building
-        if (Math.random() < 0.7) {
+        if (Math.random() < 0.9) {
             targetBuilding = targetBuildings[Math.floor(Math.random() * targetBuildings.length)];
         } else if (buildings.length > 0) {
             targetBuilding = buildings[Math.floor(Math.random() * buildings.length)];
@@ -4982,6 +4982,7 @@ function createEnemyMissile() {
 }
 
 // Update enemy missiles
+// Update enemy missiles
 function updateEnemyMissiles(delta) {
     // Update missile timer
     enemyMissileTimer += delta;
@@ -5014,45 +5015,72 @@ function updateEnemyMissiles(delta) {
         // Get current direction based on navigation state
         let currentDirection = enemyMissile.userData.direction.clone();
 
-        // Apply state-specific behavior
-        switch (enemyMissile.userData.navigationState) {
-            case 'climbing':
-                // Gradually blend upward vector with forward vector
-                currentDirection.y = Math.min(currentDirection.y + 0.05, 0.8);
-                currentDirection.normalize();
-                break;
-                
-            case 'diving':
-                // Gradually blend downward vector with forward vector
-                currentDirection.y = Math.max(currentDirection.y - 0.05, -0.8);
-                currentDirection.normalize();
-                break;
-                
-            case 'weaving':
-                // Apply weave if we have an avoidance vector
-                if (enemyMissile.userData.obstacleAvoidanceVector) {
-                    // Blend current direction with avoidance vector
-                    currentDirection.lerp(
-                        enemyMissile.userData.obstacleAvoidanceVector,
-                        0.1 * enemyMissile.userData.pilotSkillLevel
-                    ).normalize();
-                }
-                break;
-                
-            case 'direct':
-            default:
-                // If we're in direct mode but above target, start to dive
-                if (enemyMissile.position.y > enemyMissile.userData.targetPosition.y + 50) {
-                    // Calculate direction to target
-                    const toTarget = new THREE.Vector3().subVectors(
-                        enemyMissile.userData.targetPosition,
-                        enemyMissile.position
-                    ).normalize();
+        // CRITICAL FIX: Add direct approach mode for final stage
+        const distanceToTarget = enemyMissile.position.distanceTo(enemyMissile.userData.targetPosition);
+        const finalApproachDistance = 25; // Distance to switch to direct approach mode
+        
+        if (distanceToTarget < finalApproachDistance || enemyMissile.userData.terminalApproach) {
+            // In final approach mode - direct path to target with NO deviations
+            const directVector = new THREE.Vector3().subVectors(
+                enemyMissile.userData.targetPosition,
+                enemyMissile.position
+            ).normalize();
+            
+            // Completely override the navigation logic with direct approach
+            enemyMissile.userData.direction = directVector;
+            currentDirection = directVector;
+            
+            // Don't allow anything but direct approach in final stage
+            enemyMissile.userData.navigationState = 'direct';
+            enemyMissile.userData.preferHighAltitude = false;
+            
+            // Use maximum speed for impact
+            enemyMissile.userData.speed = Math.min(
+                enemyMissile.userData.speed * 1.1,
+                enemyMissile.userData.baseSpeed * 1.5
+            );
+        }
+        else {
+            // Apply state-specific behavior
+            switch (enemyMissile.userData.navigationState) {
+                case 'climbing':
+                    // Gradually blend upward vector with forward vector
+                    currentDirection.y = Math.min(currentDirection.y + 0.05, 0.8);
+                    currentDirection.normalize();
+                    break;
                     
-                    // Blend with some downward vector
-                    currentDirection.lerp(toTarget, 0.05).normalize();
-                }
-                break;
+                case 'diving':
+                    // Gradually blend downward vector with forward vector
+                    currentDirection.y = Math.max(currentDirection.y - 0.05, -0.8);
+                    currentDirection.normalize();
+                    break;
+                    
+                case 'weaving':
+                    // Apply weave if we have an avoidance vector
+                    if (enemyMissile.userData.obstacleAvoidanceVector) {
+                        // Blend current direction with avoidance vector
+                        currentDirection.lerp(
+                            enemyMissile.userData.obstacleAvoidanceVector,
+                            0.1 * enemyMissile.userData.pilotSkillLevel
+                        ).normalize();
+                    }
+                    break;
+                    
+                case 'direct':
+                default:
+                    // If we're in direct mode but above target, start to dive
+                    if (enemyMissile.position.y > enemyMissile.userData.targetPosition.y + 50) {
+                        // Calculate direction to target
+                        const toTarget = new THREE.Vector3().subVectors(
+                            enemyMissile.userData.targetPosition,
+                            enemyMissile.position
+                        ).normalize();
+                        
+                        // Blend with some downward vector
+                        currentDirection.lerp(toTarget, 0.05).normalize();
+                    }
+                    break;
+            }
         }
         
         // Always update the stored direction
@@ -5070,9 +5098,6 @@ function updateEnemyMissiles(delta) {
         enemyMissile.position.add(
             currentDirection.clone().multiplyScalar(speed)
         );
-        
-        // Rest of the existing enemy missile update code
-        // (collision detection, smoke generation, etc.)
         
         // Update lifetime if defined
         if (enemyMissile.userData.lifetime !== undefined) {
@@ -5185,6 +5210,8 @@ function updateEnemyMissiles(delta) {
     }
 }
 
+
+
 // New function to handle advanced navigation for enemy missiles
 function updateMissileNavigation(enemyMissile, raycaster) {
     if (!enemyMissile.userData) return;
@@ -5194,37 +5221,48 @@ function updateMissileNavigation(enemyMissile, raycaster) {
     const navState = enemyMissile.userData.navigationState || 'direct';
     enemyMissile.userData.speed = (enemyMissile.userData.baseSpeed || 1.0) * (speedModifiers[navState] || 1.0);
     
+// Check if we have a specific target building
+const hasTargetBuilding = enemyMissile.userData.targetBuilding ? true : false;
+
     // Close to target - switch to direct aggressive approach
     const distanceToTarget = enemyMissile.position.distanceTo(enemyMissile.userData.targetPosition);
-    if (distanceToTarget < 50) { // Increased from 30 to be more aggressive earlier
+    const finalApproachDistance = 100; // Distance to switch to direct approach mode
+    
+    if (distanceToTarget < finalApproachDistance) {
+        // Set special flag to indicate terminal approach phase
+        enemyMissile.userData.terminalApproach = true;
+        
+        // Force direct navigation state - don't allow any other states
         enemyMissile.userData.navigationState = 'direct';
         
-        if (distanceToTarget < 30 && enemyMissile.position.y > enemyMissile.userData.targetPosition.y + 15) {
-            // Close and above target - dive attack!
-            enemyMissile.userData.navigationState = 'diving';
-            
-            // Calculate steeper diving angle
-            const toTarget = new THREE.Vector3().subVectors(
-                enemyMissile.userData.targetPosition,
-                enemyMissile.position
-            ).normalize();
-            
-            // More aggressive dive angle based on skill
-            const diveIntensity = 0.3 + (enemyMissile.userData.pilotSkillLevel * 0.3);
-            enemyMissile.userData.direction.lerp(toTarget, diveIntensity).normalize();
-        } else {
-            // Direct approach with higher responsiveness
-            const toTarget = new THREE.Vector3().subVectors(
-                enemyMissile.userData.targetPosition,
-                enemyMissile.position
-            ).normalize();
-            
-            // CHANGED: More responsive turning based on skill
-            const turnRate = 0.2 + (enemyMissile.userData.pilotSkillLevel * 0.2); // 0.2-0.4
-            enemyMissile.userData.direction.lerp(toTarget, turnRate).normalize();
-        }
+        // Calculate direct vector to target - PURELY targeting the exact point
+        const directVector = new THREE.Vector3().subVectors(
+            enemyMissile.userData.targetPosition,
+            enemyMissile.position
+        ).normalize();
+        
+        // More aggressive values for final approach (increased from previous code)
+        const finalTurnRate = 0.7; // Very high turn rate for direct targeting
+        
+        // Completely override direction - no lerping/blending in terminal approach
+        enemyMissile.userData.direction = directVector;
+
+        enemyMissile.userData.obstacleAvoidanceVector = null;
+
+
+        
+        // Boost speed in final approach for guaranteed hit
+        enemyMissile.userData.speed = Math.min(
+            enemyMissile.userData.speed * 1.5, // 15% speed increase
+            enemyMissile.userData.baseSpeed * 2.5  // Cap at 50% over base speed
+        );
+        
+        // Exit early - don't run any other navigation logic
         return;
     }
+
+     // Reset terminal approach flag if we're outside the range
+     enemyMissile.userData.terminalApproach = false;
     
     // Set up raycaster with longer distance for earlier obstacle detection
     raycaster.set(
@@ -6131,8 +6169,65 @@ function animate(currentTime) {
 }
 
 
+function scaleGameUI() {
+  // Get viewport dimensions
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  // Calculate scale factor based on design size vs actual size
+  // Assuming the UI was designed for 1920x1080
+  const designWidth = 1920;
+  const designHeight = 1080;
+  const scaleX = viewportWidth / designWidth;
+  const scaleY = viewportHeight / designHeight;
+  
+  // Use the smaller scale to ensure everything fits
+  const scale = Math.min(scaleX, scaleY, 1.0); // Cap at 1.0 to prevent upscaling
+  
+  // Apply scaling to main UI elements
+  const elements = {
+    'hud': { x: 20, y: 20 },
+    'minimap': { x: 20, y: 'auto', bottom: 20 },
+    'leaderboard': { x: 'auto', y: 20, right: 20 },
+    'controlsOverlay': { x: 'center', y: 'center' },
+    'gameOverScreen': { x: 'center', y: 'center' }
+  };
+  
+  // Apply scales to each element
+  Object.keys(elements).forEach(id => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    
+    // Apply scaling transform
+    element.style.transform = `scale(${scale})`;
+    element.style.transformOrigin = 'top left';
+    
+    // Position the element
+    element.style.position = 'absolute';
+    
+    // Apply horizontal positioning
+    if (elements[id].x === 'center') {
+      element.style.left = `${(viewportWidth - (element.offsetWidth * scale)) / 2}px`;
+    } else if (elements[id].x === 'auto' && elements[id].right) {
+      element.style.right = `${elements[id].right}px`;
+    } else {
+      element.style.left = `${elements[id].x}px`;
+    }
+    
+    // Apply vertical positioning
+    if (elements[id].y === 'center') {
+      element.style.top = `${(viewportHeight - (element.offsetHeight * scale)) / 2}px`;
+    } else if (elements[id].y === 'auto' && elements[id].bottom) {
+      element.style.bottom = `${elements[id].bottom}px`;
+    } else {
+      element.style.top = `${elements[id].y}px`;
+    }
+  });
+  
+  console.log(`UI scaled to ${Math.round(scale * 100)}% of original size`);
+}
 
-
+window.addEventListener('resize', scaleGameUI);
 
 function handleLaunchAnimation(delta) {
     launchAnimationTime += delta;
