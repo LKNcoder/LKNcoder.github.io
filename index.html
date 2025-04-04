@@ -945,25 +945,11 @@ function init() {
 
     if (isMobile) {
         optimizeForMobile();
-        
-        // Replace standard control instructions
-        if (document.getElementById('controlsOverlay')) {
-            document.getElementById('controlsOverlay').innerHTML = 
-                'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
-        }
-        
-        // Set up mobile-specific game properties
-        baseVelocity = 0.5; // Slower base speed for easier control
-        turnSpeed *= 0.8; // Gentler turns
-        damping = 0.8; // More damping for smoother controls
-        
-        // Disable or simplify heavy effects
-        MAX_SMOKE_PARTICLES = 2000;
-        MAX_EXPLOSION_PARTICLES = 5000;
+        fixMobileUI(); // Add this new call
+    console.log("Mobile optimizations applied");
     }
     
-     
-    
+        
     // Initialize game directly - no start menu
     document.getElementById('hud').style.display = 'block';
     document.getElementById('minimap').style.display = 'block';
@@ -1143,6 +1129,30 @@ function optimizeForMobile() {
             document.getElementById('controlsOverlay').style.opacity = '0';
         }, 5000);
     }, 1000);
+
+    fixMobileRendering(); // Apply mobile rendering fixes
+}
+
+function fixMobileRendering() {
+    // Force power-of-two textures for better mobile compatibility
+    THREE.TextureLoader.prototype.load = function(url, onLoad, onProgress, onError) {
+        const texture = new THREE.Texture();
+        const loader = new Image();
+        loader.crossOrigin = this.crossOrigin;
+        loader.onload = function() {
+            texture.image = loader;
+            // Make non-power-of-two images work on all devices
+            texture.needsUpdate = true;
+            texture.minFilter = THREE.LinearFilter;
+            if (onLoad) onLoad(texture);
+        };
+        loader.onerror = onError;
+        loader.src = url;
+        return texture;
+    };
+    
+    // Set precision to medium for better performance
+    renderer.capabilities.precision = 'mediump';
 }
 
 function initFirebase() {
@@ -2058,6 +2068,8 @@ function setupMinimap() {
     
     // Add compass indicator
     addMinimapCompass();
+
+    simplifyMinimapForMobile();
 }
 
 function initializeMinimapMarkers() {
@@ -6314,6 +6326,111 @@ function checkGameEndConditions() {
     }
 }
 
+function fixMobileUI() {
+  if (!isMobile) return;
+  
+  // 1. Ensure proper viewport meta tag
+  let viewportMeta = document.querySelector('meta[name="viewport"]');
+  if (!viewportMeta) {
+    viewportMeta = document.createElement('meta');
+    viewportMeta.name = 'viewport';
+    document.head.appendChild(viewportMeta);
+  }
+  viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+  
+  // 2. Add mobile-specific CSS
+  const mobileStyles = document.createElement('style');
+  mobileStyles.textContent = `
+    /* Base mobile styles */
+    body {
+      touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
+    }
+    
+    /* Fix HUD on mobile */
+    #hud {
+      left: 10px !important;
+      top: 10px !important;
+      transform: scale(0.85);
+      transform-origin: top left;
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid #ff3333 !important;
+    }
+    
+    /* Fix meters container */
+    .meters-container {
+      gap: 20px !important;
+    }
+    
+    .meter-value {
+      font-size: 20px !important;
+    }
+    
+    /* Fix minimap on mobile */
+    #minimap {
+      bottom: 10px !important;
+      left: 10px !important;
+      width: 200px !important;
+      height: 200px !important;
+      transform: scale(0.9);
+      transform-origin: bottom left;
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid #ff3333 !important;
+    }
+    
+    /* Fix leaderboard on mobile */
+    #leaderboard {
+      top: 10px !important;
+      right: 10px !important;
+      width: 200px !important;
+      transform: scale(0.85);
+      transform-origin: top right;
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid #ff3333 !important;
+    }
+    
+    .leaderboard-table {
+      font-size: 12px !important;
+    }
+    
+    /* Fix controls overlay */
+    #controlsOverlay {
+      font-size: 16px !important;
+      padding: 10px !important;
+      bottom: auto !important;
+      top: 65% !important;
+    }
+    
+    /* Fix game over screen */
+    #gameOverScreen {
+      width: 90% !important;
+      max-width: 350px !important;
+    }
+    
+    /* Fix buttons */
+    button {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  `;
+  document.head.appendChild(mobileStyles);
+  
+  // 3. Adjust renderer for mobile
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+  
+  // 4. Resize UI elements renderer specifically
+  if (minimapRenderer) {
+    minimapRenderer.setSize(200, 200);
+  }
+  
+  // 5. Force re-render minimap and HUD
+  if (typeof createHudElements === 'function') {
+    createHudElements();
+  }
+  
+  console.log("Mobile UI optimizations applied");
+}
+
 
 function animate(currentTime) {
     animationFrameId = requestAnimationFrame(animate);
@@ -6439,6 +6556,30 @@ function animate(currentTime) {
     
     // Render the scene
     renderer.render(scene, camera);
+}
+
+function simplifyMinimapForMobile() {
+    if (!isMobile) return;
+    
+    // Use simpler geometries for minimap markers
+    if (window.minimapDotPool) {
+        window.minimapDotPool.geometryTarget = new THREE.PlaneGeometry(10, 10); // Larger, easier to see 
+        window.minimapDotPool.geometryRegular = new THREE.PlaneGeometry(8, 8);
+    }
+    
+    // Make player marker bigger
+    if (playerMarker) {
+        const scale = 1.5;
+        playerMarker.scale.set(scale, scale, scale);
+    }
+    
+    // Make colors more vibrant for better visibility
+    if (window.minimapDotPool && window.minimapDotPool.materialTarget) {
+        window.minimapDotPool.materialTarget.color.setRGB(1, 0.3, 0.3); // Brighter red
+    }
+    
+    // Force update
+    updateMinimap();
 }
 
 
