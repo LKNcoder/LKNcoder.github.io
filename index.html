@@ -4304,7 +4304,9 @@ function listenForOtherPlayers(activePlayers) {
                     }
                     else if (change.type === "removed") {
                         console.log(`Player left: ${playerId}`);
-                        removeOtherPlayer(playerId);
+                        
+                        // Make sure we clean up their missiles too
+                        cleanupDisconnectedPlayerMissiles(playerId);
                     }
                 });
                 
@@ -4411,6 +4413,11 @@ function setupPlayerPresence(playerRef) {
             // Listen for presence changes to clean up disconnected players
             window.firebaseDB.ref('presence').on('child_removed', snapshot => {
                 const disconnectedPlayerId = snapshot.key;
+                
+                // Clean up player missiles when they disconnect
+                cleanupDisconnectedPlayerMissiles(disconnectedPlayerId);
+                
+                // Also clean up Firestore data
                 if (db) {
                     db.collection("activePlayers").doc(disconnectedPlayerId).delete()
                         .then(() => {
@@ -4560,6 +4567,33 @@ function createOtherPlayerMissile(color) {
   otherMissile.rotation.x = Math.PI / 2; // Point forward
   
   return otherMissile;
+}
+
+function cleanupDisconnectedPlayerMissiles(playerId) {
+    console.log(`Cleaning up missiles for disconnected player: ${playerId}`);
+    
+    // Check if the player had an active missile
+    if (otherPlayers[playerId] && otherPlayers[playerId].missile) {
+        const missile = otherPlayers[playerId].missile;
+        
+        // Create a small explosion effect where the missile was
+        createExplosion(missile.position.clone(), false, false);
+        
+        // Remove the missile from the scene
+        scene.remove(missile);
+        disposeObject(missile);
+        
+        console.log(`Removed missile for disconnected player: ${playerId}`);
+    }
+    
+    // Remove from otherPlayers object (this should also update minimap marker)
+    removeOtherPlayer(playerId);
+    
+    // Update player count in UI to reflect the disconnection
+    updatePlayerCountUI();
+    
+    // Update leaderboard to remove the disconnected player
+    updateLeaderboard();
 }
         
     function checkCollisions() {
