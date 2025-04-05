@@ -4900,22 +4900,29 @@ function updateOtherPlayers(delta) {
     // Interpolate rotation
     player.direction.lerp(player.targetDirection, delta * INTERPOLATION_SPEED);
     
-    if (player.direction.length() > 0.5) {
-      const missileRotation = new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        player.direction.clone().normalize()
-      );
-      player.missile.quaternion.copy(missileRotation);
-    }
-    
-    // Update exhaust effect if accelerating
-    updateOtherPlayerExhaust(player, delta);
-    
-    // Generate smoke particles if missile is active
-    if (Math.random() < (player.isAccelerating ? 0.3 : 0.1)) {
-      createOtherPlayerSmoke(player);
+    // Track last movement with a timestamp
+    if (!player.lastPositionUpdate) {
+      player.lastPositionUpdate = Date.now();
+      player.lastMovementPosition = player.lastPosition.clone();
+    } else {
+      // Check if the missile has moved significantly
+      const movementThreshold = 0.1;
+      if (player.lastMovementPosition.distanceTo(player.lastPosition) > movementThreshold) {
+        player.lastPositionUpdate = Date.now();
+        player.lastMovementPosition.copy(player.lastPosition);
+      } else {
+        // Check for timeout - remove missiles inactive for more than 10 seconds
+        const inactiveTime = Date.now() - player.lastPositionUpdate;
+        if (inactiveTime > 10000) { // 10 seconds
+          console.log(`Removing stale missile for player: ${player.id || 'unknown'} - inactive for ${inactiveTime/1000}s`);
+          removeOtherPlayer(player.id);
+        }
+      }
     }
   });
+    
+  // Update player count after potential removals
+  updatePlayerCountUI();
 }
 
 function onPlayerAuthenticated() {
