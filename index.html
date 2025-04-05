@@ -4462,12 +4462,25 @@ function updateOtherPlayer(playerId, playerData) {
     
     // Add marker to minimap
     addOtherPlayerMinimapMarker(playerId, playerData.color);
+
+     // Update the leaderboard to show the new player
+     updateLeaderboard();
   }
   
   // Update player data
   const player = otherPlayers[playerId];
   player.name = playerData.name;
   player.lastUpdateTime = playerData.lastUpdated?.toMillis() || Date.now();
+
+  // Update leaderboard stats if available
+  if (playerData.targetsDestroyed !== undefined) {
+    player.targetsDestroyed = playerData.targetsDestroyed;
+    updateLeaderboard(); // Update leaderboard when kills change
+  }
+  
+  if (playerData.roundsWon !== undefined) {
+    player.roundsWon = playerData.roundsWon;
+  }
   
   // Set target position and direction for smooth interpolation
   if (playerData.position) {
@@ -6907,14 +6920,6 @@ function calculateTPM(kills, totalTimeSeconds) {
 
 // Add function to update the leaderboard
 function updateLeaderboard() {
-    console.log("Updating leaderboard:");
-    
-    // Debug print all pilots
-    enemyPilotStats.forEach(pilot => {
-        console.log(`${pilot.name}: ${pilot.targetsDestroyed} kills, ${pilot.roundsWon} wins`);
-    });
-    console.log(`Player: ${playerStats.targetsDestroyed} kills, ${playerStats.roundsWon} wins`);
-    
     // Get the leaderboard table body
     const leaderboardEntries = document.getElementById('leaderboard-entries');
     if (!leaderboardEntries) {
@@ -6922,8 +6927,29 @@ function updateLeaderboard() {
         return;
     }
     
-    // Create a fresh copy of the stats
-    const displayStats = [...enemyPilotStats, playerStats];
+    // Ensure enemy pilots exist in stats
+    if (enemyPilotStats.length === 0) {
+        initializeEnemyPilots();
+    }
+    
+    // Create a fresh copy of the stats - include real player AND enemy pilots
+    let displayStats = [...enemyPilotStats, playerStats];
+    
+    // Add other human players to the leaderboard
+    if (otherPlayers) {
+        Object.values(otherPlayers).forEach(player => {
+            // Only add if we have necessary stats information
+            if (player.name) {
+                displayStats.push({
+                    id: player.id,
+                    name: player.name,
+                    targetsDestroyed: player.targetsDestroyed || 0,
+                    roundsWon: player.roundsWon || 0,
+                    color: player.color || '#ffffff'
+                });
+            }
+        });
+    }
     
     // Sort by kills (highest first)
     displayStats.sort((a, b) => b.targetsDestroyed - a.targetsDestroyed);
@@ -6931,11 +6957,13 @@ function updateLeaderboard() {
     // Generate HTML
     let html = '';
     displayStats.forEach((pilot, index) => {
+        // Determine if this is the current player
         const isPlayer = pilot.id === playerStats.id;
+        
         html += `
             <tr class="${isPlayer ? 'player-entry' : ''}" id="${isPlayer ? 'player-' + pilot.id : ''}">
                 <td class="rank-column">${index + 1}</td>
-                <td class="name-column" style="color: ${pilot.color || '#ffffff'}">${pilot.name}</td>
+                <td class="name-column" style="color: ${pilot.color || '#ffffff'}">${pilot.name || 'Unknown'}</td>
                 <td class="score-column">${pilot.targetsDestroyed}</td>
                 <td class="wins-column">${pilot.roundsWon || 0}</td>
             </tr>
