@@ -4954,6 +4954,88 @@ function removeOtherPlayerMinimapMarker(playerId) {
   player.minimapMarker = null;
 }
 
+function updateOtherPlayerExhaust(player, delta) {
+  // Skip if player has no missile
+  if (!player.missile) return;
+  
+  // Find or create exhaust glow
+  if (!player.exhaustGlow) {
+    // Create a simple circle geometry for exhaust
+    const glowGeometry = new THREE.CircleGeometry(0.8, 16);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x555555, // Grey exhaust for all missiles
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false
+    });
+    
+    player.exhaustGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+    player.exhaustGlow.position.y = -6; // Position behind the exhaust
+    player.exhaustGlow.rotation.x = Math.PI / 2; // Orient perpendicular to missile direction
+    player.missile.add(player.exhaustGlow);
+  }
+  
+  // Scale glow based on acceleration
+  if (player.isAccelerating) {
+    player.exhaustGlow.scale.set(1.5, 1.5, 1.5);
+    player.exhaustGlow.material.opacity = 0.95;
+  } else {
+    player.exhaustGlow.scale.set(1.0, 1.0, 1.0);
+    player.exhaustGlow.material.opacity = 0.8;
+  }
+  
+  // Add subtle pulse effect
+  const pulseAmount = 0.1 * Math.sin(Date.now() * 0.01);
+  player.exhaustGlow.scale.x += pulseAmount;
+  player.exhaustGlow.scale.y += pulseAmount;
+}
+
+// Add this function to create smoke particles for other players' missiles
+function createOtherPlayerSmoke(player) {
+  // Skip if we're at particle limit
+  if (smokeParticles.length > MAX_SMOKE_PARTICLES * 0.9) return;
+  
+  // Create smoke particle
+  const smokeSize = player.isAccelerating ? 0.5 : 0.3;
+  const smokeGeometry = new THREE.SphereGeometry(smokeSize, 8, 8);
+  
+  const smokeMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x555555, // Grey color for all exhaust smoke
+    transparent: true,
+    opacity: player.isAccelerating ? 0.6 : 0.4,
+    depthWrite: false
+  });
+  
+  const smoke = new THREE.Mesh(smokeGeometry, smokeMaterial);
+  
+  // Get direction from missile orientation
+  const missileDirection = new THREE.Vector3(0, 1, 0).applyQuaternion(player.missile.quaternion);
+  
+  // Position behind missile
+  const missileBackVector = missileDirection.clone().negate();
+  smoke.position.copy(player.missile.position)
+    .add(missileBackVector.multiplyScalar(4.5))
+    .add(new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(0.3),
+      THREE.MathUtils.randFloatSpread(0.3),
+      THREE.MathUtils.randFloatSpread(0.3)
+    ));
+  
+  // Smoke behavior
+  smoke.userData = {
+    life: player.isAccelerating ? 1.2 : 0.8,
+    maxLife: player.isAccelerating ? 1.2 : 0.8,
+    growRate: player.isAccelerating ? 1.04 : 1.02,
+    velocity: new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(0.05),
+      THREE.MathUtils.randFloat(player.isAccelerating ? 0.05 : 0.02, player.isAccelerating ? 0.15 : 0.08),
+      THREE.MathUtils.randFloatSpread(0.05)
+    )
+  };
+  
+  scene.add(smoke);
+  smokeParticles.push(smoke);
+}
 
 
 function cleanupScorchMarks() {
