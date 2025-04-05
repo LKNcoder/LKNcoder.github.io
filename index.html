@@ -362,10 +362,10 @@
 
     <!-- firebase  -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -1046,18 +1046,31 @@ function initPortals() {
 }
 
 function setupMultiplayerSync() {
+    // Skip if already initialized
+    if (window.multiplayerSyncInitialized) {
+        console.log("Multiplayer sync already initialized");
+        return;
+    }
+    
+    console.log("Setting up multiplayer sync...");
+    
     try {
-        if (!db || !firebase.auth().currentUser) {
-            console.warn("Firebase not initialized or user not authenticated");
+        // Check for required components
+        if (!db) {
+            console.error("Firestore not initialized - cannot setup multiplayer sync");
             return;
         }
         
-        console.log("Setting up multiplayer sync...");
+        if (!firebase.auth().currentUser) {
+            console.error("User not authenticated - cannot setup multiplayer sync");
+            return;
+        }
         
-        // Reference to active players collection
+        // Reference to active players collection - THIS IS THE KEY TO SHARED EXPERIENCE
+        // All players must be in the same collection
         const activePlayers = db.collection("activePlayers");
         
-        // Set up player entry with initial data
+        // Get current player ID
         const playerId = playerStats.id;
         const playerRef = activePlayers.doc(playerId);
         
@@ -1070,7 +1083,11 @@ function setupMultiplayerSync() {
                 y: missile.position.y, 
                 z: missile.position.z 
             },
-            rotation: { x: 0, y: 0, z: 0 },
+            rotation: { 
+                x: missile.rotation.x,
+                y: missile.rotation.y,
+                z: missile.rotation.z
+            },
             direction: { 
                 x: missileDirection.x, 
                 y: missileDirection.y, 
@@ -1090,6 +1107,9 @@ function setupMultiplayerSync() {
                 
                 // Start position sync
                 startPositionSync(playerRef);
+                
+                // Mark as initialized
+                window.multiplayerSyncInitialized = true;
             })
             .catch(error => {
                 console.error("Error joining multiplayer:", error);
@@ -1247,6 +1267,12 @@ function enhancePlayerInitialization() {
 function startPositionSync(playerRef) {
     console.log("Starting position sync...");
     
+    // Clear any existing interval to prevent duplicates
+    if (window.positionSyncInterval) {
+        clearInterval(window.positionSyncInterval);
+        window.positionSyncInterval = null;
+    }
+    
     // Set up interval to update position data
     const syncInterval = setInterval(() => {
         // Only sync if game is active and missile exists
@@ -1267,9 +1293,14 @@ function startPositionSync(playerRef) {
                 },
                 isAccelerating: isAccelerating,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                // Position update successful
+                // We could log this but it would spam the console
+            }).catch(error => {
+                console.error("Error updating position:", error);
             });
         } catch (error) {
-            console.error("Error updating position:", error);
+            console.error("Error in position sync:", error);
         }
     }, 100); // Update 10 times per second
     
@@ -1279,48 +1310,77 @@ function startPositionSync(playerRef) {
 
 function initFirebase() {
     console.log("Initializing Firebase...");
+    
     try {
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        
-        // Initialize Firestore
-        db = firebase.firestore();
-        console.log("Firestore initialized successfully");
-        
-        // Initialize Realtime Database
-        if (typeof firebase.database === 'function') {
-            console.log("Firebase Realtime Database is available");
+        // Check if Firebase is already initialized to avoid duplicate initialization
+        if (firebase.apps.length) {
+            console.log("Firebase already initialized, using existing instance");
+            db = firebase.firestore();
             window.firebaseDB = firebase.database();
         } else {
-            console.error("Firebase Realtime Database not available - multiplayer will be limited");
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            console.log("Firebase app initialized");
+            
+            // Initialize Firestore
+            db = firebase.firestore();
+            console.log("Firestore initialized successfully");
+            
+            // Initialize Realtime Database
+            window.firebaseDB = firebase.database();
+            console.log("Realtime Database initialized successfully");
         }
         
-        // Sign in anonymously
+        // Sign in anonymously - with improved error handling
+        console.log("Attempting anonymous authentication...");
         firebase.auth().signInAnonymously()
             .then(() => {
-                console.log("Anonymous authentication successful");
+                console.log("Anonymous authentication request successful");
             })
             .catch(error => {
-                console.error("Authentication error:", error);
+                console.error("Authentication error:", error.code, error.message);
+                
+                // Show more detailed error
+                let errorMessage = "Authentication failed: ";
+                switch(error.code) {
+                    case 'auth/operation-not-allowed':
+                        errorMessage += "Anonymous auth not enabled in Firebase console.";
+                        break;
+                    case 'auth/web-storage-unsupported':
+                        errorMessage += "Web storage is not supported or disabled.";
+                        break;
+                    default:
+                        errorMessage += error.message;
+                }
+                console.error(errorMessage);
+                alert(errorMessage);
             });
         
-        // Set up auth state change listener
+        // Set up auth state change listener with improved logging
         firebase.auth().onAuthStateChanged(user => {
             if (user) {
-                console.log("User signed in:", user.uid);
+                console.log("User signed in successfully. User ID:", user.uid);
                 playerStats.firebaseId = user.uid;
                 playerStats.id = user.uid;
                 
-                onPlayerAuthenticated();
-                fetchPlayerData(user.uid);
-                subscribeToLeaderboard();
+                // Now that authentication is confirmed successful, set up multiplayer
+                setTimeout(() => {
+                    console.log("Setting up multiplayer connections now that auth is successful");
+                    onPlayerAuthenticated();
+                    fetchPlayerData(user.uid);
+                    subscribeToLeaderboard();
+                    setupMultiplayerSync(); // Explicitly call this here
+                }, 500); // Short delay to ensure auth is fully processed
             } else {
-                console.log("User signed out");
+                console.log("User signed out or auth state changed to unauthenticated");
             }
         });
+        
+        return true; // Successful initialization
     } catch (error) {
-        console.error("Firebase initialization error:", error);
-        alert("Multiplayer functions may be limited. Check console for details.");
+        console.error("Firebase critical initialization error:", error);
+        alert("Firebase initialization failed: " + error.message);
+        return false;
     }
 }
 
@@ -4183,62 +4243,152 @@ function listenForOtherPlayers(activePlayers) {
         // Unsubscribe from any existing listener
         if (window.otherPlayersListener) {
             window.otherPlayersListener();
+            window.otherPlayersListener = null;
         }
         
-        // Listen for active players changes
-        window.otherPlayersListener = activePlayers.onSnapshot(snapshot => {
-            console.log("Received active players update");
-            
-            snapshot.docChanges().forEach(change => {
-                const playerId = change.doc.id;
-                const playerData = change.doc.data();
+        // Listen for active players changes with error handling
+        window.otherPlayersListener = activePlayers
+            .onSnapshot(snapshot => {
+                console.log(`Received active players update with ${snapshot.docChanges().length} changes`);
                 
-                // Skip our own player
-                if (playerId === playerStats.id) return;
+                snapshot.docChanges().forEach(change => {
+                    const playerId = change.doc.id;
+                    const playerData = change.doc.data();
+                    
+                    // Skip our own player
+                    if (playerId === playerStats.id) {
+                        console.log("Skipping own player update");
+                        return;
+                    }
+                    
+                    if (change.type === "added") {
+                        console.log(`New player joined: ${playerData.name} (${playerId})`);
+                        updateOtherPlayer(playerId, playerData);
+                    }
+                    else if (change.type === "modified") {
+                        // We could log this but it would spam the console
+                        updateOtherPlayer(playerId, playerData);
+                    }
+                    else if (change.type === "removed") {
+                        console.log(`Player left: ${playerId}`);
+                        removeOtherPlayer(playerId);
+                    }
+                });
                 
-                if (change.type === "added" || change.type === "modified") {
-                    console.log(`Player ${change.type}: ${playerData.name} (${playerId})`);
-                    updateOtherPlayer(playerId, playerData);
-                }
-                else if (change.type === "removed") {
-                    console.log(`Player removed: ${playerId}`);
-                    removeOtherPlayer(playerId);
-                }
+                // Update player count after changes
+                updatePlayerCountUI();
+            }, error => {
+                console.error("Error listening for players:", error);
+                
+                // Try to reestablish the listener after a delay
+                setTimeout(() => {
+                    console.log("Attempting to reestablish player listener...");
+                    listenForOtherPlayers(activePlayers);
+                }, 5000);
             });
-        }, error => {
-            console.error("Error listening for players:", error);
-        });
     } catch (error) {
         console.error("Error setting up player listener:", error);
     }
 }
 
+function updatePlayerCountUI() {
+    // Count players
+    const count = Object.keys(otherPlayers).length + 1; // +1 for local player
+    
+    // Create or update the counter
+    let counter = document.getElementById('player-counter');
+    if (!counter) {
+        counter = document.createElement('div');
+        counter.id = 'player-counter';
+        counter.style.position = 'absolute';
+        counter.style.top = '10px';
+        counter.style.left = '50%';
+        counter.style.transform = 'translateX(-50%)';
+        counter.style.background = 'rgba(0,0,0,0.6)';
+        counter.style.color = '#66ccff';
+        counter.style.padding = '5px 15px';
+        counter.style.borderRadius = '20px';
+        counter.style.fontFamily = 'Quantico, sans-serif';
+        counter.style.fontWeight = 'bold';
+        counter.style.fontSize = '16px';
+        counter.style.zIndex = '1000';
+        document.body.appendChild(counter);
+    }
+    
+    // Update the text
+    counter.textContent = `Players: ${count}`;
+    
+    // Highlight if more than one player
+    counter.style.color = count > 1 ? '#66ff66' : '#66ccff';
+    
+    console.log(`Current player count: ${count}`);
+    return count;
+}
+
 // Setup presence detection to handle disconnects
 function setupPlayerPresence(playerRef) {
     if (!window.firebaseDB) {
-        console.warn("Realtime Database not available for presence detection");
+        console.error("Realtime Database not available for presence detection");
         return;
     }
-
+    
     try {
         console.log("Setting up presence detection");
         const playerId = playerStats.id;
-        const presenceRef = firebase.database().ref(`presence/${playerId}`);
         
-        // When this device disconnects, remove this player
-        presenceRef.onDisconnect().remove().then(() => {
-            // This writes the presence data when connected
-            presenceRef.set({
-                online: true,
-                lastActive: firebase.database.ServerValue.TIMESTAMP
+        // Use Realtime Database for presence
+        const presenceRef = window.firebaseDB.ref(`presence/${playerId}`);
+        
+        // When this device disconnects, remove this player from presence
+        presenceRef.onDisconnect().remove()
+            .then(() => {
+                // Successfully configured onDisconnect
+                console.log("Disconnect cleanup configured successfully");
+                
+                // Now write the presence data
+                presenceRef.set({
+                    online: true,
+                    lastActive: firebase.database.ServerValue.TIMESTAMP,
+                    name: playerStats.name,
+                    color: playerStats.color
+                }).then(() => {
+                    console.log("Presence data written successfully");
+                }).catch(error => {
+                    console.error("Error writing presence data:", error);
+                });
+            })
+            .catch(error => {
+                console.error("Error setting up disconnect:", error);
             });
-            console.log("Presence detection set up successfully");
+        
+        // If we have a Firestore reference, also set up cleanup there
+        if (playerRef && typeof playerRef.onDisconnect === 'function') {
+            playerRef.onDisconnect().delete()
+                .then(() => {
+                    console.log("Firestore player cleanup configured");
+                })
+                .catch(error => {
+                    console.error("Error setting up Firestore cleanup:", error);
+                });
+        } else if (playerRef) {
+            // Manual cleanup if onDisconnect isn't available for Firestore
+            // We'll use the presence system to detect and clean up
+            console.log("Setting up manual cleanup via presence system");
             
-            // Also remove from Firestore collection when disconnected
-            if (playerRef) {
-                playerRef.onDisconnect().delete();
-            }
-        });
+            // Listen for presence changes to clean up disconnected players
+            window.firebaseDB.ref('presence').on('child_removed', snapshot => {
+                const disconnectedPlayerId = snapshot.key;
+                if (db) {
+                    db.collection("activePlayers").doc(disconnectedPlayerId).delete()
+                        .then(() => {
+                            console.log("Removed disconnected player from Firestore:", disconnectedPlayerId);
+                        })
+                        .catch(error => {
+                            console.error("Error removing disconnected player:", error);
+                        });
+                }
+            });
+        }
     } catch (error) {
         console.error("Error setting up presence:", error);
     }
@@ -4689,14 +4839,28 @@ function updateOtherPlayers(delta) {
 }
 
 function onPlayerAuthenticated() {
-  // Set up player with random name and color
-  enhancePlayerInitialization();
-  
-  // Set up multiplayer sync
-  setupMultiplayerSync();
-  
-  // Update player count in UI (optional)
-  updatePlayerCountUI();
+    // Set up player with random name and color 
+    enhancePlayerInitialization();
+    
+    console.log("Player authenticated! ID:", playerStats.id);
+    console.log("Player name:", playerStats.name);
+    console.log("Player color:", playerStats.color);
+    
+    // Explicitly setup multiplayer sync
+    setupMultiplayerSync();
+    
+    // Setup presence detection immediately
+    if (window.firebaseDB) {
+        setupPlayerPresence();
+    } else {
+        console.error("Cannot setup presence - Realtime Database unavailable");
+    }
+    
+    // Update player count in UI
+    updatePlayerCountUI();
+    
+    // Add a debug message to confirm when it's complete
+    console.log("Player authentication process completed");
 }
 
 function addOtherPlayerMinimapMarker(playerId, color) {
