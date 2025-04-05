@@ -360,6 +360,8 @@
     <!-- Vibe Jam link  -->
     <a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
 
+    <!-- firebase  -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -1226,10 +1228,42 @@ function enhancePlayerInitialization() {
   console.log(`Player initialized: ${playerStats.name} with color ${playerStats.color}`);
 }
 
+function startPositionSync(playerRef) {
+  // Set up interval to update position data
+  const syncInterval = setInterval(() => {
+    // Only sync if game is active and missile exists
+    if (!gameActive || !missile || !missile.visible) return;
+    
+    // Update player position in Firebase
+    playerRef.update({
+      position: {
+        x: missile.position.x,
+        y: missile.position.y,
+        z: missile.position.z
+      },
+      direction: {
+        x: missileDirection.x,
+        y: missileDirection.y,
+        z: missileDirection.z
+      },
+      isAccelerating: isAccelerating,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(error => {
+      console.error("Error updating position:", error);
+    });
+  }, POSITION_UPDATE_INTERVAL);
+  
+  // Store interval reference to clear it later if needed
+  window.positionSyncInterval = syncInterval;
+}
+
 function initFirebase() {
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
+    
+    // Also initialize Realtime Database for presence
+    firebase.database();
     
     // Initialize anonymous authentication
     firebase.auth().signInAnonymously().catch(error => {
@@ -1241,6 +1275,7 @@ function initFirebase() {
         if (user) {
             // User is signed in, set up their player ID
             playerStats.firebaseId = user.uid;
+            playerStats.id = user.uid; // Use the same ID for both
 
             onPlayerAuthenticated();
             
