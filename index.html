@@ -1046,46 +1046,61 @@ function initPortals() {
 }
 
 function setupMultiplayerSync() {
-  if (!db || !firebase.auth().currentUser) {
-    console.warn("Firebase not initialized or user not authenticated");
-    return;
-  }
-  
-  // Reference to active players collection
-  const activePlayers = db.collection("activePlayers");
-  
-  // Set up player entry with initial data
-  const playerId = playerStats.id;
-  const playerRef = activePlayers.doc(playerId);
-  
-  // Initial player data
-  const playerData = {
-    name: playerStats.name,
-    color: playerStats.color,
-    position: { x: 0, y: 100, z: 0 },
-    rotation: { x: 0, y: 0, z: 0 },
-    direction: { x: 0, y: 0, z: -1 },
-    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-    isAccelerating: false
-  };
-  
-  // Create or update player entry
-  playerRef.set(playerData, { merge: true })
-    .then(() => {
-      console.log("Player joined multiplayer session:", playerStats.name);
-      
-      // Set up presence detection for cleanup when player disconnects
-      setupPlayerPresence(playerRef);
-      
-      // Start position sync
-      startPositionSync(playerRef);
-    })
-    .catch(error => {
-      console.error("Error joining multiplayer:", error);
-    });
-  
-  // Listen for other players
-  listenForOtherPlayers(activePlayers);
+    try {
+        if (!db || !firebase.auth().currentUser) {
+            console.warn("Firebase not initialized or user not authenticated");
+            return;
+        }
+        
+        console.log("Setting up multiplayer sync...");
+        
+        // Reference to active players collection
+        const activePlayers = db.collection("activePlayers");
+        
+        // Set up player entry with initial data
+        const playerId = playerStats.id;
+        const playerRef = activePlayers.doc(playerId);
+        
+        // Initial player data
+        const playerData = {
+            name: playerStats.name,
+            color: playerStats.color,
+            position: { 
+                x: missile.position.x, 
+                y: missile.position.y, 
+                z: missile.position.z 
+            },
+            rotation: { x: 0, y: 0, z: 0 },
+            direction: { 
+                x: missileDirection.x, 
+                y: missileDirection.y, 
+                z: missileDirection.z 
+            },
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+            isAccelerating: false
+        };
+        
+        // Create or update player entry
+        playerRef.set(playerData, { merge: true })
+            .then(() => {
+                console.log("Joined multiplayer session as:", playerStats.name);
+                
+                // Set up presence detection for cleanup when player disconnects
+                setupPlayerPresence(playerRef);
+                
+                // Start position sync
+                startPositionSync(playerRef);
+            })
+            .catch(error => {
+                console.error("Error joining multiplayer:", error);
+            });
+        
+        // Listen for other players
+        listenForOtherPlayers(activePlayers);
+        
+    } catch (error) {
+        console.error("Error setting up multiplayer:", error);
+    }
 }
 
 
@@ -1230,68 +1245,83 @@ function enhancePlayerInitialization() {
 }
 
 function startPositionSync(playerRef) {
-  // Set up interval to update position data
-  const syncInterval = setInterval(() => {
-    // Only sync if game is active and missile exists
-    if (!gameActive || !missile || !missile.visible) return;
+    console.log("Starting position sync...");
     
-    // Update player position in Firebase
-    playerRef.update({
-      position: {
-        x: missile.position.x,
-        y: missile.position.y,
-        z: missile.position.z
-      },
-      direction: {
-        x: missileDirection.x,
-        y: missileDirection.y,
-        z: missileDirection.z
-      },
-      isAccelerating: isAccelerating,
-      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(error => {
-      console.error("Error updating position:", error);
-    });
-  }, POSITION_UPDATE_INTERVAL);
-  
-  // Store interval reference to clear it later if needed
-  window.positionSyncInterval = syncInterval;
+    // Set up interval to update position data
+    const syncInterval = setInterval(() => {
+        // Only sync if game is active and missile exists
+        if (!gameActive || !missile || !missile.visible) return;
+        
+        try {
+            // Update player position in Firebase
+            playerRef.update({
+                position: {
+                    x: missile.position.x,
+                    y: missile.position.y,
+                    z: missile.position.z
+                },
+                direction: {
+                    x: missileDirection.x,
+                    y: missileDirection.y,
+                    z: missileDirection.z
+                },
+                isAccelerating: isAccelerating,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (error) {
+            console.error("Error updating position:", error);
+        }
+    }, 100); // Update 10 times per second
+    
+    // Store interval reference to clear it later if needed
+    window.positionSyncInterval = syncInterval;
 }
 
 function initFirebase() {
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    
-       // Check for and initialize Realtime Database with error handling
-       if (typeof firebase.database === 'function') {
+    console.log("Initializing Firebase...");
+    try {
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // Initialize Firestore
+        db = firebase.firestore();
+        console.log("Firestore initialized successfully");
+        
+        // Initialize Realtime Database
+        if (typeof firebase.database === 'function') {
             console.log("Firebase Realtime Database is available");
-            window.firebaseDB = firebase.database(); // Store reference
+            window.firebaseDB = firebase.database();
         } else {
-            console.error("Firebase Realtime Database not available");
+            console.error("Firebase Realtime Database not available - multiplayer will be limited");
         }
-    
-    // Initialize anonymous authentication
-    firebase.auth().signInAnonymously().catch(error => {
-        console.error("Authentication error:", error);
-    });
-    
-    // Set up auth state change listener
-    firebase.auth().onAuthStateChanged(user => {
-        if (user) {
-            // User is signed in, set up their player ID
-            playerStats.firebaseId = user.uid;
-            playerStats.id = user.uid; // Use the same ID for both
-
-            onPlayerAuthenticated();
-            
-            // Fetch existing player data if returning user
-            fetchPlayerData(user.uid);
-            
-            // Start listening to leaderboard updates
-            subscribeToLeaderboard();
-        }
-    });
+        
+        // Sign in anonymously
+        firebase.auth().signInAnonymously()
+            .then(() => {
+                console.log("Anonymous authentication successful");
+            })
+            .catch(error => {
+                console.error("Authentication error:", error);
+            });
+        
+        // Set up auth state change listener
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) {
+                console.log("User signed in:", user.uid);
+                playerStats.firebaseId = user.uid;
+                playerStats.id = user.uid;
+                
+                onPlayerAuthenticated();
+                fetchPlayerData(user.uid);
+                subscribeToLeaderboard();
+            } else {
+                console.log("User signed out");
+            }
+        });
+    } catch (error) {
+        console.error("Firebase initialization error:", error);
+        alert("Multiplayer functions may be limited. Check console for details.");
+    }
 }
 
 // Fetch existing player data if they've played before
@@ -4147,48 +4177,78 @@ function updateHUD() {
 }
 
 function listenForOtherPlayers(activePlayers) {
-  // Listen for active players changes
-  return activePlayers.onSnapshot(snapshot => {
-    snapshot.docChanges().forEach(change => {
-      const playerId = change.doc.id;
-      const playerData = change.doc.data();
-      
-      // Skip our own player
-      if (playerId === playerStats.id) return;
-      
-      if (change.type === "added" || change.type === "modified") {
-        // Create or update other player
-        updateOtherPlayer(playerId, playerData);
-      }
-      else if (change.type === "removed") {
-        // Remove player who left
-        removeOtherPlayer(playerId);
-      }
-    });
-  }, error => {
-    console.error("Error listening for players:", error);
-  });
+    console.log("Setting up listener for other players...");
+    
+    try {
+        // Unsubscribe from any existing listener
+        if (window.otherPlayersListener) {
+            window.otherPlayersListener();
+        }
+        
+        // Listen for active players changes
+        window.otherPlayersListener = activePlayers.onSnapshot(snapshot => {
+            console.log("Received active players update");
+            
+            snapshot.docChanges().forEach(change => {
+                const playerId = change.doc.id;
+                const playerData = change.doc.data();
+                
+                // Skip our own player
+                if (playerId === playerStats.id) return;
+                
+                if (change.type === "added" || change.type === "modified") {
+                    console.log(`Player ${change.type}: ${playerData.name} (${playerId})`);
+                    updateOtherPlayer(playerId, playerData);
+                }
+                else if (change.type === "removed") {
+                    console.log(`Player removed: ${playerId}`);
+                    removeOtherPlayer(playerId);
+                }
+            });
+        }, error => {
+            console.error("Error listening for players:", error);
+        });
+    } catch (error) {
+        console.error("Error setting up player listener:", error);
+    }
 }
 
 // Setup presence detection to handle disconnects
 function setupPlayerPresence(playerRef) {
-  // Create a presence reference in the Realtime Database
-  const presenceRef = firebase.database().ref(`presence/${playerStats.id}`);
-  
-  // Set up disconnect hook
-  presenceRef.onDisconnect().remove().then(() => {
-    // This will trigger when player disconnects
-    presenceRef.set(true);
-    
-    // Also remove from Firestore collection when disconnected
-    playerRef.onDisconnect().delete().catch(console.error);
-  });
+    if (!window.firebaseDB) {
+        console.warn("Realtime Database not available for presence detection");
+        return;
+    }
+
+    try {
+        console.log("Setting up presence detection");
+        const playerId = playerStats.id;
+        const presenceRef = firebase.database().ref(`presence/${playerId}`);
+        
+        // When this device disconnects, remove this player
+        presenceRef.onDisconnect().remove().then(() => {
+            // This writes the presence data when connected
+            presenceRef.set({
+                online: true,
+                lastActive: firebase.database.ServerValue.TIMESTAMP
+            });
+            console.log("Presence detection set up successfully");
+            
+            // Also remove from Firestore collection when disconnected
+            if (playerRef) {
+                playerRef.onDisconnect().delete();
+            }
+        });
+    } catch (error) {
+        console.error("Error setting up presence:", error);
+    }
 }
 
 function updateOtherPlayer(playerId, playerData) {
   // Skip outdated updates for existing players
   if (otherPlayers[playerId] && 
       otherPlayers[playerId].lastUpdateTime && 
+      playerData.lastUpdated?.toMillis && 
       otherPlayers[playerId].lastUpdateTime > playerData.lastUpdated?.toMillis()) {
     return;
   }
@@ -4200,6 +4260,9 @@ function updateOtherPlayer(playerId, playerData) {
     // Create missile model for this player
     const otherMissile = createOtherPlayerMissile(playerData.color || "#5c5c5c");
     scene.add(otherMissile);
+
+     // Make sure the missile is visible
+     otherMissile.visible = true;
     
     otherPlayers[playerId] = {
       id: playerId,
@@ -6102,7 +6165,59 @@ function adjustResolutionForPerformance() {
     }
 }
 
-
+function showMultiplayerDebug() {
+    // Create a debug overlay if it doesn't exist
+    if (!document.getElementById('multiplayer-debug')) {
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'multiplayer-debug';
+        debugDiv.style.position = 'absolute';
+        debugDiv.style.bottom = '10px';
+        debugDiv.style.left = '10px';
+        debugDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        debugDiv.style.color = 'white';
+        debugDiv.style.padding = '10px';
+        debugDiv.style.borderRadius = '5px';
+        debugDiv.style.fontFamily = 'monospace';
+        debugDiv.style.fontSize = '12px';
+        debugDiv.style.maxWidth = '400px';
+        debugDiv.style.maxHeight = '200px';
+        debugDiv.style.overflow = 'auto';
+        debugDiv.style.zIndex = '1000';
+        document.body.appendChild(debugDiv);
+        
+        // Add toggle button
+        const toggleBtn = document.createElement('button');
+        toggleBtn.textContent = 'Toggle Debug';
+        toggleBtn.style.position = 'absolute';
+        toggleBtn.style.bottom = '10px';
+        toggleBtn.style.left = '10px';
+        toggleBtn.style.zIndex = '1001';
+        toggleBtn.onclick = () => {
+            const debug = document.getElementById('multiplayer-debug');
+            debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
+        };
+        document.body.appendChild(toggleBtn);
+    }
+    
+    // Update the debug info
+    const debugDiv = document.getElementById('multiplayer-debug');
+    const otherPlayerCount = Object.keys(otherPlayers).length;
+    
+    debugDiv.innerHTML = `
+        <strong>Multiplayer Debug</strong><br>
+        Player ID: ${playerStats.id ? playerStats.id.substring(0,8)+'...' : 'Not set'}<br>
+        Firebase Auth: ${firebase.auth().currentUser ? 'Connected' : 'Disconnected'}<br>
+        Realtime DB: ${window.firebaseDB ? 'Available' : 'Not available'}<br>
+        Firestore: ${db ? 'Available' : 'Not available'}<br>
+        Other Players: ${otherPlayerCount}<br>
+        <br>
+        <strong>Other Players:</strong><br>
+        ${Object.keys(otherPlayers).map(id => {
+            const p = otherPlayers[id];
+            return `${p.name} (${id.substring(0,5)}): ${Math.round(p.targetPosition.x)},${Math.round(p.targetPosition.y)},${Math.round(p.targetPosition.z)}`;
+        }).join('<br>')}
+    `;
+}
 
 
 
@@ -6748,6 +6863,8 @@ function animate(currentTime) {
 
         // Update player stats 
         updatePlayerStats(playtimeIncrement);
+
+        showMultiplayerDebug(); // Show debug info if multiplayer is active
         
         // Update enemy pilot stats with the same delta
         enemyPilotStats.forEach(pilot => {
