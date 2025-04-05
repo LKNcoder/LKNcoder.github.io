@@ -565,6 +565,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyAKNrmt5HLrxYjEukNH85e01-eyAsUGvf4",
     authDomain: "vibe-missile.firebaseapp.com",
     projectId: "vibe-missile",
+    databaseURL: "https://vibe-missile-default-rtdb.firebaseio.com",
     storageBucket: "vibe-missile.appspot.com",
     messagingSenderId: "1048243867578",
     appId: "1:1048243867578:web:9c502d5275fcb8a43b5783"
@@ -1311,27 +1312,56 @@ function startPositionSync(playerRef) {
 function initFirebase() {
     console.log("Initializing Firebase...");
     
+    // First check if Firebase is available
+    if (typeof firebase === 'undefined') {
+        console.error("Firebase SDK not loaded! Make sure scripts are loaded correctly.");
+        alert("Firebase initialization failed: Firebase SDK is not available");
+        return false;
+    }
+    
     try {
-        // Check if Firebase is already initialized to avoid duplicate initialization
+        // Check if Firebase is already initialized
         if (firebase.apps.length) {
             console.log("Firebase already initialized, using existing instance");
             db = firebase.firestore();
             window.firebaseDB = firebase.database();
         } else {
+            // Log the config we're using (without sensitive data)
+            console.log("Firebase config:", {
+                authDomain: firebaseConfig.authDomain,
+                projectId: firebaseConfig.projectId,
+                databaseURL: firebaseConfig.databaseURL || "NOT SET - THIS IS REQUIRED"
+            });
+            
             // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             console.log("Firebase app initialized");
             
-            // Initialize Firestore
-            db = firebase.firestore();
-            console.log("Firestore initialized successfully");
+            // Initialize Firestore with error handling
+            try {
+                db = firebase.firestore();
+                console.log("Firestore initialized successfully");
+            } catch (firestoreError) {
+                console.error("Firestore initialization error:", firestoreError);
+            }
             
-            // Initialize Realtime Database
-            window.firebaseDB = firebase.database();
-            console.log("Realtime Database initialized successfully");
+            // Initialize Realtime Database with error handling
+            try {
+                window.firebaseDB = firebase.database();
+                console.log("Realtime Database initialized successfully");
+            } catch (dbError) {
+                console.error("Realtime Database initialization error:", dbError);
+            }
         }
         
-        // Sign in anonymously - with improved error handling
+        // Check if auth is available before attempting to use it
+        if (!firebase.auth) {
+            console.error("Firebase Auth not available. Check script loading.");
+            alert("Firebase Auth not available. Check script loading.");
+            return false;
+        }
+        
+        // Sign in anonymously with improved error handling
         console.log("Attempting anonymous authentication...");
         firebase.auth().signInAnonymously()
             .then(() => {
@@ -1349,6 +1379,9 @@ function initFirebase() {
                     case 'auth/web-storage-unsupported':
                         errorMessage += "Web storage is not supported or disabled.";
                         break;
+                    case 'auth/configuration-not-found':
+                        errorMessage += "Firebase configuration is incomplete or incorrect. Make sure databaseURL is set.";
+                        break;
                     default:
                         errorMessage += error.message;
                 }
@@ -1356,7 +1389,7 @@ function initFirebase() {
                 alert(errorMessage);
             });
         
-        // Set up auth state change listener with improved logging
+        // Auth state listener remains the same
         firebase.auth().onAuthStateChanged(user => {
             if (user) {
                 console.log("User signed in successfully. User ID:", user.uid);
