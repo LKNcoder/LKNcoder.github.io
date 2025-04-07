@@ -692,38 +692,27 @@ async function joinAgoraChannel() {
         
         console.log("Attempting to join channel:", channelName);
         
-        // Create microphone track before joining
-        try {
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            console.log("Microphone track created successfully");
-        } catch (micError) {
-            console.error("Failed to access microphone:", micError);
-            // Create a dummy audio track so UI still works
-            localAudioTrack = { 
-                setEnabled: function(enabled) {
-                    console.log("Dummy mic set to:", enabled);
-                    isAudioEnabled = enabled;
-                    updateVoiceChatUI(); // Update UI even without real mic
-                }
-            };
-            
-            // Show permission error to user
-            alert("Microphone access denied. Please allow microphone access to use voice chat.");
-        }
-        
-        // Start muted by default
-        localAudioTrack.setEnabled(false);
-        isAudioEnabled = false;
-        
-        // Join the channel (even without mic)
+        // DON'T create microphone track yet, just join the channel
         await rtcClient.join(AGORA_APP_ID, channelName, token, uid);
         console.log("Joined Agora channel:", channelName);
         
-        // Only publish if we have a real track
-        if (localAudioTrack.publish) {
-            await rtcClient.publish([localAudioTrack]);
-            console.log("Published local audio track");
-        }
+        // Create a dummy track that just handles UI state
+        localAudioTrack = { 
+            setEnabled: function(enabled) {
+                console.log("Audio state updated:", enabled);
+                isAudioEnabled = enabled;
+                updateVoiceChatUI();
+                
+                // If user is enabling audio, create the real track now
+                if (enabled && !this.isRealTrack) {
+                    createRealAudioTrack();
+                }
+            },
+            isRealTrack: false
+        };
+        
+        // Initialize as muted
+        isAudioEnabled = false;
         
         joinedChannel = true;
         updateVoiceChatUI();
@@ -731,21 +720,52 @@ async function joinAgoraChannel() {
         console.error("Error joining Agora channel:", error);
         
         // Create dummy implementations to prevent UI errors
-        if (!localAudioTrack) {
-            localAudioTrack = { 
-                setEnabled: function(enabled) { 
-                    console.log("Dummy mic set to:", enabled);
-                    isAudioEnabled = enabled;
-                    updateVoiceChatUI();
-                } 
-            };
-        }
+        localAudioTrack = { 
+            setEnabled: function(enabled) { 
+                console.log("Dummy mic set to:", enabled);
+                isAudioEnabled = enabled;
+                updateVoiceChatUI();
+                
+                // If user is enabling audio, create the real track
+                if (enabled && !this.isRealTrack) {
+                    createRealAudioTrack();
+                }
+            },
+            isRealTrack: false
+        };
         
         joinedChannel = true; // Mark as joined so UI works
         updateVoiceChatUI();
     }
 }
 
+async function createRealAudioTrack() {
+    try {
+        // Now we request microphone permission
+        const micTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        console.log("Microphone track created successfully");
+        
+        // Replace the dummy track with the real one
+        const wasEnabled = isAudioEnabled;
+        localAudioTrack = micTrack;
+        localAudioTrack.isRealTrack = true;
+        
+        // Publish the track
+        await rtcClient.publish([micTrack]);
+        console.log("Published local audio track");
+        
+        // Apply the previous state
+        localAudioTrack.setEnabled(wasEnabled);
+        
+    } catch (error) {
+        console.error("Failed to create microphone track:", error);
+        alert("Microphone access denied. Please allow microphone access to use voice chat.");
+        
+        // Reset audio state since permission was denied
+        isAudioEnabled = false;
+        updateVoiceChatUI();
+    }
+}
 
 // Generate a unique player ID
 function generatePlayerId() {
@@ -1211,83 +1231,49 @@ function initPortals() {
 
 function setupMultiplayerSync() {
     // Skip if already initialized
-    if (window.multiplayerSyncInitialized) {
-        console.log("Multiplayer sync already initialized");
-        return;
-    }
+    if (window.multiplayerSyncInitialized) return;
     
-    console.log("Setting up multiplayer sync...");
-
-    // First, clean up any existing other players to start fresh
-    cleanupAllOtherPlayerMissiles();
+    console.log("Setting up multiplayer sync with players collection only");
     
-    try {
-        // Check for required components
-        if (!db) {
-            console.error("Firestore not initialized - cannot setup multiplayer sync");
-            return;
-        }
-        
-        if (!firebase.auth().currentUser) {
-            console.error("User not authenticated - cannot setup multiplayer sync");
-            return;
-        }
-        
-        // Reference to active players collection - THIS IS THE KEY TO SHARED EXPERIENCE
-        // All players must be in the same collection
-        const activePlayers = db.collection("activePlayers");
-        
-        // Get current player ID
-        const playerId = playerStats.id;
-        const playerRef = activePlayers.doc(playerId);
-        
-        // Initial player data
-        const playerData = {
-            name: playerStats.name,
-            color: playerStats.color,
-            position: { 
-                x: missile.position.x, 
-                y: missile.position.y, 
-                z: missile.position.z 
-            },
-            rotation: { 
-                x: missile.rotation.x,
-                y: missile.rotation.y,
-                z: missile.rotation.z
-            },
-            direction: { 
-                x: missileDirection.x, 
-                y: missileDirection.y, 
-                z: missileDirection.z 
-            },
-            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-            isAccelerating: false
-        };
-        
-        // Create or update player entry
-        playerRef.set(playerData, { merge: true })
-            .then(() => {
-                console.log("Joined multiplayer session as:", playerStats.name);
-                
-                // Set up presence detection for cleanup when player disconnects
-                setupPlayerPresence(playerRef);
-                
-                // Start position sync
-                startPositionSync(playerRef);
-                
-                // Mark as initialized
-                window.multiplayerSyncInitialized = true;
-            })
-            .catch(error => {
-                console.error("Error joining multiplayer:", error);
-            });
-        
-        // Listen for other players
-        listenForOtherPlayers(activePlayers);
-        
-    } catch (error) {
-        console.error("Error setting up multiplayer:", error);
-    }
+    if (!db || !firebase.auth().currentUser) return;
+    
+    // Use ONLY players collection
+    const playersCollection = db.collection("players");
+    const playerId = playerStats.id;
+    const playerRef = playersCollection.doc(playerId);
+    
+    // Initial player data
+    const playerData = {
+        name: playerStats.name,
+        color: playerStats.color,
+        position: { 
+            x: missile.position.x, 
+            y: missile.position.y, 
+            z: missile.position.z 
+        },
+        direction: { 
+            x: missileDirection.x, 
+            y: missileDirection.y, 
+            z: missileDirection.z 
+        },
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+        isActive: true,
+        isAccelerating: false
+    };
+    
+    // Create or update player entry
+    playerRef.set(playerData, { merge: true })
+        .then(() => {
+            setupPlayerPresence(playerRef);
+            startPositionSync(playerRef);
+            window.multiplayerSyncInitialized = true;
+        })
+        .catch(error => {
+            console.error("Error joining multiplayer:", error);
+        });
+    
+    // Listen for other players
+    listenForOtherPlayers(playersCollection);
 }
 
 // New function to clean up stale Firebase player entries
@@ -1505,6 +1491,10 @@ function enhancePlayerInitialization() {
   console.log(`Player initialized: ${playerStats.name} with color ${playerStats.color}`);
 }
 
+
+
+
+
 function initializeGameState() {
     console.log("Performing complete game state initialization");
     
@@ -1565,7 +1555,7 @@ function initializeGameState() {
 }
 
 function startPositionSync(playerRef) {
-    console.log("Starting position sync...");
+    console.log("Starting position sync with consolidated collection...");
     
     // Clear any existing interval to prevent duplicates
     if (window.positionSyncInterval) {
@@ -1579,7 +1569,7 @@ function startPositionSync(playerRef) {
         if (!gameActive || !missile || !missile.visible) return;
         
         try {
-            // Update player position in Firebase
+            // Update player position in Firebase (now always in players collection)
             playerRef.update({
                 position: {
                     x: missile.position.x,
@@ -1592,10 +1582,8 @@ function startPositionSync(playerRef) {
                     z: missileDirection.z
                 },
                 isAccelerating: isAccelerating,
+                isActive: true,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                // Position update successful
-                // We could log this but it would spam the console
             }).catch(error => {
                 console.error("Error updating position:", error);
             });
@@ -1604,116 +1592,129 @@ function startPositionSync(playerRef) {
         }
     }, 100); // Update 10 times per second
     
-    // Store interval reference to clear it later if needed
     window.positionSyncInterval = syncInterval;
 }
 
 function initFirebase() {
     console.log("Initializing Firebase...");
     
-    // First check if Firebase is available
-    if (typeof firebase === 'undefined') {
-        console.error("Firebase SDK not loaded! Make sure scripts are loaded correctly.");
-        alert("Firebase initialization failed: Firebase SDK is not available");
-        return false;
-    }
-    
     try {
-        // Check if Firebase is already initialized
-        if (firebase.apps.length) {
-            console.log("Firebase already initialized, using existing instance");
-            db = firebase.firestore();
-            window.firebaseDB = firebase.database();
-        } else {
-            // Log the config we're using (without sensitive data)
-            console.log("Firebase config:", {
-                authDomain: firebaseConfig.authDomain,
-                projectId: firebaseConfig.projectId,
-                databaseURL: firebaseConfig.databaseURL || "NOT SET - THIS IS REQUIRED"
-            });
-            
-            // Initialize Firebase
+        // Initialize Firebase with configuration
+        if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
-            console.log("Firebase app initialized");
-            
-            // Initialize Firestore with error handling
-            try {
-                db = firebase.firestore();
-                console.log("Firestore initialized successfully");
-            } catch (firestoreError) {
-                console.error("Firestore initialization error:", firestoreError);
-            }
-            
-            // Initialize Realtime Database with error handling
-            try {
-                window.firebaseDB = firebase.database();
-                console.log("Realtime Database initialized successfully");
-            } catch (dbError) {
-                console.error("Realtime Database initialization error:", dbError);
-            }
         }
         
-        // Check if auth is available before attempting to use it
-        if (!firebase.auth) {
-            console.error("Firebase Auth not available. Check script loading.");
-            alert("Firebase Auth not available. Check script loading.");
-            return false;
-        }
+        // Initialize Firestore
+        window.firestore = firebase.firestore();
+        db = window.firestore;
         
-        // Sign in anonymously with improved error handling
-        console.log("Attempting anonymous authentication...");
-        firebase.auth().signInAnonymously()
-            .then(() => {
-                console.log("Anonymous authentication request successful");
-            })
-            .catch(error => {
-                console.error("Authentication error:", error.code, error.message);
-                
-                // Show more detailed error
-                let errorMessage = "Authentication failed: ";
-                switch(error.code) {
-                    case 'auth/operation-not-allowed':
-                        errorMessage += "Anonymous auth not enabled in Firebase console.";
-                        break;
-                    case 'auth/web-storage-unsupported':
-                        errorMessage += "Web storage is not supported or disabled.";
-                        break;
-                    case 'auth/configuration-not-found':
-                        errorMessage += "Firebase configuration is incomplete or incorrect. Make sure databaseURL is set.";
-                        break;
-                    default:
-                        errorMessage += error.message;
-                }
-                console.error(errorMessage);
-                alert(errorMessage);
-            });
+        // Initialize Realtime Database (for presence detection)
+        window.firebaseDB = firebase.database();
         
-        // Auth state listener remains the same
+        // Set up authentication
         firebase.auth().onAuthStateChanged(user => {
             if (user) {
-                console.log("User signed in successfully. User ID:", user.uid);
+                console.log("User signed in. ID:", user.uid);
                 playerStats.firebaseId = user.uid;
                 playerStats.id = user.uid;
                 
-                // Now that authentication is confirmed successful, set up multiplayer
-                setTimeout(() => {
-                    console.log("Setting up multiplayer connections now that auth is successful");
-                    onPlayerAuthenticated();
-                    fetchPlayerData(user.uid);
-                    subscribeToLeaderboard();
-                    setupMultiplayerSync(); // Explicitly call this here
-                }, 500); // Short delay to ensure auth is fully processed
+                // Clean up Firebase players collection
+                cleanupFirebasePlayersCollection()
+                    .then(() => {
+                        console.log("Firebase collection cleaned, initializing player...");
+                        onPlayerAuthenticated();
+                        fetchPlayerData(user.uid);
+                        
+                        // Only subscribe AFTER cleanup to avoid flash of wrong data
+                        subscribeToLeaderboard();
+                    })
+                    .catch(error => {
+                        console.error("Firebase cleanup error:", error);
+                        onPlayerAuthenticated();
+                        fetchPlayerData(user.uid);
+                        subscribeToLeaderboard();
+                    });
             } else {
-                console.log("User signed out or auth state changed to unauthenticated");
+                console.log("No authenticated user, signing in anonymously");
+                firebase.auth().signInAnonymously().catch(error => {
+                    console.error("Error signing in anonymously:", error);
+                });
             }
         });
         
-        return true; // Successful initialization
+        console.log("Firebase initialization complete");
+        return true;
     } catch (error) {
-        console.error("Firebase critical initialization error:", error);
-        alert("Firebase initialization failed: " + error.message);
+        console.error("Error initializing Firebase:", error);
         return false;
     }
+}
+
+function cleanupFirebasePlayersCollection() {
+    console.log("Cleaning up players collection...");
+    
+    if (!window.firestore || !firebase.auth().currentUser) {
+        console.error("Firebase not initialized or user not authenticated");
+        return Promise.resolve();
+    }
+    
+    // Use ONLY the players collection - remove all references to activePlayers
+    const playersCollection = db.collection("players");
+    
+    return playersCollection.get()
+        .then(snapshot => {
+            if (snapshot.empty) {
+                console.log("No players to clean up");
+                return Promise.resolve();
+            }
+            
+            console.log(`Found ${snapshot.size} players in Firebase`);
+            
+            // Create a batch operation
+            const batch = db.batch();
+            let deleteCount = 0;
+            
+            // Delete ALL entries except the current player
+            snapshot.forEach(doc => {
+                if (doc.id !== playerStats.id) {
+                    const data = doc.data();
+                    console.log(`Removing player: ${data.name || "Unknown"} (${doc.id})`);
+                    batch.delete(doc.ref);
+                    deleteCount++;
+                }
+            });
+            
+            if (deleteCount > 0) {
+                console.log(`Deleting ${deleteCount} players from collection`);
+                return batch.commit();
+            }
+            return Promise.resolve();
+        })
+        .then(() => {
+            // After cleaning, add the NATO enemy pilots
+            console.log("Adding NATO pilots to players collection");
+            
+            const batch = db.batch();
+            
+            enemyPilotStats.forEach(pilot => {
+                console.log(`Adding NATO pilot: ${pilot.name} (${pilot.id})`);
+                const pilotRef = playersCollection.doc(pilot.id);
+                batch.set(pilotRef, {
+                    name: pilot.name,
+                    color: pilot.color || "#66ccff",
+                    targetsDestroyed: 0, // Fresh start
+                    tpm: 0,
+                    isEnemyPilot: true,
+                    // Include position data that used to be in activePlayers
+                    position: { x: 0, y: 0, z: 0 },
+                    direction: { x: 0, y: 0, z: 0 },
+                    isActive: true,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            return batch.commit();
+        });
 }
 
 // Fetch existing player data if they've played before
@@ -1807,10 +1808,12 @@ function subscribeToLeaderboard() {
 }
 
 function initializeLeaderboard() {
-    // Clear the leaderboard array completely
+    console.log("Initializing fresh leaderboard with single collection cleanup...");
+    
+    // STEP 1: Clear the local leaderboard array completely
     leaderboard = [];
     
-    // Add the current player to the leaderboard
+    // STEP 2: Add the current player to the leaderboard
     leaderboard.push({
         id: playerStats.id,
         name: playerStats.name,
@@ -1819,8 +1822,13 @@ function initializeLeaderboard() {
         color: playerStats.color
     });
     
-    // Add all enemy pilots with fresh stats for this round
+    // STEP 3: Add all enemy pilots with fresh stats for this round
     enemyPilotStats.forEach(pilot => {
+        // Reset enemy pilot stats before adding to leaderboard
+        pilot.targetsDestroyed = 0;
+        pilot.crashes = 0;
+        pilot.totalPlayTimeSeconds = 0;
+        
         leaderboard.push({
             id: pilot.id,
             name: pilot.name,
@@ -1831,13 +1839,74 @@ function initializeLeaderboard() {
         });
     });
     
-    // Update the leaderboard display
-    updateLeaderboard();
-    console.log("Leaderboard initialized with", leaderboard.length, "pilots");
+    // STEP 4: If Firebase is available, perform thorough cleanup of ONLY players collection
+    if (window.firestore && firebase.auth().currentUser) {
+        const playersCollection = db.collection("players");
+        
+        // Get ALL players
+        playersCollection.get().then(snapshot => {
+            console.log(`Found ${snapshot.size} total entries in Firebase`);
+            
+            // Create batch operations for better atomicity
+            const batch = db.batch();
+            
+            // Delete ALL entries except current player
+            snapshot.docs.forEach(doc => {
+                if (doc.id !== playerStats.id) {
+                    console.log(`Removing player: ${doc.data().name || "Unknown"} (${doc.id})`);
+                    batch.delete(doc.ref);
+                }
+            });
+            
+            // Commit the delete operations
+            return batch.commit();
+        }).then(() => {
+            console.log("Successfully cleaned up all Firebase entries");
+            
+            // Now add fresh NATO enemy pilots with a new batch
+            const batch = db.batch();
+            
+            enemyPilotStats.forEach(pilot => {
+                console.log(`Adding NATO pilot to Firebase: ${pilot.name} (${pilot.id})`);
+                const pilotRef = playersCollection.doc(pilot.id);
+                batch.set(pilotRef, {
+                    name: pilot.name,
+                    color: pilot.color || "#66ccff",
+                    targetsDestroyed: 0, // Always start fresh
+                    tpm: 0,
+                    isEnemyPilot: true,
+                    // Add position tracking fields that were in activePlayers
+                    position: { x: 0, y: 0, z: 0 },
+                    direction: { x: 0, y: 0, z: 0 },
+                    isActive: true,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            return batch.commit();
+        }).then(() => {
+            console.log("Successfully added NATO pilots to Firebase");
+            
+            // Update the UI after all Firebase operations are complete
+            updateLeaderboard();
+            console.log(`Leaderboard initialized with ${leaderboard.length} pilots (NATO only)`);
+        }).catch(error => {
+            console.error("Firebase operations failed:", error);
+            
+            // Still update the UI even if Firebase fails
+            updateLeaderboard();
+        });
+    } else {
+        // No Firebase available, just update the UI
+        updateLeaderboard();
+        console.log(`Leaderboard initialized with ${leaderboard.length} pilots (Firebase not available)`);
+    }
 }
+    
+   
 
 
-        function initSoundPool() {
+    function initSoundPool() {
     // Create pre-loaded pool of audio elements
     window.explosionSoundPool = [];
     const poolSize = 5;
@@ -4560,8 +4629,8 @@ function updateHUD() {
     }
 }
 
-function listenForOtherPlayers(activePlayers) {
-    console.log("Setting up listener for other players...");
+function listenForOtherPlayers(playersCollection) {
+    console.log("Setting up listener for other players using consolidated collection...");
     
     try {
         // Unsubscribe from any existing listener
@@ -4571,46 +4640,25 @@ function listenForOtherPlayers(activePlayers) {
         }
         
         // Listen for active players changes with error handling
-        window.otherPlayersListener = activePlayers
+        window.otherPlayersListener = playersCollection
+            .where("isActive", "==", true) // Only show active players
             .onSnapshot(snapshot => {
-                console.log(`Received active players update with ${snapshot.docChanges().length} changes`);
-                
                 snapshot.docChanges().forEach(change => {
                     const playerId = change.doc.id;
-                    const playerData = change.doc.data();
                     
-                    // Skip our own player
-                    if (playerId === playerStats.id) {
-                        console.log("Skipping own player update");
-                        return;
-                    }
+                    // Skip current player
+                    if (playerId === playerStats.id) return;
                     
-                    if (change.type === "added") {
-                        console.log(`New player joined: ${playerData.name} (${playerId})`);
-                        updateOtherPlayer(playerId, playerData);
-                    }
-                    else if (change.type === "modified") {
-                        // We could log this but it would spam the console
-                        updateOtherPlayer(playerId, playerData);
-                    }
-                    else if (change.type === "removed") {
-                        console.log(`Player left: ${playerId}`);
-                        
-                        // Make sure we clean up their missiles too
-                        cleanupDisconnectedPlayerMissiles(playerId);
+                    if (change.type === "added" || change.type === "modified") {
+                        updateOtherPlayer(playerId, change.doc.data());
+                    } else if (change.type === "removed") {
+                        removeOtherPlayer(playerId);
                     }
                 });
                 
-                // Update player count after changes
                 updatePlayerCountUI();
             }, error => {
-                console.error("Error listening for players:", error);
-                
-                // Try to reestablish the listener after a delay
-                setTimeout(() => {
-                    console.log("Attempting to reestablish player listener...");
-                    listenForOtherPlayers(activePlayers);
-                }, 5000);
+                console.error("Error listening for other players:", error);
             });
     } catch (error) {
         console.error("Error setting up player listener:", error);
@@ -4731,6 +4779,15 @@ function updateOtherPlayer(playerId, playerData) {
       otherPlayers[playerId].lastUpdateTime && 
       playerData.lastUpdated?.toMillis && 
       otherPlayers[playerId].lastUpdateTime > playerData.lastUpdated?.toMillis()) {
+    return;
+  }
+
+  // Don't create a missile if position data is missing or is at origin (0,0,0)
+  if (!playerData.position || 
+      (Math.abs(playerData.position.x) < 0.1 && 
+       Math.abs(playerData.position.y) < 0.1 && 
+       Math.abs(playerData.position.z) < 0.1)) {
+    console.log("Skipping player with invalid position data:", playerId);
     return;
   }
   
@@ -5040,12 +5097,9 @@ function handleCrash(impactPoint, createGroundScorch = true) {
     missile.visible = false;
 }
         
-        function handleTargetHit(target, impactPoint) {
+function handleTargetHit(target, impactPoint) {
     // Ensure this is actually a target building
-    if (!target || !target.userData || !target.userData.isTarget) {
-        handleCrash(impactPoint, false); // Treat as a normal crash instead
-        return;
-    }
+    if (!target || !target.userData || !target.userData.isTarget) return;
     
     createExplosion(impactPoint || target.position.clone(), true, false);
     playSound('target');
@@ -5081,16 +5135,16 @@ function handleCrash(impactPoint, createGroundScorch = true) {
     // Make it slightly larger than normal 
     const lastScorch = scorchMarks[scorchMarks.length - 1];
     if (lastScorch) {
-        const scorchSize = buildingWidth * 1.2;
-        lastScorch.scale.set(scorchSize, scorchSize, 1);
-        
-        if (lastScorch.userData.emberEffect) {
-            lastScorch.userData.emberEffect.scale.set(scorchSize * 0.8, scorchSize * 0.8, 1);
-        }
-        // Make this scorch produce more smoke
-        lastScorch.userData.smokeIntensity = 1.5;
-        lastScorch.userData.isTargetHit = true;
+    const scorchSize = buildingWidth * 1.2; // Slightly bigger than building base
+    lastScorch.scale.set(scorchSize, scorchSize, 1);
+    
+    if (lastScorch.userData.emberEffect) {
+        lastScorch.userData.emberEffect.scale.set(scorchSize * 0.8, scorchSize * 0.8, 1);
     }
+    
+    lastScorch.userData.isTargetHit = true;
+    lastScorch.userData.smokeIntensity = 2.0;
+}
 
     createSmokeColumn(scorchPosition, 20);
 
@@ -5101,6 +5155,11 @@ function handleCrash(impactPoint, createGroundScorch = true) {
     // Update player stats
     playerStats.targetsDestroyed++;
     updatePlayerStats(); // Calculate new TPM
+
+    const playerLeaderboardIndex = leaderboard.findIndex(entry => entry.id === playerStats.id);
+    if (playerLeaderboardIndex !== -1) {
+        leaderboard[playerLeaderboardIndex].targetsDestroyed = playerStats.targetsDestroyed;
+    }
     
     // Also update Firebase with the new achievement!
     syncPlayerStatsToFirebase();
@@ -5110,26 +5169,30 @@ function handleCrash(impactPoint, createGroundScorch = true) {
     
     // Add highlight effect to player entry
     setTimeout(() => {
-        const playerEntry = document.getElementById(`player-${playerStats.id}`);
-        if (playerEntry) {
-            playerEntry.classList.add('highlight');
-            setTimeout(() => playerEntry.classList.remove('highlight'), 1500);
-        }
+        highlightPlayerInLeaderboard();
     }, 100);
     
-    // Check if all targets are destroyed
+    // Check if all targets are destroyed - THIS IS THE KEY PART WE NEED TO FIX
     if (stats.targetsRemaining <= 0) {
-        window.gameOverTriggered = true;
-        gameActive = false; // Pause gameplay
+        console.log("All targets destroyed! Round complete.");
         
-        // We'll skip the normal reset process and show the game over screen
-        setTimeout(() => {
-            showGameOver();
-        }, 3000);
+        // Determine round winner
+        determineRoundWinner();
         
-        // We still need missile to be hidden
-        missile.visible = false;
-        return;
+        // Show game over screen
+        showGameOver();
+        
+        // IMPORTANT: Always set up the next round via timeout
+        // Clear any existing timeout first to prevent multiple restarts
+        if (window.gameOverTimeout) {
+            clearTimeout(window.gameOverTimeout);
+        }
+        
+        // Set timeout for new round
+        window.gameOverTimeout = setTimeout(() => {
+            console.log("Starting new round...");
+            restartGame();
+        }, 4000);
     }
     
     finishFlight();
@@ -5508,6 +5571,9 @@ function restartGame() {
         window.gameOverTimeout = null;
     }
 
+    // Reset the game over triggered flag
+    window.gameOverTriggered = false;
+
     // Reset player stats for the new round (keep roundsWon)
     playerStats.targetsDestroyed = 0;
     playerStats.crashes = 0;
@@ -5538,6 +5604,31 @@ function restartGame() {
 
     // Clear damaged buildings array
     damagedBuildings = [];
+
+    // Clear all smoke particles - including those from damaged buildings
+    for (let i = smokeParticles.length - 1; i >= 0; i--) {
+        const smoke = smokeParticles[i];
+        // Check if this is building smoke
+        if (smoke.userData && (smoke.userData.source === 'building' || smoke.userData.source === 'scorch')) {
+            scene.remove(smoke);
+            disposeObject(smoke);
+            smokeParticles.splice(i, 1);
+        }
+    }
+
+    // Remove all enemy missiles to ensure fair restart
+    for (let i = enemyMissiles.length - 1; i >= 0; i--) {
+        const enemyMissile = enemyMissiles[i];
+        scene.remove(enemyMissile);
+        disposeObject(enemyMissile);
+    }
+    enemyMissiles = [];
+    enemyMissileTimer = 0; // Reset the timer so missiles don't spawn immediately
+    
+    // IMPORTANT FIX: Clean up other player missiles
+    Object.keys(otherPlayers).forEach(playerId => {
+        removeOtherPlayer(playerId);
+    });
     
     // Clear old buildings
     for (let i = buildings.length - 1; i >= 0; i--) {
@@ -6029,7 +6120,7 @@ function createScorchMark(position, isOnBuilding = false) {
     
     // Set longer duration and higher smoke intensity for target hits
     const isTargetHit = !isOnBuilding && position.y < 1.0; // Ground scorch from target hit
-    const flickerDuration = isOnBuilding ? 10000 : 20000;
+    const flickerDuration = 300000; // 5 minutes
     const smokeIntensity = isTargetHit ? 2.0 : (isOnBuilding ? 0.8 : 1.2);
     
     // Configure scorch mark properties
@@ -7894,6 +7985,11 @@ function updateLeaderboard() {
     // Get leaderboard element
     const leaderboardElement = document.getElementById('leaderboard');
     if (!leaderboardElement) return;
+
+    // Debug output to help identify the issue
+    console.log("Updating leaderboard with player:", playerStats.name, 
+                "ID:", playerStats.id, 
+                "Kills:", playerStats.targetsDestroyed);
     
     // Create HTML content - start with header
     let html = `
@@ -7901,38 +7997,49 @@ function updateLeaderboard() {
         <table class="leaderboard-table">
             <thead>
                 <tr>
-                    <th>PILOT</th>
-                    <th>KILLS</th>
+                    <th class="name-col">PILOT</th>
+                    <th class="kills-col">KILLS</th>
+                    <th class="rounds-col">ROUNDS</th>
                 </tr>
             </thead>
             <tbody>
     `;
     
-    // Sort leaderboard by kills or TPM
-    const sortedLeaderboard = [...leaderboard];
+    // Create a fresh array for sorting
+    let displayEntries = [];
     
-    // Add enemy pilots if they aren't already included
+    // ALWAYS add the current player first - guaranteed inclusion
+    displayEntries.push({
+        id: playerStats.id,
+        name: playerStats.name,
+        targetsDestroyed: playerStats.targetsDestroyed || 0,
+        roundsWon: playerStats.roundsWon || 0,
+        tpm: playerStats.tpm || 0,
+        color: playerStats.color || "#ffffff",
+        isPlayer: true
+    });
+    
+    // Add all enemy pilots
     enemyPilotStats.forEach(pilot => {
-        if (!sortedLeaderboard.find(p => p.id === pilot.id)) {
-            sortedLeaderboard.push({
-                id: pilot.id,
-                name: pilot.name,
-                targetsDestroyed: pilot.targetsDestroyed || 0,
-                tpm: pilot.tpm || 0,
-                color: pilot.color || "#66ccff",
-                isEnemyPilot: true
-            });
-        }
+        displayEntries.push({
+            id: pilot.id,
+            name: pilot.name,
+            targetsDestroyed: pilot.targetsDestroyed || 0,
+            roundsWon: pilot.roundsWon || 0,
+            tpm: pilot.tpm || 0,
+            color: pilot.color || "#66ccff",
+            isEnemyPilot: true
+        });
     });
     
     // Sort by targets destroyed (descending)
-    sortedLeaderboard.sort((a, b) => (b.targetsDestroyed || 0) - (a.targetsDestroyed || 0));
+    displayEntries.sort((a, b) => (b.targetsDestroyed || 0) - (a.targetsDestroyed || 0));
     
     // Generate entries (limited to top 6 for performance)
     const displayLimit = 6; 
-    sortedLeaderboard.slice(0, displayLimit).forEach(player => {
+    displayEntries.slice(0, displayLimit).forEach(player => {
         // Check if this is the current player
-        const isCurrentPlayer = player.id === playerStats.id;
+        const isCurrentPlayer = player.id === playerStats.id || player.isPlayer;
         
         // Get player's color or use default
         const playerColor = player.color || "#ffffff";
@@ -7940,12 +8047,13 @@ function updateLeaderboard() {
         // Create row with color-styled name
         html += `
             <tr class="${isCurrentPlayer ? 'you' : ''}">
-                <td class="name">
+                <td class="name-col">
                     <span style="color: ${playerColor}; text-shadow: 0 0 3px #000, 0 0 2px rgba(255,255,255,0.5);">
                         ${player.name || "Unknown"}
                     </span>
                 </td>
-                <td class="tpm">${player.targetsDestroyed || 0}</td>
+                <td class="kills-col">${player.targetsDestroyed || 0}</td>
+                <td class="rounds-col">${player.roundsWon || 0}</td>
             </tr>
         `;
     });
@@ -7958,6 +8066,67 @@ function updateLeaderboard() {
     
     // Update the DOM
     leaderboardElement.innerHTML = html;
+    
+    // Add CSS styles for the table
+    const leaderboardStyle = document.getElementById('leaderboard-style');
+    if (!leaderboardStyle) {
+        const style = document.createElement('style');
+        style.id = 'leaderboard-style';
+        style.textContent = `
+            #leaderboard {
+                width: 280px !important;
+                padding: 15px !important;
+            }
+            
+            .leaderboard-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0 2px;
+            }
+            
+            .leaderboard-table thead th {
+                color: #aaaaaa;
+                font-size: 16px;
+                text-align: left;
+                padding-bottom: 6px;
+                border-bottom: 1px solid #444;
+            }
+            
+            .leaderboard-table tbody tr {
+                height: 28px;
+            }
+            
+            .leaderboard-table tbody tr.you {
+                background: rgba(255, 51, 51, 0.1);
+                border-left: 2px solid #ff3333;
+            }
+            
+            .leaderboard-table td {
+                padding: 4px 6px;
+            }
+            
+            .name-col {
+                width: 140px;
+                text-align: left;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            
+            .kills-col {
+                width: 60px;
+                text-align: center;
+                font-weight: bold;
+            }
+            
+            .rounds-col {
+                width: 60px;
+                text-align: center;
+                font-weight: bold;
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 // Helper function to ensure colors are readable against dark background
@@ -8007,13 +8176,17 @@ function ensureReadableColor(color) {
 
 
 function syncPlayerStatsToFirebase() {
-    // Don't update too frequently - do it every 10 seconds or on important events
-    if (playerStats.firebaseId) {
-        // Update all-time stats
-        playerStats.allTimeTargetsDestroyed = (playerStats.allTimeTargetsDestroyed || 0) + playerStats.targetsDestroyed;
-        
-        updatePlayerInFirebase();
-    }
+    // Skip if no Firebase connection
+    if (!window.firestore || !firebase.auth().currentUser) return;
+    
+    // Update player stats in the players collection
+    db.collection("players").doc(playerStats.id).update({
+        targetsDestroyed: playerStats.targetsDestroyed,
+        tpm: playerStats.tpm,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(error => {
+        console.error("Error updating player stats:", error);
+    });
 }
 
 // Update function for enemy pilot stats
