@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1280, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vibe Missile</title>
    
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -406,7 +406,62 @@
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
     z-index: 15; /* Higher than regular buttons but lower than hovered */
 }
-       
+ 
+@media screen and (max-width: 768px) {
+        /* HUD panel */
+        #hud {
+            width: 380px !important;
+            top: 10px !important;
+            left: 10px !important;
+            padding: 8px 10px !important;
+            font-size: 16px !important;
+        }
+        
+        /* Minimap */
+        #minimap {
+            width: 250px !important;
+            height: 250px !important;
+            bottom: 10px !important;
+            left: 10px !important;
+        }
+        
+        /* Leaderboard */
+        #leaderboard {
+            width: 180px !important;
+            padding: 10px !important;
+            top: 10px !important;
+            right: 10px !important;
+            font-size: 14px !important;
+        }
+        
+        .leaderboard-title {
+            font-size: 18px !important;
+            margin-bottom: 8px !important;
+        }
+        
+        /* Control buttons */
+        #settingsBtn, #soundBtn, #micButton {
+            width: 50px !important;
+            height: 50px !important;
+            font-size: 24px !important;
+        }
+        
+        /* Game Over screen */
+        #gameOverScreen {
+            width: 320px !important;
+            padding: 25px !important;
+        }
+        
+        #gameOverScreen h2 {
+            font-size: 32px !important;
+        }
+        
+        /* Controls overlay */
+        #controlsOverlay {
+            font-size: 16px !important;
+            max-width: 90% !important;
+        }
+    }
 
     </style>
 
@@ -581,7 +636,7 @@
     flight1: null,
     flight2: null,
     ui: null,
-    muted: false
+    muted: true
     };
 
     const explosionMaterialPool = {
@@ -1346,52 +1401,32 @@ function cleanupAllOtherPlayerMissiles() {
 function optimizeForMobile() {
     if (!isMobile) return;
     
-    // 1. Fix the viewport meta tag dynamically
+    console.log("Optimizing for mobile with desktop rendering");
+    
+    // 1. Set viewport for desktop-style rendering but keep mobile detection
     let viewportMeta = document.querySelector('meta[name="viewport"]');
     if (!viewportMeta) {
         viewportMeta = document.createElement('meta');
         viewportMeta.name = 'viewport';
         document.head.appendChild(viewportMeta);
     }
-    viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    viewportMeta.content = 'width=1280, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
     
-    // 2. Apply fullscreen styles for better mobile display
-    const style = document.createElement('style');
-    style.textContent = `
-        html, body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            position: fixed;
-        }
-        canvas {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
-            position: fixed;
-            top: 0;
-            left: 0;
-        }
-        #fullscreenBtn {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            padding: 8px 12px;
-            background: rgba(0,0,0,0.5);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            z-index: 10000;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // 3. Add fullscreen button for mobile
+    // 2. Add fullscreen button
     const fullscreenBtn = document.createElement('button');
     fullscreenBtn.id = 'fullscreenBtn';
-    fullscreenBtn.innerHTML = '⛶ Full Screen';
+    fullscreenBtn.innerHTML = '⛶ Full';
+    fullscreenBtn.style.position = 'absolute';
+    fullscreenBtn.style.bottom = '120px';
+    fullscreenBtn.style.right = '20px';
+    fullscreenBtn.style.padding = '8px 12px';
+    fullscreenBtn.style.background = 'rgba(0,0,0,0.5)';
+    fullscreenBtn.style.color = 'white';
+    fullscreenBtn.style.border = 'none';
+    fullscreenBtn.style.borderRadius = '5px';
+    fullscreenBtn.style.zIndex = '10000';
+    fullscreenBtn.style.fontSize = '16px';
+    
     fullscreenBtn.addEventListener('click', () => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(e => {
@@ -1401,53 +1436,30 @@ function optimizeForMobile() {
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
-                fullscreenBtn.innerHTML = '⛶ Full Screen';
+                fullscreenBtn.innerHTML = '⛶ Full';
             }
         }
     });
     document.body.appendChild(fullscreenBtn);
+
+    // Add enhanced mobile controls
+    enhanceMobileControls();
     
-    // 4. Force renderer to use correct size
-    function resizeGame() {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-    }
+    // 3. Ensure touch controls work properly
+    renderer.domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchend', handleTouchEnd, { passive: false });
     
-    // Initial sizing and listen for orientation changes
-    resizeGame();
-    window.addEventListener('resize', resizeGame);
-    window.addEventListener('orientationchange', () => {
-        setTimeout(resizeGame, 100);
-    });
-    
-    // 5. Keep existing touch controls setup
-    renderer.domElement.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        isAccelerating = true;
-        updateFlightSound(true);
-    }, { passive: false });
-    
-    renderer.domElement.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        isAccelerating = false;
-        updateFlightSound(false);
-    }, { passive: false });
-    
-    // 6. Setup device orientation controls
-    if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', handleDeviceOrientation);
-    }
-    
-    // 7. Show mobile-specific instructions
+    // 4. Show mobile-specific instructions
     setTimeout(() => {
-        document.getElementById('controlsOverlay').innerHTML = 
-            'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
-        document.getElementById('controlsOverlay').style.opacity = '1';
-        
-        setTimeout(() => {
-            document.getElementById('controlsOverlay').style.opacity = '0';
-        }, 5000);
+        const controlsOverlay = document.getElementById('controlsOverlay');
+        if (controlsOverlay) {
+            controlsOverlay.innerHTML = 'TILT DEVICE TO STEER • TAP SCREEN TO ACCELERATE';
+            controlsOverlay.style.opacity = '1';
+            
+            setTimeout(() => {
+                controlsOverlay.style.opacity = '0';
+            }, 5000);
+        }
     }, 1000);
 }
 
@@ -7504,7 +7516,31 @@ function setVoiceChatVolume(volumePercent) {
 }
 
 
-
+function enhanceMobileControls() {
+    if (!isMobile) return;
+    
+    // Make sure our touch handlers prevent default browser behavior
+    function betterTouchStart(e) {
+        e.preventDefault();
+        isAccelerating = true;
+        updateFlightSound(true);
+    }
+    
+    function betterTouchEnd(e) {
+        e.preventDefault();
+        isAccelerating = false;
+        updateFlightSound(false);
+    }
+    
+    // Remove existing listeners and add our improved ones
+    renderer.domElement.removeEventListener('touchstart', handleTouchStart);
+    renderer.domElement.removeEventListener('touchend', handleTouchEnd);
+    
+    renderer.domElement.addEventListener('touchstart', betterTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchend', betterTouchEnd, { passive: false });
+    
+    console.log("Enhanced mobile controls applied");
+}
 
 
 // Function to update stats for a specific pilot
