@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>U R A Missile</title>
+    <title>Vibe Missile</title>
    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,7 +51,29 @@
         color: #ff3333;
     }
     
-    
+    #settingsBtn {
+    transition: transform 0.2s, background 0.2s;
+}
+
+#settingsBtn:hover {
+    transform: scale(1.1) rotate(30deg);
+    background: rgba(255, 51, 51, 0.5);
+}
+
+#settingsSaveBtn:hover {
+    background: #ff6666;
+}
+
+#settingsCancelBtn:hover {
+    background: rgba(100, 100, 100, 0.3);
+    color: white;
+}
+
+.settings-color-button:hover {
+    transform: scale(1.2);
+    z-index: 10;
+}
+
     
     /* Add decorative elements to the UI */
     #startMenu:before, #gameOverScreen:before {
@@ -104,7 +126,7 @@
         
     #hud {
             font-family: 'Quantico', sans-serif;
-            padding: 20px;
+            padding: 20px 5px;
             background-color: rgba(0, 0, 0, 0.7);
             border: 1px solid #ff3333;
             border-radius: 5px;
@@ -153,7 +175,7 @@
             padding: 15px;
             border-radius: 5px;
             border: 1px solid #ff3333;
-            min-width: 400px;
+            width: 200px;
             z-index: 1000;
         }
         
@@ -209,8 +231,59 @@
             animation: highlight 1.5s;
         }
 
-        
-
+        .leaderboard-header {
+        justify-content: flex-start;
+        font-size: 14px;
+        padding: 4px 8px;
+        margin-bottom: 5px;
+        color: #aaaaaa;
+        border-bottom: 1px solid #444;
+        display: flex;
+        font-weight: bold;
+    }
+    
+    .leaderboard-row {
+        justify-content: flex-start;
+        padding: 4px 8px;
+        margin-bottom: 2px;
+        border-radius: 3px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        border-left: 3px solid transparent;
+    }
+    
+    .player-row {
+        border-left: 3px solid #ff3333;
+        background: rgba(255, 51, 51, 0.1);
+    }
+    
+    .leaderboard-row.highlight {
+        animation: highlight-pulse 1.5s ease-out;
+    }
+    
+    @keyframes highlight-pulse {
+        0% { background-color: rgba(255, 255, 255, 0.3); }
+        100% { background-color: transparent; }
+    }
+    
+    
+    
+    .name-col {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: bold;
+        max-width: 125px; /* Give more space for names now that TPM is gone */
+    }
+    
+    .score-col {
+        width: 60px;
+        text-align: right;
+        margin-right: 15px;
+        font-weight: bold;
+    }
 
     #controlsOverlay {
     position: absolute;
@@ -334,7 +407,11 @@
     z-index: 15; /* Higher than regular buttons but lower than hovered */
 }
        
+
     </style>
+
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+
 </head>
 <body>
     
@@ -457,6 +534,12 @@
         let otherPlayers = {};
         let lastPositionUpdate = 0;
         const POSITION_UPDATE_INTERVAL = 100; // ms
+        let rtcClient = null;
+        let localAudioTrack = null;
+        let isAudioEnabled = false;
+        let joinedChannel = false;
+        const enemyMissileMaxSpeed = 1.0; 
+        const enemyMissileMinSpeed = 0.7;
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
@@ -571,6 +654,98 @@ const firebaseConfig = {
     appId: "1:1048243867578:web:9c502d5275fcb8a43b5783"
 };
 
+// Initialize Agora client
+async function initializeAgoraVoiceChat() {
+    const AGORA_APP_ID = "YOUR_AGORA_APP_ID"; // Replace with your App ID
+    
+    try {
+        // Check if Agora is available
+        if (!window.AgoraRTC) {
+            console.error("Agora RTC SDK not loaded. Make sure to include the script in your HTML.");
+            return;
+        }
+        
+        // Create an Agora client
+        rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        console.log("Agora client initialized successfully");
+    } catch (error) {
+        console.error("Failed to initialize Agora client:", error);
+    }
+}
+
+async function joinAgoraChannel() {
+    if (!rtcClient) {
+        console.error("Agora client not initialized");
+        return;
+    }
+    
+    if (joinedChannel) {
+        console.log("Already joined channel");
+        return;
+    }
+    
+    try {
+        // Use player's unique ID as their Agora UID
+        const uid = playerStats.id;
+        const channelName = "missile_sim_main_channel";
+        const token = null; // Use null for testing with App ID auth
+        
+        console.log("Attempting to join channel:", channelName);
+        
+        // Create microphone track before joining
+        try {
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            console.log("Microphone track created successfully");
+        } catch (micError) {
+            console.error("Failed to access microphone:", micError);
+            // Create a dummy audio track so UI still works
+            localAudioTrack = { 
+                setEnabled: function(enabled) {
+                    console.log("Dummy mic set to:", enabled);
+                    isAudioEnabled = enabled;
+                    updateVoiceChatUI(); // Update UI even without real mic
+                }
+            };
+            
+            // Show permission error to user
+            alert("Microphone access denied. Please allow microphone access to use voice chat.");
+        }
+        
+        // Start muted by default
+        localAudioTrack.setEnabled(false);
+        isAudioEnabled = false;
+        
+        // Join the channel (even without mic)
+        await rtcClient.join(AGORA_APP_ID, channelName, token, uid);
+        console.log("Joined Agora channel:", channelName);
+        
+        // Only publish if we have a real track
+        if (localAudioTrack.publish) {
+            await rtcClient.publish([localAudioTrack]);
+            console.log("Published local audio track");
+        }
+        
+        joinedChannel = true;
+        updateVoiceChatUI();
+    } catch (error) {
+        console.error("Error joining Agora channel:", error);
+        
+        // Create dummy implementations to prevent UI errors
+        if (!localAudioTrack) {
+            localAudioTrack = { 
+                setEnabled: function(enabled) { 
+                    console.log("Dummy mic set to:", enabled);
+                    isAudioEnabled = enabled;
+                    updateVoiceChatUI();
+                } 
+            };
+        }
+        
+        joinedChannel = true; // Mark as joined so UI works
+        updateVoiceChatUI();
+    }
+}
+
 
 // Generate a unique player ID
 function generatePlayerId() {
@@ -597,27 +772,7 @@ function generatePlayerId() {
     Object.values(sounds).forEach(sound => {
         if (sound && sound.volume) sound.volume = 0.5;
     });
-    
-    // Add mute toggle button 
-    const muteButton = document.createElement('button');
-    muteButton.innerHTML = '🔊';
-    muteButton.style.position = 'absolute';
-    muteButton.style.top = '10px';
-    muteButton.style.right = '10px';
-    muteButton.style.padding = '5px 10px';
-    muteButton.style.background = 'rgba(0,0,0,0.5)';
-    muteButton.style.color = 'white';
-    muteButton.style.border = 'none';
-    muteButton.style.borderRadius = '5px';
-    muteButton.style.cursor = 'pointer';
-    muteButton.style.zIndex = '1000';
-    
-    muteButton.addEventListener('click', () => {
-        toggleMute();
-        muteButton.innerHTML = sounds.muted ? '🔇' : '🔊';
-    });
-    
-    document.body.appendChild(muteButton);
+   
 }
 
 // Play sound with error handling
@@ -856,6 +1011,8 @@ function init() {
     // Initialize sounds
     initSounds();
     initSoundPool();
+    initFirebase(); 
+    initializeSettingsPanel();
 
     // optimize for mobile
     if (isMobile) {
@@ -971,7 +1128,13 @@ function init() {
         MAX_EXPLOSION_PARTICLES = 5000;
     }
     
-     
+     // Initialize Agora voice chat
+     initializeAgoraVoiceChat();
+    
+    // Create voice chat UI
+    createVoiceChatUI();
+    
+    
     
     // Initialize game directly - no start menu
     document.getElementById('hud').style.display = 'block';
@@ -1029,9 +1192,9 @@ function init() {
 
     initPortals(); // Initialize portals
 
-    initFirebase(); // Initialize Firebase
-
     addDummyPlayers(); // Add dummy players for testing
+
+    createSoundButton(); // Create sound button
 
     // Start animation loop
     lastTime = 0; // Reset lastTime
@@ -1054,6 +1217,9 @@ function setupMultiplayerSync() {
     }
     
     console.log("Setting up multiplayer sync...");
+
+    // First, clean up any existing other players to start fresh
+    cleanupAllOtherPlayerMissiles();
     
     try {
         // Check for required components
@@ -1124,6 +1290,71 @@ function setupMultiplayerSync() {
     }
 }
 
+// New function to clean up stale Firebase player entries
+function cleanupStaleFirebasePlayers() {
+    if (!db || !firebase.auth().currentUser) {
+        console.log("Firebase not available, skipping stale player cleanup");
+        return;
+    }
+    
+    // Get reference to active players
+    const activePlayers = db.collection("activePlayers");
+    
+    // Set threshold for stale entries (e.g., 5 minutes ago)
+    const staleThreshold = new Date();
+    staleThreshold.setMinutes(staleThreshold.getMinutes() - 5);
+    
+    // Find and delete stale entries
+    activePlayers.where("lastUpdated", "<", staleThreshold)
+        .get()
+        .then((snapshot) => {
+            if (snapshot.empty) {
+                console.log("No stale player entries found");
+                return;
+            }
+            
+            console.log(`Found ${snapshot.size} stale player entries to clean up`);
+            
+            // Batch delete all stale entries
+            const batch = db.batch();
+            snapshot.forEach((doc) => {
+                console.log(`Cleaning up stale player: ${doc.id}`);
+                batch.delete(doc.ref);
+            });
+            
+            // Commit the batch delete
+            return batch.commit();
+        })
+        .then(() => {
+            console.log("Stale player cleanup complete");
+        })
+        .catch((error) => {
+            console.error("Error cleaning up stale players:", error);
+        });
+}
+
+//firebase powerwash
+function cleanupAllOtherPlayerMissiles() {
+    console.log("Cleaning up all other player missiles");
+    
+    // Make a copy of keys to avoid modification during iteration
+    const playerIds = Object.keys(otherPlayers);
+    
+    // Clear each player's missile
+    playerIds.forEach(playerId => {
+        removeOtherPlayer(playerId);
+    });
+    
+    // Clear the otherPlayers object completely to ensure fresh start
+    otherPlayers = {};
+    
+    // Update UI
+    updatePlayerCountUI();
+    updateLeaderboard();
+    
+    // Also remove any stale entries from Firebase
+    cleanupStaleFirebasePlayers();
+}
 
 
 function optimizeForMobile() {
@@ -1235,12 +1466,21 @@ function optimizeForMobile() {
 }
 
 function enhancePlayerInitialization() {
-  // Generate random player number between 1-999 for "human X" naming
-  const randomNumber = Math.floor(Math.random() * 999) + 1;
+  // NATO phonetic alphabet names
+  const natoNames = [
+    "Alpha", "Bravo", "Charlie", "Delta", "Echo", 
+    "Foxtrot", "Golf", "Hotel", "India", "Juliet", 
+    "Kilo", "Lima", "Mike", "November", "Oscar", 
+    "Papa", "Quebec", "Romeo", "Sierra", "Tango", 
+    "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"
+  ];
   
   // Check if player came through portal (already has a name)
   if (!playerStats.name || playerStats.name === "You") {
-    playerStats.name = `human ${randomNumber}`;
+    // Get random name from NATO phonetic alphabet
+    const randomNameIndex = Math.floor(Math.random() * natoNames.length);
+    const randomNumber = Math.floor(Math.random() * 99) + 1;
+    playerStats.name = `${natoNames[randomNameIndex]}-${randomNumber}`;
   }
   
   // Randomize missile color if not already set
@@ -1263,6 +1503,65 @@ function enhancePlayerInitialization() {
   playerStats.id = playerStats.id || generatePlayerId();
   
   console.log(`Player initialized: ${playerStats.name} with color ${playerStats.color}`);
+}
+
+function initializeGameState() {
+    console.log("Performing complete game state initialization");
+    
+    // 1. COMPLETELY CLEAR all Firebase player data to remove "Human X" entries
+    if (window.firestore) {
+        // Get reference to players collection
+        const playersRef = window.firestore.collection('players');
+        
+        // Query for "Human" prefixed names
+        playersRef.where('name', '>=', 'Human')
+                 .where('name', '<=', 'Human\uf8ff')
+                 .get()
+                 .then((snapshot) => {
+                     // Delete each "Human X" document
+                     snapshot.forEach((doc) => {
+                         console.log("Removing stale player:", doc.data().name);
+                         doc.ref.delete();
+                     });
+                 })
+                 .catch(error => {
+                     console.error("Error cleaning up stale players:", error);
+                 });
+    }
+    
+    // 2. Clear local leaderboard
+    leaderboard = [];
+    
+    // 3. Initialize enemy pilots with NATO names only
+    initializeEnemyPilots();
+    
+    // 4. Add current player to leaderboard
+    leaderboard.push({
+        id: playerStats.id,
+        name: playerStats.name,
+        targetsDestroyed: playerStats.targetsDestroyed,
+        tpm: playerStats.tpm || 0,
+        color: playerStats.color || "#ffffff"
+    });
+    
+    // 5. Add enemy pilots to leaderboard
+    enemyPilotStats.forEach(pilot => {
+        leaderboard.push({
+            id: pilot.id,
+            name: pilot.name,
+            targetsDestroyed: pilot.targetsDestroyed || 0,
+            tpm: pilot.tpm || 0,
+            color: pilot.color || "#66ccff",
+            isEnemyPilot: true
+        });
+    });
+    
+    // 6. Log the clean leaderboard for debugging
+    console.log("Clean leaderboard initialized:", 
+                leaderboard.map(p => `${p.name}: ${p.targetsDestroyed} kills`));
+    
+    // 7. Update UI
+    updateLeaderboard();
 }
 
 function startPositionSync(playerRef) {
@@ -1423,8 +1722,10 @@ function fetchPlayerData(userId) {
         if (doc.exists) {
             const data = doc.data();
             
-            // Only update name if we don't have a specified one (from portal)
-            if (!playerStats.name.startsWith("Player from portal")) {
+            // MODIFIED: Only update name if we don't already have a custom name set
+            // (NATO names or portal names should be preserved)
+            if ((playerStats.name === "You" || !playerStats.name) && 
+                !playerStats.name.includes("-")) {  // NATO names contain hyphens
                 playerStats.name = data.name;
             }
             
@@ -1432,14 +1733,19 @@ function fetchPlayerData(userId) {
             playerStats.allTimeTargetsDestroyed = data.allTimeTargetsDestroyed || 0;
             playerStats.totalPlayTimeSeconds = data.totalPlayTimeSeconds || 0;
             
-            // If they have a color, use it
-            if (data.color) {
+            // MODIFIED: Only apply color from Firebase if we don't already have a valid color
+            // (This prevents overriding the initial random color)
+            if (data.color && (!playerStats.color || playerStats.color === "#5c5c5c")) {
                 playerStats.color = data.color;
                 
                 // Apply color to missile
                 if (missile && missile.children && missile.children[0]) {
                     missile.children[0].material.color.set(data.color);
                 }
+                updatePlayerMarkerColor();
+            } else {
+                // Make sure we save the current color to Firebase instead
+                updatePlayerInFirebase();
             }
         } else {
             // First time player, create their record
@@ -1500,7 +1806,35 @@ function subscribeToLeaderboard() {
         });
 }
 
-
+function initializeLeaderboard() {
+    // Clear the leaderboard array completely
+    leaderboard = [];
+    
+    // Add the current player to the leaderboard
+    leaderboard.push({
+        id: playerStats.id,
+        name: playerStats.name,
+        targetsDestroyed: playerStats.targetsDestroyed,
+        tpm: playerStats.tpm || 0,
+        color: playerStats.color
+    });
+    
+    // Add all enemy pilots with fresh stats for this round
+    enemyPilotStats.forEach(pilot => {
+        leaderboard.push({
+            id: pilot.id,
+            name: pilot.name,
+            targetsDestroyed: pilot.targetsDestroyed,
+            tpm: pilot.tpm || 0,
+            color: pilot.color || "#66ccff",
+            isEnemyPilot: true
+        });
+    });
+    
+    // Update the leaderboard display
+    updateLeaderboard();
+    console.log("Leaderboard initialized with", leaderboard.length, "pilots");
+}
 
 
         function initSoundPool() {
@@ -1573,40 +1907,38 @@ function createHudElements() {
     // Clear any existing content
     hud.innerHTML = `
         <div class="hud-container">
-            <div class="meters-container">
-                <div class="meter-group">
-                    <div class="hud-label">ALTITUDE</div>
-                    <div class="vertical-meter-container">
-                        <div class="vertical-meter-bar-bg">
-                            <div id="altitude-bar" class="vertical-meter-bar"></div>
-                        </div>
-                        <div class="meter-tick-marks"></div>
+            <div class="meter-group">
+                <div class="hud-label">ALTITUDE</div>
+                <div class="horizontal-meter-container">
+                    <div class="horizontal-meter-bar-bg">
+                        <div id="altitude-bar" class="horizontal-meter-bar"></div>
                     </div>
-                    <div id="altitude" class="meter-value">0</div>
-                    <div class="meter-unit">m</div>
+                    <div class="meter-tick-marks"></div>
                 </div>
-                
-                <div class="meter-group">
-                    <div class="hud-label">SPEED</div>
-                    <div class="vertical-meter-container">
-                        <div class="vertical-meter-bar-bg">
-                            <div id="speed-bar" class="vertical-meter-bar"></div>
-                        </div>
-                        <div class="meter-tick-marks"></div>
+                <div id="altitude" class="meter-value">0</div>
+                <div class="meter-unit">m</div>
+            </div>
+            
+            <div class="meter-group">
+                <div class="hud-label">SPEED</div>
+                <div class="horizontal-meter-container">
+                    <div class="horizontal-meter-bar-bg">
+                        <div id="speed-bar" class="horizontal-meter-bar"></div>
                     </div>
-                    <div id="speed" class="meter-value">0</div>
-                    <div class="meter-unit">km/h</div>
+                    <div class="meter-tick-marks"></div>
                 </div>
+                <div id="speed" class="meter-value">0</div>
+                <div class="meter-unit">km/h</div>
             </div>
         </div>
     `;
 
-    // Add CSS for the enhanced HUD
+    // Add CSS for the horizontal HUD
     const style = document.createElement('style');
     style.textContent = `
         #hud {
             font-family: 'Quantico', sans-serif;
-            padding: 15px;
+            padding: 12px 15px;
             background-color: rgba(0, 0, 0, 0.7);
             border: 1px solid #ff3333;
             border-radius: 5px;
@@ -1615,133 +1947,100 @@ function createHudElements() {
             top: 20px;
             left: 20px;
             font-size: 18px;
+            width: 480px; /* Wide HUD */
         }
         
         .hud-container {
             display: flex;
-            justify-content: center;
-        }
-        
-        .meters-container {
-            display: flex;
-            justify-content: center;
-            width: 130px;
-            gap: 35px; /* Increased from 20px to 35px for more space */
+            flex-direction: column;
+            gap: 10px;
         }
         
         .meter-group {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            width: 45px;
+            width: 100%;
         }
         
         .hud-label {
             color: #aaaaaa;
             font-weight: bold;
-            margin-bottom: 5px;
             font-size: 14px;
-            text-align: center;
-            width: 100%;
+            width: 75px;
         }
         
-        .vertical-meter-container {
-            height: 220px;
+        .horizontal-meter-container {
+            flex-grow: 1;
             position: relative;
-            margin: 5px 0;
+            height: 22px;
+            margin: 0 10px;
         }
         
-        .vertical-meter-bar-bg {
-            width: 40px; 
+        .horizontal-meter-bar-bg {
             height: 100%;
+            width: 100%;
             background-color: rgba(0, 0, 0, 0.5);
             border: 1px solid #444;
             position: relative;
         }
         
-        .vertical-meter-bar {
-            width: 100%;
-            height: 0%; /* Start with zero height */
+        .horizontal-meter-bar {
+            height: 100%;
+            width: 0%; /* Start with zero width */
             background-color: #66ccff;
             position: absolute;
-            bottom: 0; /* IMPORTANT: Position at bottom to grow upward */
-            left: 0;
-            transition: height 0.2s ease-out, background-color 0.3s ease;
-        }
-        
-        .meter-tick-marks {
-            position: absolute;
-            left: 0;
             top: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
-        /* Keep remaining CSS the same */
-        .meter-tick-marks::before {
-            content: '';
-            position: absolute;
-            left: -3px;
-            right: -3px;
-            height: 1px;
-            background-color: rgba(255, 255, 255, 0.3);
-        }
-        
-        .meter-tick-marks::after {
-            content: '';
-            position: absolute;
             left: 0;
-            width: 100%;
-            height: 1px;
-            background-color: rgba(255, 255, 255, 0.3);
+            transition: width 0.2s ease-out, background-color 0.3s ease;
         }
         
-        /* Add tick marks at various positions */
-        .vertical-meter-container::before {
+        /* Tick marks along the bar */
+        .horizontal-meter-container::before {
             content: '';
             position: absolute;
-            left: -3px;
-            right: -3px;
-            top: 25%;
-            height: 1px;
+            top: 0;
+            bottom: 0;
+            left: 25%;
+            width: 1px;
             background-color: rgba(255, 255, 255, 0.3);
+            z-index: 1;
         }
         
-        .vertical-meter-container::after {
+        .horizontal-meter-container::after {
             content: '';
             position: absolute;
-            left: -3px;
-            right: -3px;
-            top: 75%;
-            height: 1px;
+            top: 0;
+            bottom: 0;
+            left: 75%;
+            width: 1px;
             background-color: rgba(255, 255, 255, 0.3);
+            z-index: 1;
         }
         
-        .vertical-meter-bar-bg::before {
+        .horizontal-meter-bar-bg::before {
             content: '';
             position: absolute;
-            left: 0;
-            right: 0;
-            top: 50%;
-            height: 1px;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
             background-color: rgba(255, 255, 255, 0.3);
+            z-index: 1;
         }
         
         .meter-value {
             color: #66ccff;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
-            text-align: center;
-            margin-top: 5px;
-            min-width: 50px;
+            text-align: right;
+            min-width: 45px;
         }
         
         .meter-unit {
             color: #aaaaaa;
             font-size: 14px;
-            text-align: center;
-            margin-top: 2px;
+            width: 35px;
+            padding-left: 5px;
         }
     `;
     document.head.appendChild(style);
@@ -4212,56 +4511,48 @@ function updateParticles(delta) {
 function updateHUD() {
     if (!gameActive) return;
     
-    // REMOVED: Compass angle calculation and rotation
-    
-    // Update altitude - increased range to 800m (from 400m)
+    // Update altitude
     const altitude = Math.round(missile.position.y);
     const altitudePercent = Math.min(100, (altitude / 800) * 100);
     const altitudeBar = document.getElementById('altitude-bar');
     const altitudeValue = document.getElementById('altitude');
     
     if (altitudeBar && altitudeValue) {
-        altitudeBar.style.height = `${altitudePercent}%`;
+        altitudeBar.style.width = `${altitudePercent}%`; // Changed from height to width
         altitudeValue.textContent = altitude;
         
-        // Color based on altitude - red at low altitudes, yellow in middle, green when high
+        // Color based on altitude
         let altitudeColor;
         if (altitude < 50) {
-            // Danger zone - red
-            altitudeColor = '#ff3333';
+            altitudeColor = '#ff3333'; // Danger - red
         } else if (altitude < 100) {
-            // Warning zone - yellow
-            altitudeColor = '#ffcc00';
+            altitudeColor = '#ffcc00'; // Warning - yellow
         } else {
-            // Safe zone - green
-            altitudeColor = '#33cc33';
+            altitudeColor = '#33cc33'; // Safe - green
         }
         
         altitudeBar.style.backgroundColor = altitudeColor;
         altitudeValue.style.color = altitudeColor;
     }
     
-    // Update speed - with color change based on speed
+    // Update speed
     const speed = Math.round(velocity * 100);
     const speedPercent = Math.min(100, (velocity / (maxVelocity * 0.5)) * 100);
     const speedBar = document.getElementById('speed-bar');
     const speedValue = document.getElementById('speed');
     
     if (speedBar && speedValue) {
-        speedBar.style.height = `${speedPercent}%`;
+        speedBar.style.width = `${speedPercent}%`; // Changed from height to width
         speedValue.textContent = speed;
         
-        // Color based on speed - green at low speeds, yellow in middle, red at high speeds
+        // Color based on speed
         let speedColor;
         if (speedPercent > 80) {
-            // Danger zone - red
-            speedColor = '#ff3333';
+            speedColor = '#ff3333'; // High speed - red
         } else if (speedPercent > 50) {
-            // Warning zone - yellow
-            speedColor = '#ffcc00';
+            speedColor = '#ffcc00'; // Medium speed - yellow
         } else {
-            // Safe zone - green
-            speedColor = '#33cc33';
+            speedColor = '#33cc33'; // Low speed - green
         }
         
         speedBar.style.backgroundColor = speedColor;
@@ -4930,24 +5221,26 @@ function onPlayerAuthenticated() {
     enhancePlayerInitialization();
     
     console.log("Player authenticated! ID:", playerStats.id);
-    console.log("Player name:", playerStats.name);
-    console.log("Player color:", playerStats.color);
     
-    // Explicitly setup multiplayer sync
+    // Setup multiplayer sync
     setupMultiplayerSync();
     
-    // Setup presence detection immediately
+    // Setup presence detection
     if (window.firebaseDB) {
         setupPlayerPresence();
-    } else {
-        console.error("Cannot setup presence - Realtime Database unavailable");
     }
+    
+    // Initialize Agora and join channel
+    initializeAgoraVoiceChat();
+    createVoiceChatUI();
+    
+    // Give a small delay before joining the channel
+    setTimeout(() => {
+        joinAgoraChannel();
+    }, 1000);
     
     // Update player count in UI
     updatePlayerCountUI();
-    
-    // Add a debug message to confirm when it's complete
-    console.log("Player authentication process completed");
 }
 
 function addOtherPlayerMinimapMarker(playerId, color) {
@@ -5157,15 +5450,12 @@ function cleanupScorchMarks() {
         
         // Calculate round duration in seconds - use a sensible default for very short rounds
         const roundDurationInSeconds = Math.max(10, elapsedTime / 1000);
-        
-        // Calculate TPM based on round duration, not the tracked time which may be incorrect
-        const tpm = (winner.targetsDestroyed / (roundDurationInSeconds / 60));
-        const formattedTpm = tpm.toFixed(2);
+        const formattedTime = roundDurationInSeconds.toFixed(2);
         
         winnerText = `
             <span style="color: ${winner.color}">${winner.name}</span> Wins!<br>
             <span class='subtitle'>${isPlayer ? "You" : winner.name} destroyed ${winner.targetsDestroyed} targets
-            at ${formattedTpm} targets/min</span>
+            in ${formattedTime} seconds</span>
         `;
     }
     
@@ -5265,6 +5555,8 @@ function restartGame() {
         disposeObject(scorch);
     }
     scorchMarks = [];
+
+    initializeLeaderboard();
     
     // Create new city
     createCity();
@@ -6101,98 +6393,108 @@ function updateEnemyMissiles(delta) {
         const enemyMissile = enemyMissiles[i];
         if (!enemyMissile) continue;
         
-        // Update pathfinding timer
-        if (enemyMissile.userData.useAdvancedNavigation) {
-            enemyMissile.userData.pathfindingTimer -= delta;
+        // Skip if missile is not visible
+        if (!enemyMissile.visible) continue;
+        
+        // --- IMPROVED TARGETING LOGIC STARTS HERE ---
+        
+        // Get current properties
+        const currentPos = enemyMissile.position;
+        const currentDir = enemyMissile.userData.direction;
+        const targetPos = enemyMissile.userData.targetPosition;
+        const targetBuilding = enemyMissile.userData.targetBuilding;
+        
+        // Recalculate target position if we have a target building and it still exists
+        if (targetBuilding && targetBuilding.visible) {
+            enemyMissile.userData.targetPosition = targetBuilding.position.clone();
+            enemyMissile.userData.targetPosition.y = targetBuilding.userData.height / 2;
+        }
+        
+        // Calculate distance to target
+        const distToTarget = currentPos.distanceTo(targetPos);
+        
+        // Calculate ideal direction to target
+        const idealDirection = new THREE.Vector3()
+            .subVectors(targetPos, currentPos)
+            .normalize();
+        
+        // Calculate missile speed - more aggressive when close to target
+        enemyMissile.userData.speed = distToTarget < 100 
+            ? enemyMissileMaxSpeed * 1.1  // 10% faster when close to target
+            : enemyMissileMaxSpeed;
+        
+        // Improved targeting logic - higher priority on target
+        
+        // 1. Base target seeking force - INCREASED WEIGHT
+        const targetWeight = distToTarget < 150 ? 0.8 : 0.5; // Higher weight when closer to target
+        const targetForce = idealDirection.clone();
+        
+        // 2. Obstacle avoidance with REDUCED WEIGHT
+        const avoidWeight = distToTarget < 100 ? 0.3 : 0.5; // Lower weight when closer to target
+        const avoidanceForce = new THREE.Vector3();
+        
+        // Only check for obstacles if we're not close to target
+        if (distToTarget > 30) {
+            // Set up obstacle detection
+            raycaster.set(currentPos, currentDir);
+            raycaster.far = Math.min(100, distToTarget); // Don't look past the target
             
-            // Update navigation if timer expired
-            if (enemyMissile.userData.pathfindingTimer <= 0) {
-                enemyMissile.userData.pathfindingTimer = pathfindingUpdateRate;
-                updateMissileNavigation(enemyMissile, raycaster);
+            const intersects = raycaster.intersectObjects(buildings);
+            
+            if (intersects.length > 0) {
+                const obstacle = intersects[0];
+                
+                // Skip avoidance for target buildings when close
+                if (obstacle.object === targetBuilding && distToTarget < 80) {
+                    // Do nothing - we want to hit it!
+                } else {
+                    // Calculate avoidance vector - points away from obstacle
+                    const obstaclePos = obstacle.point;
+                    const obstacleDir = new THREE.Vector3()
+                        .subVectors(obstaclePos, currentPos)
+                        .normalize();
+                    
+                    // Create perpendicular avoidance vector
+                    avoidanceForce.crossVectors(obstacleDir, new THREE.Vector3(0, 1, 0))
+                        .normalize();
+                    
+                    // Add slight upward component for safer avoidance
+                    avoidanceForce.y = 0.3;
+                    avoidanceForce.normalize();
+                    
+                    // Scale by inverse distance (closer = stronger)
+                    const avoidanceStrength = 1.0 - (obstacle.distance / 100);
+                    avoidanceForce.multiplyScalar(avoidanceStrength);
+                }
             }
         }
         
-        // Get current direction based on navigation state
-        let currentDirection = enemyMissile.userData.direction.clone();
-
-        // Apply state-specific behavior
-        switch (enemyMissile.userData.navigationState) {
-            case 'climbing':
-                // Gradually blend upward vector with forward vector
-                currentDirection.y = Math.min(currentDirection.y + 0.05, 0.8);
-                currentDirection.normalize();
-                break;
-                
-            case 'diving':
-                // Gradually blend downward vector with forward vector
-                currentDirection.y = Math.max(currentDirection.y - 0.05, -0.8);
-                currentDirection.normalize();
-                break;
-                
-            case 'weaving':
-                // Apply weave if we have an avoidance vector
-                if (enemyMissile.userData.obstacleAvoidanceVector) {
-                    // Blend current direction with avoidance vector
-                    currentDirection.lerp(
-                        enemyMissile.userData.obstacleAvoidanceVector,
-                        0.1 * enemyMissile.userData.pilotSkillLevel
-                    ).normalize();
-                }
-                break;
-                
-            case 'direct':
-            default:
-                // If we're in direct mode but above target, start to dive
-                if (enemyMissile.position.y > enemyMissile.userData.targetPosition.y + 50) {
-                    // Calculate direction to target
-                    const toTarget = new THREE.Vector3().subVectors(
-                        enemyMissile.userData.targetPosition,
-                        enemyMissile.position
-                    ).normalize();
-                    
-                    // Blend with some downward vector
-                    currentDirection.lerp(toTarget, 0.05).normalize();
-                }
-                break;
-        }
+        // 3. Calculate final steering force
+        const steerForce = new THREE.Vector3();
+        steerForce.addScaledVector(targetForce, targetWeight);
+        steerForce.addScaledVector(avoidanceForce, avoidWeight);
+        steerForce.normalize();
         
-        // Always update the stored direction
-        enemyMissile.userData.direction = currentDirection;
+        // 4. Apply steering - more responsive when close to target
+        const turnRate = distToTarget < 80 ? 0.15 : 0.08;
+        enemyMissile.userData.direction.lerp(steerForce, turnRate).normalize();
+        
+        // --- END OF IMPROVED TARGETING LOGIC ---
         
         // Align missile with direction
         const missileRotation = new THREE.Quaternion().setFromUnitVectors(
             new THREE.Vector3(0, 1, 0), 
-            currentDirection
+            enemyMissile.userData.direction
         );
         enemyMissile.quaternion.copy(missileRotation);
         
-        // Update position based on direction and speed
+        // Update position
         const speed = enemyMissile.userData.speed * delta;
         enemyMissile.position.add(
-            currentDirection.clone().multiplyScalar(speed)
+            enemyMissile.userData.direction.clone().multiplyScalar(speed)
         );
         
-        // Rest of the existing enemy missile update code
-        // (collision detection, smoke generation, etc.)
-        
-        // Update lifetime if defined
-        if (enemyMissile.userData.lifetime !== undefined) {
-            enemyMissile.userData.lifetime -= delta;
-            
-            // Remove if lifetime expired
-            if (enemyMissile.userData.lifetime <= 0) {
-                // Create explosion at current position
-                createExplosion(enemyMissile.position.clone(), true);
-                
-                // Remove from scene and array
-                scene.remove(enemyMissile);
-                disposeObject(enemyMissile);
-                enemyMissiles.splice(i, 1);
-                continue;
-            }
-        }
-        
-        // Check ground collision
+        // Check for collision with ground
         if (enemyMissile.position.y < 0.5) {
             // Create explosion at impact
             createExplosion(enemyMissile.position.clone(), true);
@@ -6205,7 +6507,7 @@ function updateEnemyMissiles(delta) {
             continue;
         }
         
-        // Check building collisions
+        // Check building collisions (existing code)
         let buildingCollision = false;
         for (let j = 0; j < buildings.length; j++) {
             const building = buildings[j];
@@ -6224,16 +6526,11 @@ function updateEnemyMissiles(delta) {
                 buildingCollision = true;
                 
                 // Create explosion at impact point
-                const impactPoint = new THREE.Vector3(
-                    enemyMissile.position.x,
-                    enemyMissile.position.y,
-                    enemyMissile.position.z
-                );
+                const impactPoint = enemyMissile.position.clone();
                 createExplosion(impactPoint, true, false);
                 
-                // If it's a target building, destroy it using the dedicated handler function
+                // If it's a target building, destroy it
                 if (building.userData.isTarget) {
-                    // Use the specific handler for enemy target hits to ensure proper effects
                     handleEnemyTargetHit(building);
                     
                     // Update pilot stats for the enemy that hit the target
@@ -6253,28 +6550,12 @@ function updateEnemyMissiles(delta) {
             }
         }
         
-        // Remove missile if it collided with a building
+        // Rest of existing code (collision handling, smoke trails, etc.)
         if (buildingCollision) {
             scene.remove(enemyMissile);
             disposeObject(enemyMissile);
             enemyMissiles.splice(i, 1);
             continue;
-        }
-        
-        // Check collision with player missile
-        if (missile.visible && missile.position.distanceTo(enemyMissile.position) < 3) {
-            // Create explosion at impact
-            createExplosion(enemyMissile.position.clone(), true);
-            
-            // Remove enemy missile
-            scene.remove(enemyMissile);
-            disposeObject(enemyMissile);
-            enemyMissiles.splice(i, 1);
-            
-            // Damage player missile but don't destroy it
-            screenShakeTime = 1.0;
-            screenShakeIntensity = 1.0;
-            playSound('explosion');
         }
         
         // Create smoke trail
@@ -6479,6 +6760,50 @@ function updateMissileNavigation(enemyMissile, raycaster) {
     }
 }
 
+// Set up spatial audio for a player
+function setupSpatialAudio(user, position) {
+    if (!user.audioTrack) return;
+    
+    // Get player's 3D position relative to local player
+    const relativePosition = position.clone().sub(missile.position);
+    
+    // Calculate distance (with max limit)
+    const distance = Math.min(relativePosition.length(), 100);
+    
+    // Calculate panning (left-right) based on relative X position
+    const pan = Math.max(-1, Math.min(1, relativePosition.x / 50)); 
+    
+    // Calculate volume based on distance
+    const volume = Math.max(0, 1 - (distance / 100));
+    
+    // Apply spatial effects if supported
+    if (user.audioTrack.setAudioProfiling) {
+        user.audioTrack.setAudioProfiling({
+            spatialRendering: true,
+            spatialPosition: [pan, 0, -distance / 100]
+        });
+    }
+    
+    // Set volume based on distance
+    user.audioTrack.setVolume(Math.floor(volume * 100));
+}
+
+// Update spatial audio in the animation loop
+function updateSpatialAudio() {
+    if (!rtcClient || !joinedChannel) return;
+    
+    // Update spatial audio for all remote users
+    rtcClient.remoteUsers.forEach(user => {
+        const otherPlayer = otherPlayers[user.uid];
+        if (otherPlayer && otherPlayer.missile) {
+            setupSpatialAudio(user, otherPlayer.missile.position);
+        }
+    });
+}
+
+
+
+
 function updatePortalMaterials(delta = 0.016) {
     if (!window.portalRings) return;
     
@@ -6498,59 +6823,596 @@ function adjustResolutionForPerformance() {
     }
 }
 
-function showMultiplayerDebug() {
-    // Create a debug overlay if it doesn't exist
-    if (!document.getElementById('multiplayer-debug')) {
-        const debugDiv = document.createElement('div');
-        debugDiv.id = 'multiplayer-debug';
-        debugDiv.style.position = 'absolute';
-        debugDiv.style.bottom = '10px';
-        debugDiv.style.left = '10px';
-        debugDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        debugDiv.style.color = 'white';
-        debugDiv.style.padding = '10px';
-        debugDiv.style.borderRadius = '5px';
-        debugDiv.style.fontFamily = 'monospace';
-        debugDiv.style.fontSize = '12px';
-        debugDiv.style.maxWidth = '400px';
-        debugDiv.style.maxHeight = '200px';
-        debugDiv.style.overflow = 'auto';
-        debugDiv.style.zIndex = '1000';
-        document.body.appendChild(debugDiv);
+function initializeSettingsPanel() {
+    // First, remove any existing settings panel or buttons
+    const existingPanel = document.getElementById('settingsPanel');
+    if (existingPanel) existingPanel.remove();
+    
+    const existingSettingsBtn = document.getElementById('settingsBtn');
+    if (existingSettingsBtn) existingSettingsBtn.remove();
+    
+    // Create settings button
+    const settingsBtn = document.createElement('button');
+    settingsBtn.id = 'settingsBtn';
+    settingsBtn.innerHTML = '⚙️';
+    settingsBtn.style.position = 'absolute';
+    settingsBtn.style.bottom = '60px';
+    settingsBtn.style.right = '20px';
+    settingsBtn.style.padding = '10px';
+    settingsBtn.style.background = 'rgba(0,0,0,0.7)';
+    settingsBtn.style.color = 'white';
+    settingsBtn.style.border = '1px solid #444';
+    settingsBtn.style.borderRadius = '5px';
+    settingsBtn.style.cursor = 'pointer';
+    settingsBtn.style.zIndex = '1002';
+    settingsBtn.style.fontSize = '40px';
+    settingsBtn.style.width = '80px';
+    settingsBtn.style.height = '80px';
+    settingsBtn.style.display = 'flex';
+    settingsBtn.style.justifyContent = 'center';
+    settingsBtn.style.alignItems = 'center';
+    document.body.appendChild(settingsBtn);
+    
+    // Create settings panel
+    const settingsPanel = document.createElement('div');
+    settingsPanel.id = 'settingsPanel';
+    settingsPanel.style.position = 'absolute';
+    settingsPanel.style.bottom = '-500px'; // Ensure completely hidden
+    settingsPanel.style.right = '20px';
+    settingsPanel.style.width = '300px';
+    settingsPanel.style.maxWidth = 'calc(100vw - 40px)'; // Responsive width
+    settingsPanel.style.padding = '20px';
+    settingsPanel.style.background = 'rgba(0,0,0,0.85)';
+    settingsPanel.style.color = 'white';
+    settingsPanel.style.border = '1px solid #ff3333';
+    settingsPanel.style.borderRadius = '5px';
+    settingsPanel.style.zIndex = '1001';
+    settingsPanel.style.transition = 'bottom 0.3s ease-in-out';
+    settingsPanel.style.fontFamily = 'Quantico, sans-serif';
+    settingsPanel.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.3)';
+    settingsPanel.style.boxSizing = 'border-box'; // Important for proper sizing
+    
+    // Add panel content
+    settingsPanel.innerHTML = `
+         <div style="margin-bottom: 20px; box-sizing: border-box; width: 100%;">
+            <label for="playerNameInput" style="display: block; margin-bottom: 8px; font-size: 16px;">PILOT NAME:</label>
+            <input type="text" id="playerNameInput" maxlength="15" 
+                style="width: 100%; padding: 12px; background: #222; color: white; 
+                border: 1px solid #444; border-radius: 4px; font-size: 16px; box-sizing: border-box;">
+        </div>
         
-        // Add toggle button
-        const toggleBtn = document.createElement('button');
-        toggleBtn.textContent = 'Toggle Debug';
-        toggleBtn.style.position = 'absolute';
-        toggleBtn.style.bottom = '10px';
-        toggleBtn.style.left = '10px';
-        toggleBtn.style.zIndex = '1001';
-        toggleBtn.onclick = () => {
-            const debug = document.getElementById('multiplayer-debug');
-            debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
+        <div style="margin-bottom: 20px; box-sizing: border-box; width: 100%;">
+            <label style="display: block; margin-bottom: 8px; font-size: 16px;">MISSILE COLOR:</label>
+            <div id="settingsColorButtons" style="display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(5, 1fr); gap: 6px;">
+                <!-- Color buttons will be generated here -->
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 15px; box-sizing: border-box; width: 100%;">
+            <label style="display: block; margin-bottom: 8px; font-size: 16px;">VOICE CHAT:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 14px;">Microphone</span>
+                <button id="settingsMicToggle" style="padding: 8px 12px; background: #333; color: white; 
+                    border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">OFF</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                <span style="font-size: 14px;">Voice Volume</span>
+                <input type="range" id="voiceVolumeSlider" min="0" max="100" value="100" 
+                    style="width: 60%; background: #333; height: 6px; outline: none; -webkit-appearance: none; border-radius: 3px;">
+            </div>
+        </div>
+    `;
+    document.body.appendChild(settingsPanel);
+
+// Setup voice chat settings
+    setTimeout(() => {
+        // Voice chat toggle button
+        const micToggle = document.getElementById('settingsMicToggle');
+        if (micToggle) {
+            micToggle.textContent = isAudioEnabled ? 'ON' : 'OFF';
+            micToggle.style.background = isAudioEnabled ? '#ff3333' : '#333';
+            
+            micToggle.addEventListener('click', () => {
+                toggleMicrophone();
+                micToggle.textContent = isAudioEnabled ? 'ON' : 'OFF';
+                micToggle.style.background = isAudioEnabled ? '#ff3333' : '#333';
+            });
+        }
+        
+        // Voice volume slider
+        const volumeSlider = document.getElementById('voiceVolumeSlider');
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', (e) => {
+                const volume = parseInt(e.target.value);
+                // Set master remote user volume
+                setVoiceChatVolume(volume);
+            });
+        }
+    }, 100);
+
+    document.body.appendChild(settingsPanel);
+    
+    // Add responsive style
+    const responsiveStyle = document.createElement('style');
+    responsiveStyle.textContent = `
+        @media (max-width: 600px) {
+            #settingsPanel {
+                right: 10px;
+                padding: 15px;
+                width: calc(100vw - 20px);
+            }
+            
+            #settingsBtn {
+                right: 10px;
+                width: 46px;
+                height: 46px;
+            }
+            
+            #settingsColorButtons {
+                gap: 4px;
+            }
+            
+            .settings-color-button {
+                width: 20px !important;
+                height: 20px !important;
+            }
+        }
+    `;
+    document.head.appendChild(responsiveStyle);
+    
+    // Set up event listeners for panel toggle
+    settingsBtn.addEventListener('click', () => {
+        if (settingsPanel.style.bottom.startsWith('-')) {
+            settingsPanel.style.bottom = '140px';
+        } else {
+            settingsPanel.style.bottom = '-500px';
+        }
+    });
+    
+    // Add close when clicking outside the panel
+    document.addEventListener('mousedown', function(event) {
+        if (settingsPanel.style.bottom !== '-500px') {
+            if (!settingsPanel.contains(event.target) && event.target !== settingsBtn) {
+                settingsPanel.style.bottom = '-500px';
+            }
+        }
+    });
+    
+    // IMPORTANT: Use setTimeout to ensure the DOM is ready before accessing elements
+    setTimeout(() => {
+        // Set up color buttons
+        setupSettingsColorButtons();
+        
+        // Initialize inputs ONLY after DOM is ready
+        const playerNameInput = document.getElementById('playerNameInput');
+        if (playerNameInput) {
+            playerNameInput.value = playerStats.name || '';
+            
+            // Setup name input event listener
+            playerNameInput.addEventListener('input', function() {
+                const newName = this.value.trim();
+                if (newName) {
+                    playerStats.name = newName;
+                    updatePlayerInFirebase();
+                    updateLeaderboard();
+                }
+            });
+        }
+        
+        
+    }, 100); // Increased timeout to ensure DOM is ready
+}
+
+// Setup color buttons in settings panel
+function setupSettingsColorButtons() {
+    const colors = [
+        // Row 1: Red spectrum
+        "#ff0000", "#ff3333", "#ff6666", "#ff9999", "#8e2522", "#ff5500", "#cc3300", "#aa2200",
+        // Row 2: Orange/Yellow spectrum
+        "#ff8800", "#ffaa00", "#ffcc00", "#ffdd55", "#ffff00", "#ffff66", "#eeee33", "#dddd00",
+        // Row 3: Green spectrum
+        "#00cc00", "#00ff00", "#33ff33", "#66ff66", "#99ff99", "#00aa44", "#008833", "#006622",
+        // Row 4: Blue spectrum
+        "#0000ff", "#3333ff", "#6666ff", "#0099ff", "#33ccff", "#66ffff", "#0099cc", "#006699",
+        // Row 5: Purple/Pink/Special spectrum
+        "#6600cc", "#9900ff", "#cc00ff", "#ff00ff", "#ff66ff", "#ff3399", "#ffffff", "#000000"
+    ];
+    
+    const colorButtonsContainer = document.getElementById('settingsColorButtons');
+    if (!colorButtonsContainer) return;
+    
+    // Clear any existing buttons
+    colorButtonsContainer.innerHTML = '';
+    
+    // Create color buttons
+    colors.forEach((color) => {
+        const button = document.createElement('div');
+        button.className = 'settings-color-button';
+        button.style.width = '24px';
+        button.style.height = '24px';
+        button.style.backgroundColor = color;
+        button.style.borderRadius = '4px';
+        button.style.cursor = 'pointer';
+        button.style.border = '2px solid #333';
+        button.style.transition = 'transform 0.2s, border-color 0.2s';
+        button.style.boxSizing = 'border-box';
+        
+        // Select button if it's the current color
+        if (color === playerStats.color) {
+            button.style.border = '2px solid #ffffff';
+            button.style.boxShadow = '0 0 5px rgba(255, 255, 255, 0.8)';
+        }
+        
+        // Handle selection with immediate application
+        button.addEventListener('click', function() {
+            // Remove selection from all buttons
+            document.querySelectorAll('.settings-color-button').forEach(btn => {
+                btn.style.border = '2px solid #333';
+                btn.style.boxShadow = 'none';
+            });
+            
+            // Add selection to clicked button
+            this.style.border = '2px solid #ffffff';
+            this.style.boxShadow = '0 0 5px rgba(255, 255, 255, 0.8)';
+            
+            // Update player color immediately
+            playerStats.color = color;
+            
+            // Apply color to missile
+            if (missile && missile.children && missile.children[0]) {
+                missile.children[0].material.color.set(color);
+            }
+            updatePlayerMarkerColor();
+            
+            // Save to Firebase
+            updatePlayerInFirebase();
+            
+            // Update leaderboard
+            updateLeaderboard();
+        });
+        
+        colorButtonsContainer.appendChild(button);
+    });
+}
+
+function createSoundButton() {
+    // Remove any existing sound buttons outside settings panel
+    const allSoundButtons = document.querySelectorAll('button[id="soundBtn"], button[data-sound-button="true"], button:has(🔊), button:has(🔇)');
+    allSoundButtons.forEach(btn => btn.remove());
+    
+    // Create a new sound button with matching style to the settings button
+    const soundBtn = document.createElement('button');
+    soundBtn.id = 'soundBtn';
+    soundBtn.innerHTML = sounds.muted ? '🔇' : '🔊';
+    soundBtn.setAttribute('data-sound-button', 'true');
+    
+    // Position at bottom right, next to settings button
+    soundBtn.style.position = 'absolute';
+    soundBtn.style.bottom = '60px'; // Same height as settings button
+    soundBtn.style.right = '130px'; // 20px (settings right margin) + 50px (settings width) + 10px (gap)
+    soundBtn.style.padding = '10px';
+    soundBtn.style.background = 'rgba(0,0,0,0.7)';
+    soundBtn.style.color = 'white';
+    soundBtn.style.border = '1px solid #444';
+    soundBtn.style.borderRadius = '5px';
+    soundBtn.style.cursor = 'pointer';
+    soundBtn.style.zIndex = '1002'; // Same z-index as settings button
+    soundBtn.style.fontSize = '40px';
+    soundBtn.style.width = '80px';
+    soundBtn.style.height = '80px';
+    soundBtn.style.display = 'flex';
+    soundBtn.style.justifyContent = 'center';
+    soundBtn.style.alignItems = 'center';
+    
+    // Toggle mute on click
+    soundBtn.addEventListener('click', () => {
+        toggleMute();
+        soundBtn.innerHTML = sounds.muted ? '🔇' : '🔊';
+        
+        // Also update the mute button in settings panel if it exists
+        const settingsMuteBtn = document.getElementById('settingsMuteBtn');
+        if (settingsMuteBtn) {
+            settingsMuteBtn.innerHTML = sounds.muted ? '🔇' : '🔊';
+        }
+    });
+    
+    document.body.appendChild(soundBtn);
+    
+    // Add responsive style
+    const responsiveStyle = document.createElement('style');
+    responsiveStyle.textContent = `
+        @media (max-width: 600px) {
+            #soundBtn {
+                right: 70px;
+                width: 46px;
+                height: 46px;
+                font-size: 20px;
+            }
+        }
+    `;
+    document.head.appendChild(responsiveStyle);
+    
+    return soundBtn;
+}
+
+// Toggle microphone on/off
+function toggleMicrophone() {
+    if (!localAudioTrack) {
+        console.error("No audio track available. Voice chat may not be initialized.");
+        
+        // Create a dummy audio track to at least allow toggling the UI state
+        localAudioTrack = {
+            setEnabled: function(enabled) {
+                console.log("Dummy mic set to:", enabled);
+                isAudioEnabled = enabled;
+                updateVoiceChatUI();
+            }
         };
-        document.body.appendChild(toggleBtn);
     }
     
-    // Update the debug info
-    const debugDiv = document.getElementById('multiplayer-debug');
-    const otherPlayerCount = Object.keys(otherPlayers).length;
+    isAudioEnabled = !isAudioEnabled;
+    localAudioTrack.setEnabled(isAudioEnabled);
     
-    debugDiv.innerHTML = `
-        <strong>Multiplayer Debug</strong><br>
-        Player ID: ${playerStats.id ? playerStats.id.substring(0,8)+'...' : 'Not set'}<br>
-        Firebase Auth: ${firebase.auth().currentUser ? 'Connected' : 'Disconnected'}<br>
-        Realtime DB: ${window.firebaseDB ? 'Available' : 'Not available'}<br>
-        Firestore: ${db ? 'Available' : 'Not available'}<br>
-        Other Players: ${otherPlayerCount}<br>
-        <br>
-        <strong>Other Players:</strong><br>
-        ${Object.keys(otherPlayers).map(id => {
-            const p = otherPlayers[id];
-            return `${p.name} (${id.substring(0,5)}): ${Math.round(p.targetPosition.x)},${Math.round(p.targetPosition.y)},${Math.round(p.targetPosition.z)}`;
-        }).join('<br>')}
-    `;
+    console.log("Microphone toggled:", isAudioEnabled ? "on" : "off");
+    updateVoiceChatUI();
+    
+    // Also update the settings panel button
+    const settingsMicToggle = document.getElementById('settingsMicToggle');
+    if (settingsMicToggle) {
+        settingsMicToggle.textContent = isAudioEnabled ? 'ON' : 'OFF';
+        settingsMicToggle.style.background = isAudioEnabled ? '#ff3333' : '#333';
+    }
 }
+
+// Leave voice chat
+async function leaveAgoraChannel() {
+    if (!rtcClient || !joinedChannel) return;
+    
+    // Stop and close local tracks
+    if (localAudioTrack) {
+        localAudioTrack.stop();
+        localAudioTrack.close();
+        localAudioTrack = null;
+    }
+    
+    // Leave the channel
+    await rtcClient.leave();
+    console.log("Left Agora channel");
+    
+    joinedChannel = false;
+    updateVoiceChatUI();
+}
+
+// Create voice chat UI
+function createVoiceChatUI() {
+    // Create voice chat container
+    const voiceChatContainer = document.createElement('div');
+    voiceChatContainer.id = 'voice-chat-container';
+    voiceChatContainer.style.position = 'absolute';
+    voiceChatContainer.style.bottom = '60px';
+    voiceChatContainer.style.right = '240px'; // Position next to the settings button
+    voiceChatContainer.style.zIndex = '1002';
+    
+    // Create mic button
+    const micButton = document.createElement('button');
+    micButton.id = 'micButton';
+    micButton.innerHTML = '🎙️';
+    micButton.style.width = '80px';
+    micButton.style.height = '80px';
+    micButton.style.borderRadius = '5px';
+    micButton.style.background = 'rgba(0,0,0,0.7)';
+    micButton.style.color = 'white';
+    micButton.style.border = '1px solid #444';
+    micButton.style.fontSize = '40px';
+    micButton.style.cursor = 'pointer';
+    micButton.style.display = 'flex';
+    micButton.style.justifyContent = 'center';
+    micButton.style.alignItems = 'center';
+    micButton.style.transition = 'all 0.2s ease-in-out'; 
+    
+    // Add mic button functionality
+    micButton.addEventListener('click', toggleMicrophone);
+    
+    // Add mic button to container
+    voiceChatContainer.appendChild(micButton);
+    
+    // Add container to document
+    document.body.appendChild(voiceChatContainer);
+    
+    // Add voice chat participants list (hidden initially)
+    const participantsList = document.createElement('div');
+    participantsList.id = 'voice-participants';
+    participantsList.style.position = 'absolute';
+    participantsList.style.bottom = '140px';
+    participantsList.style.right = '140px';
+    participantsList.style.background = 'rgba(0,0,0,0.7)';
+    participantsList.style.color = 'white';
+    participantsList.style.padding = '10px';
+    participantsList.style.borderRadius = '5px';
+    participantsList.style.border = '1px solid #ff3333';
+    participantsList.style.fontSize = '14px';
+    participantsList.style.zIndex = '1001';
+    participantsList.style.display = 'none'; // Initially hidden
+    
+    document.body.appendChild(participantsList);
+    
+    // Add responsive CSS for mobile
+    const responsiveStyle = document.createElement('style');
+    responsiveStyle.textContent = `
+        @media (max-width: 600px) {
+            #voice-chat-container {
+                right: 130px;
+            }
+            
+            #micButton {
+                width: 46px;
+                height: 46px;
+                font-size: 20px;
+            }
+            
+            #voice-participants {
+                right: 130px;
+                bottom: 130px;
+                max-width: calc(100vw - 140px);
+            }
+        }
+    `;
+    document.head.appendChild(responsiveStyle);
+
+    // Update UI initially
+    updateVoiceChatUI();
+}
+
+// Update voice chat UI based on state
+function updateVoiceChatUI() {
+    const micButton = document.getElementById('micButton');
+    if (!micButton) return;
+    
+    // Enhanced visual feedback when mic is active/inactive
+    if (isAudioEnabled) {
+        // Active microphone
+        micButton.innerHTML = '🎙️';
+        micButton.style.background = 'rgba(255,51,51,0.7)'; // Red background when active
+        micButton.style.boxShadow = '0 0 10px rgba(255,51,51,0.7)'; // Glow effect
+        micButton.style.border = '1px solid #ff3333';
+        micButton.setAttribute('title', 'Microphone ON - Click to mute');
+    } else {
+        // Muted microphone
+        micButton.innerHTML = '🎙️';
+        micButton.style.background = 'rgba(0,0,0,0.7)'; // Dark when muted
+        micButton.style.boxShadow = 'none';
+        micButton.style.border = '1px solid #444';
+        micButton.setAttribute('title', 'Microphone OFF - Click to unmute');
+    }
+}
+
+// Visualize who is speaking
+function showSpeakingIndicator(uid, volumeLevel = 50) {
+    // Find the player associated with this uid
+    let playerName = "Unknown";
+    let playerColor = "#ffffff";
+    
+    if (uid === playerStats.id) {
+        playerName = playerStats.name;
+        playerColor = playerStats.color || "#ffffff";
+    } else if (otherPlayers[uid]) {
+        playerName = otherPlayers[uid].name;
+        playerColor = otherPlayers[uid].color || "#ffffff";
+    }
+    
+    // Ensure the color is readable with a text shadow
+    let displayColor = playerColor;
+    
+    // Get participants list
+    let participantsList = document.getElementById('voice-participants');
+    if (!participantsList) return;
+    
+    // Show participants list
+    participantsList.style.display = 'block';
+    
+    // Create a ping animation style if not exists
+    if (!document.getElementById('voice-ping-animation')) {
+        const style = document.createElement('style');
+        style.id = 'voice-ping-animation';
+        style.textContent = `
+            @keyframes voicePing {
+                0% { transform: scale(0.95); opacity: 0.7; }
+                50% { transform: scale(1.05); opacity: 1; }
+                100% { transform: scale(0.95); opacity: 0.7; }
+            }
+            .speaking {
+                animation: voicePing 0.5s infinite;
+                text-shadow: 0 0 5px #fff, 0 0 10px rgba(255,255,255,0.5);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Add or update participant
+    let participant = document.getElementById(`voice-participant-${uid}`);
+    if (!participant) {
+        participant = document.createElement('div');
+        participant.id = `voice-participant-${uid}`;
+        participant.className = 'speaking';
+        participant.style.color = displayColor;
+        participant.style.textShadow = '0 0 5px #000, 0 0 3px rgba(255,255,255,0.5)';
+        participant.style.margin = '5px 0';
+        participant.style.padding = '5px';
+        participant.style.borderRadius = '3px';
+        participant.style.transition = 'all 0.2s ease';
+        participantsList.appendChild(participant);
+        
+        // Add sound effect for new speaker
+        if (sounds && !sounds.muted) {
+            playSound('ui');
+        }
+    }
+    
+    // Get volume level icon based on volume
+    let volumeIcon = '🔈';
+    if (volumeLevel > 70) volumeIcon = '🔊';
+    else if (volumeLevel > 30) volumeIcon = '🔉';
+    
+    // Update participant display
+    participant.innerHTML = `${volumeIcon} ${playerName} speaking...`;
+    participant.className = 'speaking'; // Add animation class
+    
+    // Set timeout to remove the indicator if not updated for 2 seconds
+    if (participant.hideTimeout) clearTimeout(participant.hideTimeout);
+    participant.hideTimeout = setTimeout(() => hideSpeakingIndicator(uid), 2000);
+}
+
+function hideSpeakingIndicator(uid) {
+    let participant = document.getElementById(`voice-participant-${uid}`);
+    if (participant) {
+        participant.remove();
+    }
+    
+    // Hide participants list if empty
+    let participantsList = document.getElementById('voice-participants');
+    if (participantsList && participantsList.children.length === 0) {
+        participantsList.style.display = 'none';
+    }
+}
+
+function updateSpeakingIndicatorVolume(uid, level) {
+    let participant = document.getElementById(`voice-participant-${uid}`);
+    if (!participant) return;
+    
+    const indicator = participant.querySelector('.voice-indicator');
+    if (!indicator) return;
+    
+    // Update indicator based on volume level
+    if (level > 50) {
+        indicator.innerHTML = "🔴"; // High volume
+        indicator.style.color = "#ff3333";
+    } else if (level > 20) {
+        indicator.innerHTML = "🟡"; // Medium volume
+        indicator.style.color = "#ffcc00";
+    } else {
+        indicator.innerHTML = "⚪"; // Low/no volume
+        indicator.style.color = "#aaaaaa";
+    }
+}
+
+// Set voice chat volume
+function setVoiceChatVolume(volumePercent) {
+    if (!rtcClient) return;
+    
+    // AgoraRTC volume is 0-100
+    const volume = Math.max(0, Math.min(100, volumePercent));
+    
+    // Set playback volume for all remote users
+    rtcClient.remoteUsers.forEach(user => {
+        if (user.audioTrack) {
+            user.audioTrack.setVolume(volume);
+        }
+    });
+    
+    console.log(`Voice chat volume set to ${volume}%`);
+}
+
+
 
 
 
@@ -6580,13 +7442,48 @@ function updateSpecificPilotStats(pilotId, isHit, isDestroyed) {
 
 // Initialize enemy pilot stats with more realistic and identifiable data
 function initializeEnemyPilots() {
-    enemyPilotStats = [
-        { id: "cpu_1", name: "Marksman42", targetsDestroyed: 0, crashes: 0, roundsWon: 0, color: "#ff5500" },
-        { id: "cpu_2", name: "SkyStalker", targetsDestroyed: 0, crashes: 0, roundsWon: 0, color: "#66ccff" },
-        { id: "cpu_3", name: "MissileKing", targetsDestroyed: 0, crashes: 0, roundsWon: 0, color: "#66ff66" },
-        { id: "cpu_4", name: "StrikeForce", targetsDestroyed: 0, crashes: 0, roundsWon: 0, color: "#ffcc00" },
-        { id: "cpu_5", name: "TargetLocka", targetsDestroyed: 0, crashes: 0, roundsWon: 0, color: "#ff00ff" }
+    // NATO phonetic alphabet names
+    const natoNames = [
+        "Alpha", "Bravo", "Charlie", "Delta", "Echo", 
+        "Foxtrot", "Golf", "Hotel", "India", "Juliet", 
+        "Kilo", "Lima", "Mike", "November", "Oscar", 
+        "Papa", "Quebec", "Romeo", "Sierra", "Tango", 
+        "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"
     ];
+    
+    // Create array to track used names to avoid duplicates
+    const usedNames = [];
+    
+    // Predefined colors for enemy pilots to ensure good visibility
+    const enemyColors = ["#ff5500", "#66ccff", "#66ff66", "#ffcc00", "#ff00ff"];
+    
+    enemyPilotStats = [];
+    
+    // Create 5 enemy pilots
+    for (let i = 0; i < 5; i++) {
+        // Find an unused NATO name
+        let nameIndex;
+        do {
+            nameIndex = Math.floor(Math.random() * natoNames.length);
+        } while (usedNames.includes(nameIndex) && usedNames.length < natoNames.length);
+        
+        // If all names are used, we'll allow duplicates
+        usedNames.push(nameIndex);
+        
+        // Generate random number for the callsign
+        const randomNumber = Math.floor(Math.random() * 99) + 1;
+        const pilotName = `${natoNames[nameIndex]}-${randomNumber}`;
+        
+        // Add to enemy pilots array
+        enemyPilotStats.push({
+            id: `cpu_${i+1}`,
+            name: pilotName,
+            targetsDestroyed: 0, 
+            crashes: 0, 
+            roundsWon: 0, 
+            color: enemyColors[i % enemyColors.length]
+        });
+    }
 }
 
 function determineRoundWinner() {
@@ -6692,6 +7589,41 @@ function handleEnemyTargetHit(target) {
     // Screen shake
     screenShakeTime = 0.6;
     screenShakeIntensity = 1.2;
+
+      // Find the missile that hit this target
+      const hitMissileIndex = enemyMissiles.findIndex(missile => 
+        missile.userData.targetBuilding === target);
+    
+    // Get pilot ID from missile if available
+    let pilotId = null;
+    if (hitMissileIndex >= 0) {
+        pilotId = enemyMissiles[hitMissileIndex].userData.pilotId;
+        console.log(`Target hit by missile with pilot ID: ${pilotId}`);
+        
+        // Update pilot stats for the enemy that hit the target
+        if (pilotId) {
+            // Find the pilot
+            const pilotIndex = enemyPilotStats.findIndex(pilot => pilot.id === pilotId);
+            if (pilotIndex !== -1) {
+                // Update stats
+                enemyPilotStats[pilotIndex].targetsDestroyed++;
+                
+                // IMPORTANT: Update the leaderboard entry directly as well
+                const leaderboardIndex = leaderboard.findIndex(entry => entry.id === pilotId);
+                if (leaderboardIndex !== -1) {
+                    leaderboard[leaderboardIndex].targetsDestroyed = enemyPilotStats[pilotIndex].targetsDestroyed;
+                    leaderboard[leaderboardIndex].tpm = calculateTPM(
+                        enemyPilotStats[pilotIndex].targetsDestroyed, 
+                        enemyPilotStats[pilotIndex].totalPlayTimeSeconds || 1
+                    );
+                }
+                
+                // Update the leaderboard UI immediately
+                updateLeaderboard();
+                console.log(`Updated stats for pilot ${enemyPilotStats[pilotIndex].name}: ${enemyPilotStats[pilotIndex].targetsDestroyed} kills`);
+            }
+        }
+    }
     
         
     // Remove target from scene and arrays
@@ -6730,6 +7662,13 @@ function handleEnemyTargetHit(target) {
         // Update stats
         stats.targetsRemaining--;
         document.getElementById('targetsRemaining').textContent = stats.targetsRemaining;
+
+         // Update the UI if needed
+    const targetsElement = document.getElementById('targetsRemaining');
+    if (targetsElement) {
+        targetsElement.textContent = stats.targetsRemaining;
+    }
+    
         
         // Check if all targets are destroyed
         if (stats.targetsRemaining <= 0) {
@@ -6822,7 +7761,7 @@ function createEnemyMissileSmoke(enemyMissile) {
 
 function addDummyPlayers() {
     // Don't add fake data - we'll track real enemy missile stats
-    leaderboard = [...enemyPilotStats];
+    initializeLeaderboard();
 }
 
 
@@ -6833,23 +7772,13 @@ function createLeaderboard() {
         leaderboardDiv.id = 'leaderboard';
         leaderboardDiv.innerHTML = `
             <div class="leaderboard-title">TOP PILOTS</div>
-            <table class="leaderboard-table">
-                <thead>
-                    <tr>
-                        <th class="rank-column">#</th>
-                        <th class="name-column">NAME</th>
-                        <th class="score-column">KILLS</th>
-                        <th class="wins-column">WINS</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboard-entries">
-                    <!-- Will be populated dynamically -->
-                </tbody>
-            </table>
+            <div id="leaderboard-entries">
+                <!-- Will be populated dynamically -->
+            </div>
         `;
         document.body.appendChild(leaderboardDiv);
         
-        // Add CSS for the leaderboard
+        // Add CSS for the leaderboard with reduced width
         const style = document.createElement('style');
         style.textContent = `
             #leaderboard {
@@ -6859,75 +7788,76 @@ function createLeaderboard() {
                 background-color: rgba(0, 0, 0, 0.7);
                 border: 1px solid #ff3333;
                 border-radius: 5px;
-                padding: 10px;
+                padding: 15px 40px;
                 font-family: 'Quantico', sans-serif;
                 color: white;
-                width: 280px;
+                width: 200px; /* Reduced from 280px */
                 z-index: 100;
             }
             
             .leaderboard-title {
-                font-size: 18px;
+                font-size: 22px;
                 font-weight: bold;
                 text-align: center;
                 margin-bottom: 10px;
                 color: #66ccff;
             }
             
-            .leaderboard-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 14px;
-            }
-            
-            .leaderboard-table th, .leaderboard-table td {
-                padding: 4px 6px;
-                text-align: left;
-            }
-            
-            .leaderboard-table th {
-                border-bottom: 1px solid #444;
+            .leaderboard-header {
+                display: flex;
+                justify-content: flex-start;
+                font-size: 18px;
+                padding: 4px 0;
+                margin-bottom: 5px;
                 color: #aaaaaa;
+                border-bottom: 1px solid #444;
             }
             
-            .rank-column {
-                width: 10%;
-                text-align: center;
+            .leaderboard-row {
+                display: flex;
+                justify-content: flex-start;
+                padding: 4px 0;
+                margin-bottom: 2px;
+                font-size: 18px;
+                border-radius: 3px;
+                border-left: 3px solid transparent;
             }
             
-            .name-column {
-                width: 45%;
-                text-align: left;
+            .player-row {
+                border-left: 3px solid #ff3333;
+                background: rgba(255, 51, 51, 0.1);
+                padding-left: 3px;
             }
             
-            .score-column {
-                width: 20%;
-                text-align: center;
+            .name-col {
+                flex-grow: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font-weight: bold;
+                max-width: 125px; /* Adjusted for smaller leaderboard */
+                padding-right: 5px;
             }
             
-            .rate-column {
-                width: 25%;
+            .score-col {
+                width: 40px;
                 text-align: right;
+                font-weight: bold;
             }
             
-            .player-entry {
-                background-color: rgba(255, 51, 51, 0.2);
-            }
-            
-            .player-entry.highlight {
-                animation: highlight-pulse 1.5s ease-in-out;
+            .leaderboard-row.highlight {
+                animation: highlight-pulse 1.5s ease-out;
             }
             
             @keyframes highlight-pulse {
-                0% { background-color: rgba(255, 51, 51, 0.2); }
-                50% { background-color: rgba(255, 51, 51, 0.6); }
-                100% { background-color: rgba(255, 51, 51, 0.2); }
+                0% { background-color: rgba(255, 255, 255, 0.3); }
+                100% { background-color: transparent; }
             }
         `;
         document.head.appendChild(style);
     }
     
-    // Initial update - do it immediately
+    // Initial update
     updateLeaderboard();
 }
 
@@ -6961,59 +7891,120 @@ function calculateTPM(kills, totalTimeSeconds) {
 
 // Add function to update the leaderboard
 function updateLeaderboard() {
-    // Get the leaderboard table body
-    const leaderboardEntries = document.getElementById('leaderboard-entries');
-    if (!leaderboardEntries) {
-        console.error("Leaderboard entries element not found!");
-        return;
-    }
+    // Get leaderboard element
+    const leaderboardElement = document.getElementById('leaderboard');
+    if (!leaderboardElement) return;
     
-    // Ensure enemy pilots exist in stats
-    if (enemyPilotStats.length === 0) {
-        initializeEnemyPilots();
-    }
+    // Create HTML content - start with header
+    let html = `
+        <div class="leaderboard-title">LEADERBOARD</div>
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>PILOT</th>
+                    <th>KILLS</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
     
-    // Create a fresh copy of the stats - include real player AND enemy pilots
-    let displayStats = [...enemyPilotStats, playerStats];
+    // Sort leaderboard by kills or TPM
+    const sortedLeaderboard = [...leaderboard];
     
-    // Add other human players to the leaderboard
-    if (otherPlayers) {
-        Object.values(otherPlayers).forEach(player => {
-            // Only add if we have necessary stats information
-            if (player.name) {
-                displayStats.push({
-                    id: player.id,
-                    name: player.name,
-                    targetsDestroyed: player.targetsDestroyed || 0,
-                    roundsWon: player.roundsWon || 0,
-                    color: player.color || '#ffffff'
-                });
-            }
-        });
-    }
+    // Add enemy pilots if they aren't already included
+    enemyPilotStats.forEach(pilot => {
+        if (!sortedLeaderboard.find(p => p.id === pilot.id)) {
+            sortedLeaderboard.push({
+                id: pilot.id,
+                name: pilot.name,
+                targetsDestroyed: pilot.targetsDestroyed || 0,
+                tpm: pilot.tpm || 0,
+                color: pilot.color || "#66ccff",
+                isEnemyPilot: true
+            });
+        }
+    });
     
-    // Sort by kills (highest first)
-    displayStats.sort((a, b) => b.targetsDestroyed - a.targetsDestroyed);
+    // Sort by targets destroyed (descending)
+    sortedLeaderboard.sort((a, b) => (b.targetsDestroyed || 0) - (a.targetsDestroyed || 0));
     
-    // Generate HTML
-    let html = '';
-    displayStats.forEach((pilot, index) => {
-        // Determine if this is the current player
-        const isPlayer = pilot.id === playerStats.id;
+    // Generate entries (limited to top 6 for performance)
+    const displayLimit = 6; 
+    sortedLeaderboard.slice(0, displayLimit).forEach(player => {
+        // Check if this is the current player
+        const isCurrentPlayer = player.id === playerStats.id;
         
+        // Get player's color or use default
+        const playerColor = player.color || "#ffffff";
+        
+        // Create row with color-styled name
         html += `
-            <tr class="${isPlayer ? 'player-entry' : ''}" id="${isPlayer ? 'player-' + pilot.id : ''}">
-                <td class="rank-column">${index + 1}</td>
-                <td class="name-column" style="color: ${pilot.color || '#ffffff'}">${pilot.name || 'Unknown'}</td>
-                <td class="score-column">${pilot.targetsDestroyed}</td>
-                <td class="wins-column">${pilot.roundsWon || 0}</td>
+            <tr class="${isCurrentPlayer ? 'you' : ''}">
+                <td class="name">
+                    <span style="color: ${playerColor}; text-shadow: 0 0 3px #000, 0 0 2px rgba(255,255,255,0.5);">
+                        ${player.name || "Unknown"}
+                    </span>
+                </td>
+                <td class="tpm">${player.targetsDestroyed || 0}</td>
             </tr>
         `;
     });
     
+    // Close the table
+    html += `
+            </tbody>
+        </table>
+    `;
+    
     // Update the DOM
-    leaderboardEntries.innerHTML = html;
+    leaderboardElement.innerHTML = html;
 }
+
+// Helper function to ensure colors are readable against dark background
+function ensureReadableColor(color) {
+    try {
+        // Parse the color (handles both hex and rgb formats)
+        let r, g, b;
+        
+        if (color.startsWith('#')) {
+            // Handle hex format
+            const hex = color.substring(1);
+            r = parseInt(hex.substr(0, 2), 16);
+            g = parseInt(hex.substr(2, 2), 16);
+            b = parseInt(hex.substr(4, 2), 16);
+        } else if (color.startsWith('rgb')) {
+            // Handle rgb format
+            const matches = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
+            if (matches) {
+                [, r, g, b] = matches.map(Number);
+            }
+        } else {
+            // Use default color if format not recognized
+            return "#ffffff";
+        }
+        
+        // Calculate perceived brightness (using luminance formula)
+        const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+        
+        // If color is too dark, boost its brightness
+        if (brightness < 0.5) {
+            // Increase brightness while keeping the color's hue
+            const factor = Math.min(1.0, 0.7 / brightness);
+            r = Math.min(255, Math.floor(r * factor));
+            g = Math.min(255, Math.floor(g * factor));
+            b = Math.min(255, Math.floor(b * factor));
+            
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+        
+        // Color is bright enough, return original
+        return color;
+    } catch (e) {
+        console.error("Error processing color:", e);
+        return "#ffffff"; // Default to white on error
+    }
+}
+
 
 function syncPlayerStatsToFirebase() {
     // Don't update too frequently - do it every 10 seconds or on important events
@@ -7026,41 +8017,32 @@ function syncPlayerStatsToFirebase() {
 }
 
 // Update function for enemy pilot stats
-function updateEnemyPilotStats(pilotOrIsHit, isDestroyed) {
-    // Case 1: Called with a pilot object (from enemy missile hit)
-    if (typeof pilotOrIsHit === 'object' && pilotOrIsHit !== null) {
-        const pilot = pilotOrIsHit;
-        
-        // We don't need to increment targetsDestroyed here because it's already
-        // incremented in updateEnemyMissiles before calling this function
-        
-        // Update their rate
-        pilot.tpm = calculateTPM(pilot.targetsDestroyed, pilot.totalPlayTimeSeconds || 1);
-        
-        // Update the leaderboard
-        updateLeaderboard();
-        return;
-    }
+function updateEnemyPilotStats(pilot) {
+    if (!pilot) return;
     
-    // Case 2: Called with boolean parameters (legacy calls)
-    const isHit = pilotOrIsHit;
-    
-    if (enemyPilotStats.length === 0) return;
-    
-    // Pick random enemy pilot to credit
-    const pilotIndex = Math.floor(Math.random() * enemyPilotStats.length);
-    const pilot = enemyPilotStats[pilotIndex];
-    
-    if (isHit && isDestroyed) {
-        pilot.targetsDestroyed++;
-    } else if (!isHit) {
-        pilot.crashes++;
-    }
-    
-    // Update their rate
+    // Calculate TPM
     pilot.tpm = calculateTPM(pilot.targetsDestroyed, pilot.totalPlayTimeSeconds || 1);
     
-    // Update the leaderboard
+    // CRITICAL FIX: Update the corresponding leaderboard entry directly
+    const leaderboardIndex = leaderboard.findIndex(entry => entry.id === pilot.id);
+    if (leaderboardIndex >= 0) {
+        leaderboard[leaderboardIndex].targetsDestroyed = pilot.targetsDestroyed;
+        leaderboard[leaderboardIndex].tpm = pilot.tpm;
+        console.log(`Updated leaderboard for ${pilot.name}: ${pilot.targetsDestroyed} kills`);
+    } else {
+        // If pilot isn't in leaderboard, add them
+        leaderboard.push({
+            id: pilot.id,
+            name: pilot.name,
+            targetsDestroyed: pilot.targetsDestroyed,
+            tpm: pilot.tpm,
+            color: pilot.color || "#66ccff",
+            isEnemyPilot: true
+        });
+        console.log(`Added ${pilot.name} to leaderboard with ${pilot.targetsDestroyed} kills`);
+    }
+    
+    // Force immediate UI update
     updateLeaderboard();
 }
 
@@ -7208,12 +8190,12 @@ function animate(currentTime) {
         const playtimeIncrement = delta; // Use actual frame time
         updateOtherPlayers(delta);
         updateOtherPlayerMinimapMarkers();
+        updateSpatialAudio();
 
         // Update player stats 
         updatePlayerStats(playtimeIncrement);
 
-        showMultiplayerDebug(); // Show debug info if multiplayer is active
-        
+                
         // Update enemy pilot stats with the same delta
         enemyPilotStats.forEach(pilot => {
             pilot.totalPlayTimeSeconds += playtimeIncrement;
