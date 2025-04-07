@@ -1673,59 +1673,26 @@ function cleanupFirebasePlayersCollection() {
     // Use ONLY the players collection - remove all references to activePlayers
     const playersCollection = db.collection("players");
     
-    return playersCollection.get()
+    return playersCollection.limit(20).get()
         .then(snapshot => {
             if (snapshot.empty) {
-                console.log("No players to clean up");
                 return Promise.resolve();
             }
             
-            console.log(`Found ${snapshot.size} players in Firebase`);
-            
-            // Create a batch operation
             const batch = db.batch();
-            let deleteCount = 0;
+            let batchSize = 0;
             
-            // Delete ALL entries except the current player
-            snapshot.forEach(doc => {
+            snapshot.docs.forEach(doc => {
                 if (doc.id !== playerStats.id) {
-                    const data = doc.data();
-                    console.log(`Removing player: ${data.name || "Unknown"} (${doc.id})`);
                     batch.delete(doc.ref);
-                    deleteCount++;
+                    batchSize++;
                 }
             });
             
-            if (deleteCount > 0) {
-                console.log(`Deleting ${deleteCount} players from collection`);
+            if (batchSize > 0) {
                 return batch.commit();
             }
             return Promise.resolve();
-        })
-        .then(() => {
-            // After cleaning, add the NATO enemy pilots
-            console.log("Adding NATO pilots to players collection");
-            
-            const batch = db.batch();
-            
-            enemyPilotStats.forEach(pilot => {
-                console.log(`Adding NATO pilot: ${pilot.name} (${pilot.id})`);
-                const pilotRef = playersCollection.doc(pilot.id);
-                batch.set(pilotRef, {
-                    name: pilot.name,
-                    color: pilot.color || "#66ccff",
-                    targetsDestroyed: 0, // Fresh start
-                    tpm: 0,
-                    isEnemyPilot: true,
-                    // Include position data that used to be in activePlayers
-                    position: { x: 0, y: 0, z: 0 },
-                    direction: { x: 0, y: 0, z: 0 },
-                    isActive: true,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            });
-            
-            return batch.commit();
         });
 }
 
@@ -1788,35 +1755,49 @@ function updatePlayerInFirebase() {
 
 // Subscribe to leaderboard updates
 function subscribeToLeaderboard() {
-    // Unsubscribe from any existing listener
-    if (leaderboardListener) leaderboardListener();
+    // Unsubscribe from existing listener
+    if (leaderboardListener) {
+        leaderboardListener();
+        leaderboardListener = null;
+    }
     
-    // Subscribe to top 20 players by TPM
-    leaderboardListener = db.collection("players")
-        .orderBy("tpm", "desc")
-        .limit(20)
-        .onSnapshot(snapshot => {
-            // Process the leaderboard data
-            const leaderboardData = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                leaderboardData.push({
-                    id: doc.id,
-                    name: data.name || "Anonymous",
-                    tpm: data.tpm || 0,
-                    targetsDestroyed: data.targetsDestroyed || 0,
-                    color: data.color || "#ff3333"
+    // Use get() with periodic refresh instead of continuous listening
+    function refreshLeaderboard() {
+        db.collection("players")
+            .orderBy("tpm", "desc")
+            .limit(10) // Reduced from 20
+            .get()
+            .then(snapshot => {
+                const leaderboardData = [];
+                snapshot.forEach(doc => {
+                    // Process data as before
+                    leaderboardData.push({
+                        id: doc.id,
+                        name: doc.data().name || "Anonymous",
+                        tpm: doc.data().tpm || 0,
+                        targetsDestroyed: doc.data().targetsDestroyed || 0,
+                        color: doc.data().color || "#ff3333"
+                    });
                 });
+                
+                leaderboard = leaderboardData;
+                updateLeaderboard();
+            })
+            .catch(error => {
+                if (error.code === 'resource-exhausted') {
+                    console.warn("Firebase quota exceeded. Retrying later...");
+                    // Exponential backoff
+                    setTimeout(refreshLeaderboard, 5000);
+                } else {
+                    console.error("Leaderboard error:", error);
+                }
             });
-            
-            // Update global leaderboard array
-            leaderboard = leaderboardData;
-            
-            // Update the leaderboard UI
-            updateLeaderboard();
-        }, error => {
-            console.error("Leaderboard subscription error:", error);
-        });
+    }
+    
+    refreshLeaderboard();
+    
+    // Set up periodic refresh instead of continuous listening
+    return setInterval(refreshLeaderboard, 10000); // Every 10 seconds
 }
 
 function initializeLeaderboard() {
@@ -7299,7 +7280,7 @@ function createVoiceChatUI() {
     // Create mic button
     const micButton = document.createElement('button');
     micButton.id = 'micButton';
-    micButton.innerHTML = '🎙️';
+    micButton.innerHTML = '🎤';
     micButton.style.width = '80px';
     micButton.style.height = '80px';
     micButton.style.borderRadius = '5px';
@@ -7374,14 +7355,14 @@ function updateVoiceChatUI() {
     // Enhanced visual feedback when mic is active/inactive
     if (isAudioEnabled) {
         // Active microphone
-        micButton.innerHTML = '🎙️';
+        micButton.innerHTML = '🎤';
         micButton.style.background = 'rgba(255,51,51,0.7)'; // Red background when active
         micButton.style.boxShadow = '0 0 10px rgba(255,51,51,0.7)'; // Glow effect
         micButton.style.border = '1px solid #ff3333';
         micButton.setAttribute('title', 'Microphone ON - Click to mute');
     } else {
         // Muted microphone
-        micButton.innerHTML = '🎙️';
+        micButton.innerHTML = '🎤';
         micButton.style.background = 'rgba(0,0,0,0.7)'; // Dark when muted
         micButton.style.boxShadow = 'none';
         micButton.style.border = '1px solid #444';
