@@ -600,8 +600,13 @@ function requestFullscreen() {
     }
 }
 
-       document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
     const fullscreenBtn = document.getElementById('rotation-fullscreen-btn');
+
+    document.addEventListener('fullscreenchange', function() {
+    console.log("Fullscreen state changed");
+    checkOrientationAfterFullscreen();
+});
     
     // Properly attach click event (instead of using inline onclick)
     if (fullscreenBtn) {
@@ -640,6 +645,17 @@ function requestFullscreen() {
         });
     }
 });
+
+function checkOrientationAfterFullscreen() {
+    // Force check orientation immediately after fullscreen
+    handleOrientationChange();
+    
+    // Also check again after a longer delay to ensure everything updates
+    setTimeout(() => {
+        handleOrientationChange();
+    }, 1000);
+}
+
 
         // Game variables
         let scene, camera, renderer, missile, city;
@@ -1532,68 +1548,24 @@ function handleOrientationChange() {
     const rotationNotice = document.getElementById('rotation-notice');
 
     if (rotationNotice) {
-        if (isPortrait) {
-            // Update the rotation notice with more prominent button
-            rotationNotice.innerHTML = `
-                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                    <path d="M21 12C21 7.03 16.97 3 12 3C7.03 3 3 7.03 3 12"></path>
-                    <path d="M12 15l-3-3m0 0l3-3m-3 3h12"></path>
-                </svg>
-                <h2 style="color: white; margin: 15px 0;">Please Rotate Your Device</h2>
-                <p style="color: #cccccc; margin-bottom: 20px;">This game is designed for landscape mode</p>
-                <button id="rotation-fullscreen-btn" style="margin-top:15px; background:#ff3333; color:white; border:none; padding:12px 24px; border-radius:5px; font-size:18px; font-weight:bold; cursor:pointer; box-shadow:0 0 10px rgba(255,51,51,0.5);">
-                    TAP FOR FULLSCREEN
-                </button>
-            `;
-            
-            // Add click event with longer timeout and better error handling
-            clearTimeout(window.fsButtonTimeout);
-            window.fsButtonTimeout = setTimeout(() => {
-                const fsBtn = document.getElementById('rotation-fullscreen-btn');
-                if (fsBtn) {
-                    // Remove any existing listeners
-                    fsBtn.replaceWith(fsBtn.cloneNode(true));
-                    const newBtn = document.getElementById('rotation-fullscreen-btn');
-                    
-                    // Add new listener
-                    newBtn.addEventListener('click', () => {
-                        console.log("Fullscreen button clicked");
-                        try {
-                            // Try standard method first
-                            if (document.documentElement.requestFullscreen) {
-                                document.documentElement.requestFullscreen();
-                            // Fall back to vendor prefixes
-                            } else if (document.documentElement.webkitRequestFullscreen) {
-                                document.documentElement.webkitRequestFullscreen();
-                            } else if (document.documentElement.msRequestFullscreen) {
-                                document.documentElement.msRequestFullscreen();
-                            }
-                        } catch (e) {
-                            console.error("Fullscreen request failed:", e);
-                            alert("Couldn't enter fullscreen mode. Please try manually.");
-                        }
-                    });
-                    
-                    // Make extra sure the button is visible
-                    newBtn.style.display = 'block';
-                    newBtn.style.visibility = 'visible';
-                }
-            }, 300); // Increased timeout to ensure DOM is ready
-            
+        if (isPortrait && !document.fullscreenElement) {
+            // Only show rotation notice in portrait mode AND not in fullscreen
             rotationNotice.style.display = 'flex';
+            
+            // Game elements should be hidden
+            document.getElementById('gameCanvas').style.opacity = '0';
+            document.getElementById('hud').style.opacity = '0';
+            document.getElementById('minimap').style.opacity = '0';
+            document.getElementById('leaderboard').style.opacity = '0';
         } else {
+            // In landscape OR fullscreen, hide rotation notice
             rotationNotice.style.display = 'none';
             
-            // Try auto-fullscreen on orientation change - might work on some devices
-            try {
-                if (!document.fullscreenElement) {
-                    if (document.documentElement.requestFullscreen) {
-                        document.documentElement.requestFullscreen().catch(e => {});
-                    } else if (document.documentElement.webkitRequestFullscreen) {
-                        document.documentElement.webkitRequestFullscreen();
-                    }
-                }
-            } catch (e) {}
+            // Game elements should be visible
+            document.getElementById('gameCanvas').style.opacity = '1';
+            document.getElementById('hud').style.opacity = '1';
+            document.getElementById('minimap').style.opacity = '1';
+            document.getElementById('leaderboard').style.opacity = '1';
             
             // Force a rerender to fix any layout issues
             setTimeout(() => {
