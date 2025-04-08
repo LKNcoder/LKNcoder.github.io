@@ -1886,7 +1886,7 @@ function initializeGameState() {
     leaderboard = [];
     
     // 3. Initialize enemy pilots with NATO names only
-    initializeEnemyPilots();
+    syncEnemyPilotsWithFirebase();
     
     // 4. Add current player to leaderboard
     leaderboard.push({
@@ -7992,6 +7992,38 @@ function initializeEnemyPilots() {
     }
 }
 
+function syncEnemyPilotsWithFirebase() {
+    if (!db) return;
+    
+    // First check if enemy pilots already exist in Firebase
+    db.collection("gameSessions").doc("current").get()
+        .then(doc => {
+            if (doc.exists && doc.data().enemyPilots) {
+                console.log("Loading shared enemy pilots from Firebase");
+                // Use the shared enemy pilots
+                enemyPilotStats = doc.data().enemyPilots;
+                updateLeaderboard();
+            } else {
+                console.log("Creating and sharing enemy pilots to Firebase");
+                // Initialize enemy pilots locally first
+                initializeEnemyPilots();
+                
+                // Then save to Firebase for other players
+                db.collection("gameSessions").doc("current").set({
+                    enemyPilots: enemyPilotStats,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+        })
+        .catch(error => {
+            console.error("Error syncing enemy pilots:", error);
+            // Fall back to local generation if Firebase fails
+            initializeEnemyPilots();
+        });
+}
+
+
+
 function determineRoundWinner() {
     // Create a copy of all pilots including the player
     const allPilots = [...enemyPilotStats, playerStats];
@@ -8667,6 +8699,9 @@ function updateEnemyPilotStats(pilot) {
     // Force immediate UI update
     updateLeaderboard();
 }
+
+
+
 
 function optimizeBuildingMaterials() {
     buildings.forEach(building => {
