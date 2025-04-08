@@ -1554,13 +1554,10 @@ function joinGameSession(sessionId) {
 function generateAndStoreGameWorld(sessionId) {
   if (!db) return;
   
-  console.log("Generating and storing game world as host");
+  console.log("Storing existing city layout as host");
   
-  // Create the city with buildings
-  createCity();
-  
-  // The target buildings array contains our target buildings
-  console.log(`Generated ${buildings.length} buildings with ${targetBuildings.length} targets`);
+  // The city was already created in init(), so just serialize and store it
+  console.log(`Storing ${buildings.length} buildings with ${targetBuildings.length} targets`);
   
   // Convert buildings to a serializable format
   const buildingData = serializeBuildingsForSync(buildings, targetBuildings);
@@ -1919,6 +1916,9 @@ rotationNoticeStyle.textContent = `
     }
 `;
 document.head.appendChild(rotationNoticeStyle);
+
+
+
 
 
 function optimizeForMobile() {
@@ -3889,6 +3889,11 @@ function resetMissile() {
     // Reset crash flag
     handleCrash.inProgress = false;
 
+     // Set camera intro animation flag
+     window.cameraIntroAnimating = true;
+    window.cameraIntroStartTime = Date.now();
+    window.cameraIntroTotalTime = 1500; // 1.5 seconds for animation
+
     if (camera) {
         camera.up.set(0, 1, 0);
     }
@@ -3932,11 +3937,43 @@ function resetMissile() {
     missileDirection.normalize();
 
 
-
-    // IMPORTANT: Calculate fixed minimap rotation ONCE - the angle needed to make 
-    // the player enter from the bottom of the minimap
-    // This is the angle between the initial direction and the "down" direction (0,0,1)
+    // Calculate fixed minimap rotation ONCE - the angle needed to make 
     minimapFixedRotation = Math.atan2(missileDirection.x, -missileDirection.z);
+    
+     // Initialize camera position for intro animation
+    // Start high above the missile looking down
+    const initialCameraHeight = 100;
+    const initialCameraPosition = new THREE.Vector3(
+        missile.position.x,
+        missile.position.y + initialCameraHeight,
+        missile.position.z
+    );
+    camera.position.copy(initialCameraPosition);
+    camera.lookAt(missile.position);
+    
+    // Store the target final camera position (where we want to end up)
+    window.cameraIntroFinalPosition = missile.position.clone().sub(
+        missileDirection.clone().multiplyScalar(cameraOffset.z)
+    );
+    window.cameraIntroFinalPosition.y += cameraOffset.y;
+    
+    // Create the city immediately while camera is animating
+    if (playerStats.isHost) {
+        console.log("Creating city during camera animation");
+        // Asynchronously create the city
+        setTimeout(() => {
+            if (playerStats.sessionId) {
+                // Store the building data in Firebase
+                const buildingData = serializeBuildingsForSync(buildings, targetBuildings);
+                db.collection("gameSessions").doc(playerStats.sessionId).update({
+                    buildings: buildingData,
+                    worldGenerated: true,
+                    generatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(error => console.error("Error storing city data:", error));
+            }
+        }, 100);
+    }
+        
     
     updateMinimap(); // Update minimap to show new position
     
@@ -6893,7 +6930,48 @@ function createExplosionTexture() {
 
 
 function updateCamera(delta) {
-    if (!missile.visible || !camera) return;
+    if (!gameActive || !missile || !missile.visible) return;
+    
+    // Handle camera intro animation
+    if (window.cameraIntroAnimating) {
+        const elapsedTime = Date.now() - window.cameraIntroStartTime;
+        const progress = Math.min(1.0, elapsedTime / window.cameraIntroTotalTime);
+        
+        // Use easing function for smoother animation
+        const easedProgress = easeInOutCubic(progress);
+        
+        if (progress < 1.0) {
+            // Interpolate camera position from above to behind
+            const startPos = new THREE.Vector3(
+                missile.position.x,
+                missile.position.y + 100 * (1 - easedProgress),
+                missile.position.z
+            );
+            
+            const endPos = window.cameraIntroFinalPosition.clone();
+            
+            // Linear interpolation between positions
+            camera.position.lerpVectors(startPos, endPos, easedProgress);
+            
+            // Always look at missile during animation
+            camera.lookAt(missile.position);
+            
+            // Update smoothed camera values
+            smoothedCameraPosition.copy(camera.position);
+            smoothedCameraLookAt.copy(missile.position);
+            
+            return; // Skip regular camera update during animation
+        } else {
+            // Animation completed
+            window.cameraIntroAnimating = false;
+            
+            // Ensure camera ends up in the right position
+            if (window.cameraIntroFinalPosition) {
+                camera.position.copy(window.cameraIntroFinalPosition);
+                smoothedCameraPosition.copy(camera.position);
+            }
+        }
+    }
 
     ensureCameraReferences();
     
@@ -6944,6 +7022,10 @@ function updateCamera(delta) {
     }
     
     camera.lookAt(smoothedCameraLookAt);
+}
+
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
         
 function updateMinimap() {
@@ -8653,7 +8735,6 @@ function createLeaderboard() {
         const leaderboardDiv = document.createElement('div');
         leaderboardDiv.id = 'leaderboard';
         leaderboardDiv.innerHTML = `
-            <div class="leaderboard-title">TOP PILOTS</div>
             <div id="leaderboard-entries">
                 <!-- Will be populated dynamically -->
             </div>
@@ -8670,25 +8751,17 @@ function createLeaderboard() {
                 background-color: rgba(0, 0, 0, 0.7);
                 border: 1px solid #ff3333;
                 border-radius: 5px;
-                padding: 15px 40px;
+                padding: 15px 20px;
                 font-family: 'Quantico', sans-serif;
                 color: white;
-                width: 200px; /* Reduced from 280px */
+                width: 240px; /* Slightly wider to accommodate rounds column */
                 z-index: 100;
-            }
-            
-            .leaderboard-title {
-                font-size: 22px;
-                font-weight: bold;
-                text-align: center;
-                margin-bottom: 10px;
-                color: #66ccff;
             }
             
             .leaderboard-header {
                 display: flex;
-                justify-content: flex-start;
-                font-size: 18px;
+                justify-content: space-between;
+                font-size: 14px;
                 padding: 4px 0;
                 margin-bottom: 5px;
                 color: #aaaaaa;
@@ -8697,10 +8770,10 @@ function createLeaderboard() {
             
             .leaderboard-row {
                 display: flex;
-                justify-content: flex-start;
+                justify-content: space-between;
                 padding: 4px 0;
                 margin-bottom: 2px;
-                font-size: 18px;
+                font-size: 14px;
                 border-radius: 3px;
                 border-left: 3px solid transparent;
             }
@@ -8717,11 +8790,17 @@ function createLeaderboard() {
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 font-weight: bold;
-                max-width: 125px; /* Adjusted for smaller leaderboard */
+                max-width: 110px;
                 padding-right: 5px;
             }
             
             .score-col {
+                width: 40px;
+                text-align: right;
+                font-weight: bold;
+            }
+            
+            .rounds-col {
                 width: 40px;
                 text-align: right;
                 font-weight: bold;
@@ -8839,6 +8918,80 @@ function updateLeaderboard() {
     .catch(error => {
       console.error("Error updating leaderboard from session:", error);
     });
+}
+
+function renderLeaderboardUI() {
+    const entriesContainer = document.getElementById('leaderboard-entries');
+    if (!entriesContainer) return;
+    
+    // Clear existing entries
+    entriesContainer.innerHTML = '';
+    
+    // Add column headers
+    const headerRow = document.createElement('div');
+    headerRow.className = 'leaderboard-header';
+    
+    const nameHeader = document.createElement('div');
+    nameHeader.className = 'name-col';
+    nameHeader.textContent = 'Pilot';
+    
+    const scoreHeader = document.createElement('div');
+    scoreHeader.className = 'score-col';
+    scoreHeader.textContent = 'Score';
+    
+    const roundsHeader = document.createElement('div');
+    roundsHeader.className = 'rounds-col';
+    roundsHeader.textContent = 'Rounds';
+    
+    headerRow.appendChild(nameHeader);
+    headerRow.appendChild(scoreHeader);
+    headerRow.appendChild(roundsHeader);
+    entriesContainer.appendChild(headerRow);
+    
+    // Sort leaderboard by targets destroyed (highest first)
+    leaderboard.sort((a, b) => (b.targetsDestroyed || 0) - (a.targetsDestroyed || 0));
+    
+    // Limit to top 8 entries
+    const displayEntries = leaderboard.slice(0, 8);
+    
+    // Create entries for each player
+    displayEntries.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'leaderboard-row';
+        
+        // Add player-row class if it's the current player
+        if (entry.id === playerStats.id) {
+            row.classList.add('player-row');
+        }
+        
+        const nameElement = document.createElement('div');
+        nameElement.className = 'name-col';
+        nameElement.textContent = entry.name;
+        nameElement.style.color = entry.color || '#ffffff';
+        
+        const scoreElement = document.createElement('div');
+        scoreElement.className = 'score-col';
+        scoreElement.textContent = entry.targetsDestroyed || '0';
+        
+        const roundsElement = document.createElement('div');
+        roundsElement.className = 'rounds-col';
+        roundsElement.textContent = entry.roundsWon || '0';
+        
+        row.appendChild(nameElement);
+        row.appendChild(scoreElement);
+        row.appendChild(roundsElement);
+        entriesContainer.appendChild(row);
+    });
+    
+    // Add no data message if leaderboard is empty
+    if (displayEntries.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.style.textAlign = 'center';
+        emptyMessage.style.padding = '10px 0';
+        emptyMessage.style.color = '#aaaaaa';
+        emptyMessage.textContent = 'No data yet';
+        entriesContainer.appendChild(emptyMessage);
+    }
 }
 
 function syncPlayerStatsToSession() {
