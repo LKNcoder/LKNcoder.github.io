@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1280, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- Additional meta tag to encourage landscape orientation -->
+    <meta name="screen-orientation" content="landscape">
+    <meta name="x5-orientation" content="landscape">
+    <meta name="msapplication-orientation" content="landscape">
+   
     <title>Vibe Missile</title>
    
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -407,61 +412,86 @@
     z-index: 15; /* Higher than regular buttons but lower than hovered */
 }
  
-@media screen and (max-width: 768px) {
-        /* HUD panel */
+@media screen and (orientation: portrait) {
+        #rotation-notice {
+            display: flex !important;
+        }
+        #gameCanvas, #hud, #minimap, #leaderboard, #settingsBtn, #soundBtn, #micButton {
+            opacity: 0;
+            pointer-events: none;
+        }
+    }
+    
+    @media screen and (orientation: landscape) and (max-width: 926px) {
+        /* Landscape phone optimization (iPhone 13 Pro Max width in landscape is 926px) */
         #hud {
-            width: 380px !important;
+            width: 35% !important;
             top: 10px !important;
             left: 10px !important;
-            padding: 8px 10px !important;
-            font-size: 16px !important;
+            padding: 8px !important;
+            font-size: 14px !important;
         }
         
-        /* Minimap */
         #minimap {
-            width: 250px !important;
-            height: 250px !important;
+            width: 200px !important;
+            height: 200px !important;
             bottom: 10px !important;
             left: 10px !important;
         }
         
-        /* Leaderboard */
         #leaderboard {
-            width: 180px !important;
+            width: 150px !important;
             padding: 10px !important;
             top: 10px !important;
             right: 10px !important;
+            font-size: 12px !important;
+        }
+        
+        #settingsBtn, #soundBtn, #micButton {
+            width: 40px !important;
+            height: 40px !important;
+            font-size: 18px !important;
+            bottom: 20px !important;
+        }
+        
+        #controlsOverlay {
             font-size: 14px !important;
         }
-        
-        .leaderboard-title {
-            font-size: 18px !important;
-            margin-bottom: 8px !important;
-        }
-        
-        /* Control buttons */
-        #settingsBtn, #soundBtn, #micButton {
-            width: 50px !important;
-            height: 50px !important;
-            font-size: 24px !important;
-        }
-        
-        /* Game Over screen */
-        #gameOverScreen {
-            width: 320px !important;
-            padding: 25px !important;
-        }
-        
-        #gameOverScreen h2 {
-            font-size: 32px !important;
-        }
-        
-        /* Controls overlay */
-        #controlsOverlay {
-            font-size: 16px !important;
-            max-width: 90% !important;
-        }
     }
+    
+    /* Rotation notice styling */
+    #rotation-notice {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+        z-index: 10000;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-family: 'Quantico', sans-serif;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    #rotation-notice img {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 20px;
+        animation: rotate 2s infinite;
+    }
+    
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        25% { transform: rotate(0deg); }
+        75% { transform: rotate(-90deg); }
+        100% { transform: rotate(-90deg); }
+    }
+
 
     </style>
 
@@ -471,6 +501,18 @@
 <body>
     
     
+        <!-- Add this at the beginning of the body -->
+        <div id="rotation-notice">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <path d="M21 12C21 7.03 16.97 3 12 3C7.03 3 3 7.03 3 12"></path>
+                <path d="M12 15l-3-3m0 0l3-3m-3 3h12"></path>
+            </svg>
+            <h2>Please Rotate Your Device</h2>
+            <p>This game is designed to be played in landscape mode</p>
+        </div>
+        <!-- ... rest of your body content ... -->
+    
+
     <div id="minimap"></div>
     <div id="hud"></div>
 
@@ -1092,6 +1134,8 @@ function init() {
     // optimize for mobile
     if (isMobile) {
         optimizeForMobile();
+        handleOrientationChange(); // Initial check
+        repositionMobileUI(); 
         console.log("Mobile optimizations applied");
     }
 
@@ -1397,9 +1441,58 @@ function cleanupAllOtherPlayerMissiles() {
     cleanupStaleFirebasePlayers();
 }
 
+function handleOrientationChange() {
+    // Check if device is in portrait mode
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const rotationNotice = document.getElementById('rotation-notice');
+
+    if (!isPortrait) {
+    // Try to go fullscreen when rotated to landscape
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(e => {
+            console.log("Fullscreen request failed:", e);
+        });
+    }
+}
+    
+    if (rotationNotice) {
+        if (isPortrait) {
+            rotationNotice.style.display = 'flex';
+        } else {
+            rotationNotice.style.display = 'none';
+            
+            // Force a rerender to fix any layout issues
+            setTimeout(() => {
+                onWindowResize();
+            }, 300);
+        }
+    }
+}
 
 function optimizeForMobile() {
     if (!isMobile) return;
+    
+    console.log("Optimizing for mobile with landscape orientation");
+    
+    // Add orientation change handling
+    window.addEventListener('orientationchange', function() {
+        setTimeout(handleOrientationChange, 300); // Small delay to allow rotation to complete
+    });
+    
+    // Also check on resize for browsers that don't support orientationchange
+    window.addEventListener('resize', function() {
+        handleOrientationChange();
+    });
+    
+    // Initial check
+    handleOrientationChange();
+    
+    // Try to force landscape if possible
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(e => {
+            console.log("Could not lock to landscape:", e);
+        });
+    }
     
     console.log("Optimizing for mobile with desktop rendering");
     
@@ -5712,11 +5805,81 @@ function restartGame() {
     console.log("Game restarted successfully!");
 }
         
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // Re-position UI elements based on new screen dimensions
+    repositionMobileUI();
+}
+
+function repositionMobileUI() {
+    if (!isMobile) return;
+    
+    // Get screen dimensions
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isLandscape = width > height;
+    
+    if (isLandscape) {
+        // Reposition HUD for landscape
+        const hud = document.getElementById('hud');
+        if (hud) {
+            hud.style.width = Math.min(350, width * 0.35) + 'px';
         }
+        
+        // Reposition minimap for landscape
+        const minimap = document.getElementById('minimap');
+        if (minimap) {
+            const minimapSize = Math.min(200, height * 0.4);
+            minimap.style.width = minimapSize + 'px';
+            minimap.style.height = minimapSize + 'px';
+            minimap.style.bottom = '10px';
+            minimap.style.left = '10px';
+        }
+        
+        // Reposition leaderboard
+        const leaderboard = document.getElementById('leaderboard');
+        if (leaderboard) {
+            leaderboard.style.width = Math.min(180, width * 0.2) + 'px';
+            leaderboard.style.top = '10px';
+            leaderboard.style.right = '10px';
+        }
+        
+        // Reposition control buttons
+        const settingsBtn = document.getElementById('settingsBtn');
+        const soundBtn = document.getElementById('soundBtn');
+        const micButton = document.getElementById('micButton');
+        
+        if (settingsBtn) {
+            settingsBtn.style.width = '40px';
+            settingsBtn.style.height = '40px';
+            settingsBtn.style.fontSize = '18px';
+            settingsBtn.style.bottom = '20px';
+            settingsBtn.style.right = '20px';
+        }
+        
+        if (soundBtn) {
+            soundBtn.style.width = '40px';
+            soundBtn.style.height = '40px';
+            soundBtn.style.fontSize = '18px';
+            soundBtn.style.bottom = '20px';
+            soundBtn.style.right = '70px';
+        }
+        
+        if (micButton) {
+            micButton.style.width = '40px';
+            micButton.style.height = '40px';
+            micButton.style.fontSize = '18px';
+            micButton.style.bottom = '20px';
+            micButton.style.right = '120px';
+        }
+    }
+}
+
+
+
         
         function onKeyDown(event) {
     // Convert event.code to key name in our object
