@@ -1484,14 +1484,14 @@ function cleanupStaleFirebasePlayers() {
     }
     
     // Get reference to active players
-    const activePlayers = db.collection("activePlayers");
+    const playersCollection = db.collection("players");
     
     // Set threshold for stale entries (e.g., 5 minutes ago)
     const staleThreshold = new Date();
     staleThreshold.setMinutes(staleThreshold.getMinutes() - 5);
     
     // Find and delete stale entries
-    activePlayers.where("lastUpdated", "<", staleThreshold)
+    playersCollection.where("lastUpdated", "<", staleThreshold)
         .get()
         .then((snapshot) => {
             if (snapshot.empty) {
@@ -2023,7 +2023,7 @@ function cleanupFirebasePlayersCollection() {
     // Use ONLY the players collection - remove all references to activePlayers
     const playersCollection = db.collection("players");
     
-    return playersCollection.limit(20).get()
+    return playersCollection.limit(10).get()
         .then(snapshot => {
             if (snapshot.empty) {
                 return Promise.resolve();
@@ -2194,12 +2194,12 @@ function initializeLeaderboard() {
             const batch = db.batch();
             
             // Delete ALL entries except current player
-            snapshot.docs.forEach(doc => {
-                if (doc.id !== playerStats.id) {
-                    console.log(`Removing player: ${doc.data().name || "Unknown"} (${doc.id})`);
-                    batch.delete(doc.ref);
-                }
-            });
+       //     snapshot.docs.forEach(doc => {
+       //         if (doc.id !== playerStats.id) {
+       //             console.log(`Removing player: ${doc.data().name || "Unknown"} (${doc.id})`);
+      //              batch.delete(doc.ref);
+       //         }
+       //     });
             
             // Commit the delete operations
             return batch.commit();
@@ -5101,7 +5101,7 @@ function setupPlayerPresence(playerRef) {
                 
                 // Also clean up Firestore data
                 if (db) {
-                    db.collection("activePlayers").doc(disconnectedPlayerId).delete()
+                    db.collection("players").doc(disconnectedPlayerId).delete()
                         .then(() => {
                             console.log("Removed disconnected player from Firestore:", disconnectedPlayerId);
                         })
