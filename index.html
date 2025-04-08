@@ -7337,8 +7337,15 @@ function setupSettingsColorButtons() {
 
 function createSoundButton() {
     // Remove any existing sound buttons outside settings panel
-    const allSoundButtons = document.querySelectorAll('button[id="soundBtn"], button[data-sound-button="true"], button:has(🔊), button:has(🔇)');
+    const allSoundButtons = document.querySelectorAll('button[id="soundBtn"], button[data-sound-button="true"]');
     allSoundButtons.forEach(btn => btn.remove());
+    
+    // Also look for any buttons that might be sound buttons by innerHTML content
+    document.querySelectorAll('button').forEach(btn => {
+        if (btn.innerHTML === '🔊' || btn.innerHTML === '🔇') {
+            btn.remove();
+        }
+    });
     
     // Create a new sound button with matching style to the settings button
     const soundBtn = document.createElement('button');
@@ -8385,27 +8392,29 @@ function ensureReadableColor(color) {
 function syncPlayerStatsToFirebase(options = {}) {
     if (!playerStats.firebaseId) return;
     
+    // Clean and validate data before sending to Firebase
     const statsToSync = {
-        name: playerStats.name,
-        tpm: playerStats.tpm,
-        targetsDestroyed: playerStats.targetsDestroyed,
-        allTimeTargetsDestroyed: playerStats.allTimeTargetsDestroyed || playerStats.targetsDestroyed,
-        totalPlayTimeSeconds: playerStats.totalPlayTimeSeconds,
+        name: playerStats.name || "Anonymous",
+        tpm: isNaN(playerStats.tpm) ? 0 : Math.min(9999, playerStats.tpm),
+        targetsDestroyed: playerStats.targetsDestroyed || 0,
+        allTimeTargetsDestroyed: playerStats.allTimeTargetsDestroyed || playerStats.targetsDestroyed || 0,
+        totalPlayTimeSeconds: playerStats.totalPlayTimeSeconds || 0,
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-        color: playerStats.color
+        color: playerStats.color || "#5c5c5c"
     };
     
     // Only include roundsWon if we're not skipping the increment
     if (!options.skipRoundIncrement) {
-        statsToSync.roundsWon = playerStats.roundsWon;
+        statsToSync.roundsWon = playerStats.roundsWon || 0;
     }
     
-    // Send to Firebase
+    // Add better error handling
     db.collection("players").doc(playerStats.firebaseId).set(
         statsToSync, 
         { merge: true }
     ).catch(error => {
         console.error("Error updating player data:", error);
+        console.log("Attempted to save:", JSON.stringify(statsToSync));
     });
 }
 
