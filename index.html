@@ -739,6 +739,7 @@ function checkOrientationAfterFullscreen() {
         let joinedChannel = false;
         const enemyMissileMaxSpeed = 1.0; 
         const enemyMissileMinSpeed = 0.7;
+        let roundStartTime = Date.now();
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
@@ -2164,9 +2165,10 @@ function enhancePlayerInitialization() {
     playerStats.color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     
     // Apply the color to player's missile
-    if (missile && missile.children && missile.children[0]) {
-      missile.children[0].material.color.set(playerStats.color);
-    }
+    if (missile && missile.children) {
+  if (missile.children[0]) missile.children[0].material.color.set(playerStats.color);
+  if (missile.children[1]) missile.children[1].material.color.set(playerStats.color);
+}
     updatePlayerMarkerColor();
 
   }
@@ -3160,7 +3162,7 @@ function createMissile() {
     // Create the main body (cylinder)
     const bodyGeometry = new THREE.CylinderGeometry(1, 1, 8, 16);
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x5c5c5c,  // Use direct color instead of selectedMissileColor
+        color: playerStats.color || 0x5c5c5c,  // Use direct color instead of selectedMissileColor
         metalness: 0.3,
         roughness: 0.6
     });
@@ -3170,7 +3172,8 @@ function createMissile() {
     
     // Create the nose cone (cone)
     const noseGeometry = new THREE.ConeGeometry(1, 3, 16);
-    const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x999999 });
+    const noseMaterial = new THREE.MeshStandardMaterial({ color: playerStats.color || 0x5c5c5c,  metalness: 0.3,
+        roughness: 0.6 });
     const nose = new THREE.Mesh(noseGeometry, noseMaterial);
     nose.position.y = 5.5;
     nose.castShadow = false;
@@ -3476,22 +3479,29 @@ function updateEnemyMinimapMarkers() {
         const enemyMissile = enemyMissiles[i];
         let marker = window.enemyMinimapMarkers[i];
         
-        // Create new marker if needed
-        if (!marker) {
-            // Try to get color from missile's userData
+         // Create new marker if needed
+         if (!marker) {
+            // Get color from missile's body material (first child is typically the body)
             let markerColor;
-            if (enemyMissile.userData && enemyMissile.userData.pilotId) {
-                // Find the pilot's color
+            
+            if (enemyMissile.children && enemyMissile.children.length > 0 && 
+                enemyMissile.children[0].material && enemyMissile.children[0].material.color) {
+                // Extract color directly from the missile's body
+                markerColor = enemyMissile.children[0].material.color.clone();
+            } else if (enemyMissile.userData && enemyMissile.userData.color) {
+                // Or use the userData color if available
+                markerColor = new THREE.Color(enemyMissile.userData.color);
+            } else if (enemyMissile.userData && enemyMissile.userData.pilotId) {
+                // Fall back to pilot's color from pilotStats
                 const pilot = enemyPilotStats.find(p => p.id === enemyMissile.userData.pilotId);
                 if (pilot && pilot.color) {
                     markerColor = new THREE.Color(pilot.color);
                 } else {
-                    // Fallback color
-                    markerColor = new THREE.Color(0x66ccff);
+                    markerColor = new THREE.Color(0x66ccff); // Default blue
                 }
             } else {
-                // Fallback color
-                markerColor = new THREE.Color(0x66ccff);
+                // Final fallback color
+                markerColor = new THREE.Color(0x66ccff); // Default blue
             }
             
             const markerMaterial = new THREE.MeshBasicMaterial({
@@ -3506,18 +3516,7 @@ function updateEnemyMinimapMarkers() {
             minimapScene.add(marker);
             window.enemyMinimapMarkers.push(marker);
         }
-        
-        // Update marker position
-        marker.position.x = enemyMissile.position.x;
-        marker.position.z = enemyMissile.position.z;
-        
-        // Update direction - use enemy missile direction
-        if (enemyMissile.userData && enemyMissile.userData.direction) {
-            const dir = enemyMissile.userData.direction;
-            const angle = Math.atan2(dir.x, -dir.z);
-            marker.rotation.set(Math.PI / 2, 0, angle);
-        }
-    }
+       }
 }
 
     // Convert missile direction to cardinal direction (N, NE, E, etc.)
@@ -5597,7 +5596,7 @@ function createOtherPlayerMissile(color) {
   
   // Create the nose cone (cone)
   const noseGeometry = new THREE.ConeGeometry(1, 3, 16);
-  const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x999999 });
+  const noseMaterial = new THREE.MeshStandardMaterial({ color: color });
   const nose = new THREE.Mesh(noseGeometry, noseMaterial);
   nose.position.y = 5.5;
   nose.castShadow = false;
@@ -6239,7 +6238,7 @@ function cleanupScorchMarks() {
         const isPlayer = winner.id === playerStats.id;
         
         // Calculate round duration in seconds - use a sensible default for very short rounds
-        const roundDurationInSeconds = Math.max(10, elapsedTime / 1000);
+        const roundDurationInSeconds = Math.max(10, (Date.now() - roundStartTime) / 1000);
         const formattedTime = roundDurationInSeconds.toFixed(2);
         
         winnerText = `
@@ -6330,6 +6329,7 @@ function restartGame() {
     stats.crashes = 0;
     flightTimes = [];
     avgFlightTime = 0;
+    roundStartTime = Date.now(); 
 
     // Clear damaged buildings array
     damagedBuildings = [];
@@ -7129,6 +7129,8 @@ function createEnemyMissile() {
     if (!pilot.color) {
         pilot.color = colorStr;
     }
+
+    enemyMissile.userData.color = colorStr;
     
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
         color: colorStr,
@@ -7142,7 +7144,7 @@ function createEnemyMissile() {
     
     // Nose cone
     const noseGeometry = new THREE.ConeGeometry(0.8, 2.5, 16);
-    const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x999999 });
+    const noseMaterial = new THREE.MeshStandardMaterial({ color: colorStr });
     const nose = new THREE.Mesh(noseGeometry, noseMaterial);
     nose.position.y = 4.5;
     nose.castShadow = false;
