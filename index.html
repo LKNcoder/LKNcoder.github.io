@@ -1231,7 +1231,7 @@ function init() {
     initSounds();
     initSoundPool();
     initFirebase(); 
-    createFirebaseDebugWindow(); // Create debug window
+     // Create debug window
     initializeSettingsPanel();
 
     // optimize for mobile
@@ -5608,6 +5608,16 @@ function updateOtherPlayers(delta) {
     
     // Interpolate rotation
     player.direction.lerp(player.targetDirection, delta * INTERPOLATION_SPEED);
+
+    // ADD THIS: Apply direction to missile orientation
+    if (player.direction.lengthSq() > 0.5) {
+      // Convert direction vector to quaternion rotation
+      const missileRotation = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        player.direction.clone().normalize()
+      );
+      player.missile.quaternion.copy(missileRotation);
+    }
     
     // Track last movement with a timestamp
     if (!player.lastPositionUpdate) {
