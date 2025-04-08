@@ -1135,7 +1135,6 @@ function init() {
     if (isMobile) {
         optimizeForMobile();
         handleOrientationChange(); // Initial check
-        repositionMobileUI(); 
         console.log("Mobile optimizations applied");
     }
 
@@ -1476,12 +1475,16 @@ function optimizeForMobile() {
     
     // Add orientation change handling
     window.addEventListener('orientationchange', function() {
-        setTimeout(handleOrientationChange, 300); // Small delay to allow rotation to complete
+        setTimeout(() => {
+            handleOrientationChange();
+            scaleMobileUI(); // Scale UI after orientation change
+        }, 300); // Small delay to allow rotation to complete
     });
     
     // Also check on resize for browsers that don't support orientationchange
     window.addEventListener('resize', function() {
         handleOrientationChange();
+        scaleMobileUI(); // Scale UI on resize
     });
     
     // Initial check
@@ -1526,6 +1529,9 @@ function optimizeForMobile() {
                 console.error('Fullscreen error:', e);
             });
             fullscreenBtn.innerHTML = '✕ Exit';
+            
+            // Apply UI scaling after going fullscreen
+            setTimeout(scaleMobileUI, 300);
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
@@ -1554,7 +1560,129 @@ function optimizeForMobile() {
             }, 5000);
         }
     }, 1000);
+
+     // 5. Add global mobile UI scaling
+     addMobileUIStyles();
+    
+    // 6. Apply initial scaling
+    scaleMobileUI();
+    
+    // Add fullscreen change listener
+    document.addEventListener('fullscreenchange', scaleMobileUI);
 }
+
+function addMobileUIStyles() {
+    // Create or update global mobile UI styles
+    let mobileStyles = document.getElementById('mobile-ui-styles');
+    if (!mobileStyles) {
+        mobileStyles = document.createElement('style');
+        mobileStyles.id = 'mobile-ui-styles';
+        document.head.appendChild(mobileStyles);
+    }
+    
+    // Set up the base styles
+    mobileStyles.textContent = `
+        /* Global UI scaling */
+        #hud, #leaderboard, #minimap, #settingsBtn, #soundBtn, #micButton, 
+        #voice-chat-container, #settingsPanel, #player-counter {
+            transform-origin: bottom right;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        
+        /* Apply landscape mobile optimization */
+        @media (max-width: 1024px) and (orientation: landscape) {
+            #leaderboard {
+                width: 180px !important;
+                right: 10px !important;
+                top: 10px !important;
+                opacity: 0.85;
+                font-size: 12px !important;
+            }
+            
+            #hud {
+                width: 280px !important;
+                opacity: 0.85;
+                font-size: 14px !important;
+            }
+            
+            #minimap {
+                width: 180px !important;
+                height: 180px !important;
+                left: 10px !important;
+                bottom: 10px !important;
+                opacity: 0.85;
+            }
+            
+            #settingsBtn, #soundBtn, #micButton {
+                width: 40px !important;
+                height: 40px !important;
+                font-size: 18px !important;
+            }
+            
+            /* Adjust spacing between buttons */
+            #settingsBtn { right: 20px !important; }
+            #soundBtn { right: 70px !important; }
+            #micButton { right: 120px !important; }
+            
+            /* Settings panel positioning */
+            #settingsPanel {
+                max-height: 70vh;
+                width: 250px !important;
+                overflow-y: auto;
+            }
+        }
+    `;
+}
+
+function scaleMobileUI() {
+    if (!isMobile) return;
+    
+    // Get screen dimensions and orientation
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isLandscape = width > height;
+    
+    // Skip if not in landscape mode
+    if (!isLandscape) return;
+    
+    // Calculate scale factor based on screen height
+    const baseHeight = 800; // Base design height
+    const scale = Math.min(1.0, height / baseHeight);
+    
+    // Apply scale to UI elements
+    const elements = {
+        hud: document.getElementById('hud'),
+        leaderboard: document.getElementById('leaderboard'),
+        minimap: document.getElementById('minimap'),
+        settingsBtn: document.getElementById('settingsBtn'),
+        soundBtn: document.getElementById('soundBtn'),
+        playerCounter: document.getElementById('player-counter')
+    };
+    
+    // Apply scale to each element if it exists
+    Object.values(elements).forEach(el => {
+        if (el) {
+            el.style.transform = `scale(${scale})`;
+            
+            // Special positioning for certain elements
+            if (el.id === 'minimap') {
+                // Keep minimap in corner by adjusting for scale
+                const offset = (1 - scale) * 50;
+                el.style.marginLeft = `${offset}px`;
+                el.style.marginBottom = `${offset}px`;
+            }
+        }
+    });
+    
+    // Apply scale to any other UI elements that might need it
+    const otherElements = document.querySelectorAll('.ui-element');
+    otherElements.forEach(el => {
+        el.style.transform = `scale(${scale})`;
+    });
+    
+    console.log(`Applied mobile UI scaling: ${scale.toFixed(2)} for ${width}x${height}`);
+}
+
 
 function enhancePlayerInitialization() {
   // NATO phonetic alphabet names
@@ -5810,71 +5938,18 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     
-    // Re-position UI elements based on new screen dimensions
-    repositionMobileUI();
+    if (isMobile) {
+        scaleMobileUI();
+    }
 }
 
-function repositionMobileUI() {
-    if (!isMobile) return;
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
     
-    // Get screen dimensions
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const isLandscape = width > height;
-    
-    if (isLandscape) {
-        // Reposition HUD for landscape
-        const hud = document.getElementById('hud');
-        if (hud) {
-            hud.style.width = Math.min(350, width * 0.35) + 'px';
-        }
-        
-        // Reposition minimap for landscape
-        const minimap = document.getElementById('minimap');
-        if (minimap) {
-            const minimapSize = Math.min(200, height * 0.4);
-            minimap.style.width = minimapSize + 'px';
-            minimap.style.height = minimapSize + 'px';
-            minimap.style.bottom = '10px';
-            minimap.style.left = '10px';
-        }
-        
-        // Reposition leaderboard
-        const leaderboard = document.getElementById('leaderboard');
-        if (leaderboard) {
-            leaderboard.style.width = Math.min(180, width * 0.2) + 'px';
-            leaderboard.style.top = '10px';
-            leaderboard.style.right = '10px';
-        }
-        
-        // Reposition control buttons
-        const settingsBtn = document.getElementById('settingsBtn');
-        const soundBtn = document.getElementById('soundBtn');
-        const micButton = document.getElementById('micButton');
-        
-        if (settingsBtn) {
-            settingsBtn.style.width = '40px';
-            settingsBtn.style.height = '40px';
-            settingsBtn.style.fontSize = '18px';
-            settingsBtn.style.bottom = '20px';
-            settingsBtn.style.right = '20px';
-        }
-        
-        if (soundBtn) {
-            soundBtn.style.width = '40px';
-            soundBtn.style.height = '40px';
-            soundBtn.style.fontSize = '18px';
-            soundBtn.style.bottom = '20px';
-            soundBtn.style.right = '70px';
-        }
-        
-        if (micButton) {
-            micButton.style.width = '40px';
-            micButton.style.height = '40px';
-            micButton.style.fontSize = '18px';
-            micButton.style.bottom = '20px';
-            micButton.style.right = '120px';
-        }
+    if (isMobile) {
+        scaleMobileUI();
     }
 }
 
