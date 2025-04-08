@@ -1445,17 +1445,35 @@ function handleOrientationChange() {
     const isPortrait = window.innerHeight > window.innerWidth;
     const rotationNotice = document.getElementById('rotation-notice');
 
-    if (!isPortrait) {
-    // Try to go fullscreen when rotated to landscape
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(e => {
-            console.log("Fullscreen request failed:", e);
-        });
-    }
-}
-    
     if (rotationNotice) {
         if (isPortrait) {
+            // Update the rotation notice to include fullscreen instructions
+            rotationNotice.innerHTML = `
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M21 12C21 7.03 16.97 3 12 3C7.03 3 3 7.03 3 12"></path>
+                    <path d="M12 15l-3-3m0 0l3-3m-3 3h12"></path>
+                </svg>
+                <h2>Please Rotate Your Device</h2>
+                <p>This game is designed to be played in landscape mode</p>
+                <button id="rotation-fullscreen-btn" style="margin-top:15px; background:#ff3333; color:white; border:none; padding:10px 20px; border-radius:5px; font-weight:bold;">
+                    TAP FOR FULLSCREEN
+                </button>
+            `;
+            
+            // Add click event to the new button
+            setTimeout(() => {
+                const fsBtn = document.getElementById('rotation-fullscreen-btn');
+                if (fsBtn) {
+                    fsBtn.addEventListener('click', () => {
+                        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                            document.documentElement.requestFullscreen().catch(e => {
+                                console.log("Fullscreen request failed:", e);
+                            });
+                        }
+                    });
+                }
+            }, 100);
+            
             rotationNotice.style.display = 'flex';
         } else {
             rotationNotice.style.display = 'none';
