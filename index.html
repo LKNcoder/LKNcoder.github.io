@@ -515,9 +515,7 @@
             <h2 style="color:white; font-size:32px; margin:25px 0 15px 0;">PLEASE ROTATE YOUR DEVICE</h2>
             <p style="color:#cccccc; font-size:22px; margin-bottom:25px;">This game is designed for landscape mode</p>
             
-            <!-- Larger button with direct onclick handler -->
             <button id="rotation-fullscreen-btn" 
-                    onclick="requestFullscreen()"
                     style="margin-top:30px; 
                            background:#ff3333; 
                            color:white; 
@@ -602,15 +600,46 @@ function requestFullscreen() {
     }
 }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Update control overlay position to be higher on screen (middle instead of bottom)
-            const controlsOverlay = document.getElementById('controlsOverlay');
-            if (controlsOverlay) {
-                controlsOverlay.style.bottom = 'auto';  // Remove bottom positioning
-                controlsOverlay.style.top = '65%';      // Position in upper-middle of screen
-                controlsOverlay.style.transform = 'translateX(-50%)';
+document.addEventListener('DOMContentLoaded', function() {
+    const fullscreenBtn = document.getElementById('rotation-fullscreen-btn');
+    
+    // Properly attach click event (instead of using inline onclick)
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log("Fullscreen button clicked");
+            fullscreenBtn.textContent = "ENTERING FULLSCREEN...";
+            
+            // Always request fullscreen on the document element, not the button
+            try {
+                // Request fullscreen on the DOCUMENT, not the button
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                } else {
+                    console.warn("Fullscreen API not supported");
+                }
+                
+                // Check orientation after a delay
+                setTimeout(function() {
+                    checkOrientationAfterFullscreen();
+                }, 500);
+            } catch (err) {
+                console.error("Fullscreen error:", err);
+                fullscreenBtn.textContent = "FULLSCREEN FAILED";
+                
+                setTimeout(() => {
+                    fullscreenBtn.textContent = "TRY AGAIN";
+                }, 2000);
             }
         });
+    }
+});
 
         // Game variables
         let scene, camera, renderer, missile, city;
