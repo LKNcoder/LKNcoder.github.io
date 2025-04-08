@@ -1351,6 +1351,8 @@ function init() {
     
      // Initialize Agora voice chat
      initializeAgoraVoiceChat();
+
+     initializeGameSessions(); // Initialize game sessions
     
     // Create voice chat UI
     createVoiceChatUI();
@@ -1429,6 +1431,327 @@ function initPortals() {
     // Update materials for portal animation
     updatePortalMaterials();
 }
+
+
+function initializeGameSessions() {
+  if (!db) return;
+  
+  console.log("Initializing game session system...");
+  
+  // Check for available game sessions
+  db.collection("gameSessions")
+    .where("playerCount", "<", 8)  // Sessions with fewer than 8 players
+    .where("active", "==", true)
+    .orderBy("playerCount", "desc") // Prioritize filling existing sessions
+    .limit(1)
+    .get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        // No available sessions, create a new one
+        createNewGameSession();
+      } else {
+        // Join existing session
+        joinGameSession(snapshot.docs[0].id);
+      }
+    })
+    .catch(error => {
+      console.error("Error finding game sessions:", error);
+      createNewGameSession(); // Fallback to creating a new session
+    });
+}
+
+// 2. Create a new game session where this player is the host
+function createNewGameSession() {
+  if (!db) return;
+  
+  console.log("Creating new game session as host");
+  
+  // Generate a unique session ID
+  const sessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  
+  // Store the session info
+  db.collection("gameSessions").doc(sessionId).set({
+    host: playerStats.id,
+    created: firebase.firestore.FieldValue.serverTimestamp(),
+    playerCount: 1,
+    active: true,
+    players: [playerStats.id]
+  })
+  .then(() => {
+    // Store the session ID in player stats
+    playerStats.sessionId = sessionId;
+    playerStats.isHost = true;
+    
+    console.log(`Created new game session ${sessionId} as host`);
+    
+    // Generate and store the city layout
+    generateAndStoreGameWorld(sessionId);
+  })
+  .catch(error => {
+    console.error("Error creating game session:", error);
+  });
+}
+
+// 3. Join an existing game session
+function joinGameSession(sessionId) {
+  if (!db) return;
+  
+  console.log(`Joining existing game session ${sessionId}`);
+  
+  // Get a reference to the session
+  const sessionRef = db.collection("gameSessions").doc(sessionId);
+  
+  // Use a transaction to safely update player count
+  db.runTransaction(transaction => {
+    return transaction.get(sessionRef).then(doc => {
+      if (!doc.exists) {
+        throw new Error("Session does not exist");
+      }
+      
+      const sessionData = doc.data();
+      
+      // Check if session is full
+      if (sessionData.playerCount >= 8) {
+        throw new Error("Session is full");
+      }
+      
+      // Check if player is already in session
+      if (sessionData.players && sessionData.players.includes(playerStats.id)) {
+        console.log("Player already in session");
+        return;
+      }
+      
+      // Update player count and add player to list
+      const newPlayerCount = (sessionData.playerCount || 0) + 1;
+      const updatedPlayers = sessionData.players || [];
+      updatedPlayers.push(playerStats.id);
+      
+      transaction.update(sessionRef, { 
+        playerCount: newPlayerCount,
+        players: updatedPlayers
+      });
+    });
+  })
+  .then(() => {
+    // Store the session ID in player stats
+    playerStats.sessionId = sessionId;
+    playerStats.isHost = false;
+    
+    console.log(`Successfully joined session ${sessionId}`);
+    
+    // Load the existing city layout
+    loadGameWorldFromHost(sessionId);
+  })
+  .catch(error => {
+    console.error("Error joining game session:", error);
+    
+    // If joining failed, create a new session
+    createNewGameSession();
+  });
+}
+
+// 4. Generate and store the game world (for host)
+function generateAndStoreGameWorld(sessionId) {
+  if (!db) return;
+  
+  console.log("Generating and storing game world as host");
+  
+  // Create the city with buildings
+  createCity();
+  
+  // The target buildings array contains our target buildings
+  console.log(`Generated ${buildings.length} buildings with ${targetBuildings.length} targets`);
+  
+  // Convert buildings to a serializable format
+  const buildingData = serializeBuildingsForSync(buildings, targetBuildings);
+  
+  // Store the building data in Firebase
+  db.collection("gameSessions").doc(sessionId).update({
+    buildings: buildingData,
+    worldGenerated: true,
+    generatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(() => {
+    console.log("Game world stored successfully");
+    
+    // Initialize the game now that we're set up
+    initializeLeaderboard();
+    setupMultiplayerSync();
+  })
+  .catch(error => {
+    console.error("Error storing game world:", error);
+  });
+}
+
+// 5. Load the game world from host (for joining players)
+function loadGameWorldFromHost(sessionId) {
+  if (!db) return;
+  
+  console.log("Loading game world from host");
+  
+  // Get the session data including building information
+  db.collection("gameSessions").doc(sessionId).get()
+    .then(doc => {
+      if (!doc.exists) {
+        throw new Error("Session does not exist");
+      }
+      
+      const sessionData = doc.data();
+      
+      // Wait until host has generated the world
+      if (!sessionData.worldGenerated) {
+        console.log("World not yet generated, waiting...");
+        
+        // Poll for world generation (wait up to 10 seconds)
+        let attempts = 0;
+        const checkInterval = setInterval(() => {
+          attempts++;
+          
+          if (attempts > 20) {
+            clearInterval(checkInterval);
+            console.error("Timed out waiting for world generation");
+            createNewGameSession(); // Fall back to creating a new session
+            return;
+          }
+          
+          db.collection("gameSessions").doc(sessionId).get()
+            .then(updatedDoc => {
+              if (updatedDoc.exists && updatedDoc.data().worldGenerated) {
+                clearInterval(checkInterval);
+                loadGameWorldFromHost(sessionId); // Try loading again
+              }
+            });
+        }, 500);
+        
+        return;
+      }
+      
+      // Clear existing buildings
+      clearExistingCityElements();
+      
+      // Recreate the buildings from the host's data
+      reconstructBuildingsFromData(sessionData.buildings || []);
+      
+      console.log(`Loaded ${buildings.length} buildings with ${targetBuildings.length} targets from host`);
+      
+      // Initialize the game with the loaded world
+      initializeLeaderboard();
+      setupMultiplayerSync();
+    })
+    .catch(error => {
+      console.error("Error loading game world:", error);
+      createNewGameSession(); // Fall back to creating a new session
+    });
+}
+
+// Helper function to clear existing city elements
+function clearExistingCityElements() {
+  // Remove all buildings
+  for (let i = buildings.length - 1; i >= 0; i--) {
+    scene.remove(buildings[i]);
+    disposeObject(buildings[i]);
+  }
+  buildings = [];
+  targetBuildings = [];
+  
+  // Clear arrays
+  damagedBuildings = [];
+}
+
+// Helper function to convert buildings to a format that can be stored in Firebase
+function serializeBuildingsForSync(allBuildings, targetBuildingsList) {
+  return allBuildings.map(building => ({
+    position: {
+      x: building.position.x,
+      y: building.position.y,
+      z: building.position.z
+    },
+    width: building.userData.width,
+    height: building.userData.height,
+    isTarget: building.userData.isTarget || false,
+    color: building.material ? building.material.color.getHex() : 0x5c5c5c
+  }));
+}
+
+// Helper function to reconstruct buildings from serialized data
+function reconstructBuildingsFromData(buildingData) {
+  buildingData.forEach(data => {
+    const width = data.width;
+    const height = data.height;
+    const isTarget = data.isTarget;
+    
+    // Create geometry and material
+    const buildingGeometry = new THREE.BoxGeometry(width, height, width);
+    const buildingMaterial = new THREE.MeshStandardMaterial({ 
+      color: isTarget ? 0xcc0000 : data.color || 0x5c5c5c, 
+      roughness: 0.7, 
+      metalness: 0.3
+    });
+    
+    const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+    
+    // Set position
+    building.position.set(
+      data.position.x,
+      data.position.y,
+      data.position.z
+    );
+    
+    // Set properties
+    building.castShadow = false;
+    building.receiveShadow = false;
+    building.userData.isTarget = isTarget;
+    building.userData.width = width;
+    building.userData.height = height;
+    
+    // Add to scene and arrays
+    scene.add(building);
+    buildings.push(building);
+    
+    if (isTarget) {
+      targetBuildings.push(building);
+    }
+  });
+  
+  // Update stats
+  stats.targetsRemaining = targetBuildings.length;
+}
+
+function setupSessionPresence() {
+  if (!playerStats.sessionId) return;
+  
+  // Update session when player leaves
+  window.addEventListener('beforeunload', () => {
+    if (db && playerStats.sessionId) {
+      const sessionRef = db.collection("gameSessions").doc(playerStats.sessionId);
+      
+      // Don't wait for response, just send the update
+      sessionRef.get().then(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          
+          // Remove player from session
+          const players = data.players.filter(id => id !== playerStats.id);
+          
+          if (players.length === 0 || playerStats.isHost) {
+            // If this is the host or last player, mark session as inactive
+            sessionRef.update({
+              active: false,
+              endedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } else {
+            // Otherwise just update player count and list
+            sessionRef.update({
+              playerCount: players.length,
+              players: players
+            });
+          }
+        }
+      }).catch(() => {});
+    }
+  });
+}
+
 
 function setupMultiplayerSync() {
     // Skip if already initialized
@@ -5504,6 +5827,8 @@ function handleTargetHit(target, impactPoint) {
     if (playerLeaderboardIndex !== -1) {
         leaderboard[playerLeaderboardIndex].targetsDestroyed = playerStats.targetsDestroyed;
     }
+
+    syncPlayerStatsToSession(); // Sync to session leaderboard
     
     // Also update Firebase with the new achievement!
     syncPlayerStatsToFirebase();
@@ -8448,34 +8773,23 @@ function calculateTPM(kills, totalTimeSeconds) {
 
 // Add function to update the leaderboard
 function updateLeaderboard() {
-    // Get leaderboard element
-    const leaderboardElement = document.getElementById('leaderboard');
-    if (!leaderboardElement) return;
-
-    // Debug output to help identify the issue
-    console.log("Updating leaderboard with player:", playerStats.name, 
-                "ID:", playerStats.id, 
-                "Kills:", playerStats.targetsDestroyed);
-    
-    // Create HTML content - start with header
-    let html = `
-        <div class="leaderboard-title">LEADERBOARD</div>
-        <table class="leaderboard-table">
-            <thead>
-                <tr>
-                    <th class="name-col">PILOT</th>
-                    <th class="kills-col">KILLS</th>
-                    <th class="rounds-col">ROUNDS</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    // Create a fresh array for sorting
-    let displayEntries = [];
-    
-    // ALWAYS add the current player first - guaranteed inclusion
-    displayEntries.push({
+  // If not in a session, fall back to local updates
+  if (!playerStats.sessionId) {
+    // Existing leaderboard code
+    return;
+  }
+  
+  // For players in a session, ensure leaderboard reflects session data
+  db.collection("gameSessions").doc(playerStats.sessionId).collection("leaderboard")
+    .orderBy("targetsDestroyed", "desc")
+    .limit(8)
+    .get()
+    .then(snapshot => {
+      // Create a fresh array for display
+      let sessionLeaderboard = [];
+      
+      // Always include the current player
+      sessionLeaderboard.push({
         id: playerStats.id,
         name: playerStats.name,
         targetsDestroyed: playerStats.targetsDestroyed || 0,
@@ -8483,116 +8797,69 @@ function updateLeaderboard() {
         tpm: playerStats.tpm || 0,
         color: playerStats.color || "#ffffff",
         isPlayer: true
-    });
-    
-    // Add all enemy pilots
-    enemyPilotStats.forEach(pilot => {
-        displayEntries.push({
-            id: pilot.id,
-            name: pilot.name,
-            targetsDestroyed: pilot.targetsDestroyed || 0,
-            roundsWon: pilot.roundsWon || 0,
-            tpm: pilot.tpm || 0,
-            color: pilot.color || "#66ccff",
-            isEnemyPilot: true
+      });
+      
+      // Add other players from the session
+      snapshot.forEach(doc => {
+        if (doc.id !== playerStats.id) { // Skip self (already added)
+          const player = doc.data();
+          sessionLeaderboard.push({
+            id: doc.id,
+            name: player.name || "Unknown",
+            targetsDestroyed: player.targetsDestroyed || 0,
+            roundsWon: player.roundsWon || 0,
+            tpm: player.tpm || 0,
+            color: player.color || "#ffffff"
+          });
+        }
+      });
+      
+      // Add enemy pilots
+      enemyPilotStats.forEach(pilot => {
+        sessionLeaderboard.push({
+          id: pilot.id,
+          name: pilot.name,
+          targetsDestroyed: pilot.targetsDestroyed || 0,
+          roundsWon: pilot.roundsWon || 0,
+          tpm: pilot.tpm || 0,
+          color: pilot.color || "#66ccff",
+          isEnemyPilot: true
         });
+      });
+      
+      // Sort by targets destroyed
+      sessionLeaderboard.sort((a, b) => (b.targetsDestroyed || 0) - (a.targetsDestroyed || 0));
+      
+      // Replace the global leaderboard
+      leaderboard = sessionLeaderboard;
+      
+      // Update the UI - call the existing function to render the leaderboard
+      renderLeaderboardUI();
+    })
+    .catch(error => {
+      console.error("Error updating leaderboard from session:", error);
     });
-    
-    // Sort by targets destroyed (descending)
-    displayEntries.sort((a, b) => (b.targetsDestroyed || 0) - (a.targetsDestroyed || 0));
-    
-    // Generate entries (limited to top 6 for performance)
-    const displayLimit = 6; 
-    displayEntries.slice(0, displayLimit).forEach(player => {
-        // Check if this is the current player
-        const isCurrentPlayer = player.id === playerStats.id || player.isPlayer;
-        
-        // Get player's color or use default
-        const playerColor = player.color || "#ffffff";
-        
-        // Create row with color-styled name
-        html += `
-            <tr class="${isCurrentPlayer ? 'you' : ''}">
-                <td class="name-col">
-                    <span style="color: ${playerColor}; text-shadow: 0 0 3px #000, 0 0 2px rgba(255,255,255,0.5);">
-                        ${player.name || "Unknown"}
-                    </span>
-                </td>
-                <td class="kills-col">${player.targetsDestroyed || 0}</td>
-                <td class="rounds-col">${player.roundsWon || 0}</td>
-            </tr>
-        `;
+}
+
+function syncPlayerStatsToSession() {
+  if (!db || !playerStats.sessionId) return;
+  
+  // Update player stats in the session leaderboard
+  db.collection("gameSessions")
+    .doc(playerStats.sessionId)
+    .collection("leaderboard")
+    .doc(playerStats.id)
+    .set({
+      name: playerStats.name,
+      targetsDestroyed: playerStats.targetsDestroyed,
+      roundsWon: playerStats.roundsWon,
+      tpm: playerStats.tpm,
+      color: playerStats.color,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true })
+    .catch(error => {
+      console.error("Error updating session stats:", error);
     });
-    
-    // Close the table
-    html += `
-            </tbody>
-        </table>
-    `;
-    
-    // Update the DOM
-    leaderboardElement.innerHTML = html;
-    
-    // Add CSS styles for the table
-    const leaderboardStyle = document.getElementById('leaderboard-style');
-    if (!leaderboardStyle) {
-        const style = document.createElement('style');
-        style.id = 'leaderboard-style';
-        style.textContent = `
-            #leaderboard {
-                width: 280px !important;
-                padding: 15px !important;
-            }
-            
-            .leaderboard-table {
-                width: 100%;
-                border-collapse: separate;
-                border-spacing: 0 2px;
-            }
-            
-            .leaderboard-table thead th {
-                color: #aaaaaa;
-                font-size: 16px;
-                text-align: left;
-                padding-bottom: 6px;
-                border-bottom: 1px solid #444;
-            }
-            
-            .leaderboard-table tbody tr {
-                height: 28px;
-            }
-            
-            .leaderboard-table tbody tr.you {
-                background: rgba(255, 51, 51, 0.1);
-                border-left: 2px solid #ff3333;
-            }
-            
-            .leaderboard-table td {
-                padding: 4px 6px;
-            }
-            
-            .name-col {
-                width: 140px;
-                text-align: left;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            
-            .kills-col {
-                width: 60px;
-                text-align: center;
-                font-weight: bold;
-            }
-            
-            .rounds-col {
-                width: 60px;
-                text-align: center;
-                font-weight: bold;
-            }
-        `;
-        document.head.appendChild(style);
-    }
 }
 
 // Helper function to ensure colors are readable against dark background
