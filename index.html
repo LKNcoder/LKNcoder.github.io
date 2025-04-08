@@ -5173,9 +5173,7 @@ function handleTargetHit(target, impactPoint) {
     if (!window.roundAlreadyWon) {
         window.roundAlreadyWon = true;
         
-        // Increment rounds won ONLY ONCE
-        playerStats.roundsWon++;
-        console.log("Player won round! Rounds won:", playerStats.roundsWon);
+       
         
         // Show victory message
         showRoundVictoryMessage();
@@ -5183,10 +5181,7 @@ function handleTargetHit(target, impactPoint) {
         // Sync to Firebase with the update flag to prevent second increment
         syncPlayerStatsToFirebase({ skipRoundIncrement: true });
     }
-
-        // Determine round winner
-        determineRoundWinner();
-        
+   
         // Show game over screen
         showGameOver();
 
@@ -7650,7 +7645,7 @@ function determineRoundWinner() {
     
     // The winner is the fastest pilot (highest TPM)
     const winner = tiedPilots[0];
-
+    winner.roundsWon += 1;
     
     // Return just the single fastest pilot as the winner
     return [winner];
@@ -8366,7 +8361,7 @@ function checkGameEndConditions() {
 
             if (!window.roundAlreadyWon) {
                 window.roundAlreadyWon = true;
-                playerStats.roundsWon++;
+                
                 console.log("Player won round from checkGameEndConditions! Rounds won:", playerStats.roundsWon);
                 
                 // Show victory message if that function exists
