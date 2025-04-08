@@ -508,15 +508,28 @@
     
         <!-- Add this at the beginning of the body -->
         <div id="rotation-notice">
-            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
                 <path d="M21 12C21 7.03 16.97 3 12 3C7.03 3 3 7.03 3 12"></path>
                 <path d="M12 15l-3-3m0 0l3-3m-3 3h12"></path>
             </svg>
-            <h2>Please Rotate Your Device</h2>
-            <p>This game is designed to be played in landscape mode</p>
+            <h2 style="color:white; font-size:32px; margin:25px 0 15px 0;">PLEASE ROTATE YOUR DEVICE</h2>
+            <p style="color:#cccccc; font-size:22px; margin-bottom:25px;">This game is designed for landscape mode</p>
             
-            <!-- Add direct fullscreen button with strong styling -->
-            <button id="rotation-fullscreen-btn" style="margin-top:15px; background:#ff3333; color:white; border:none; padding:12px 24px; border-radius:5px; font-size:18px; font-weight:bold; cursor:pointer; box-shadow:0 0 10px rgba(255,51,51,0.5); display:block; width:220px; animation:pulse 1.5s infinite;">
+            <!-- Larger button with direct onclick handler -->
+            <button id="rotation-fullscreen-btn" 
+                    onclick="requestFullscreen()"
+                    style="margin-top:30px; 
+                           background:#ff3333; 
+                           color:white; 
+                           border:none; 
+                           padding:20px 30px; 
+                           border-radius:10px; 
+                           font-size:26px; 
+                           font-weight:bold; 
+                           cursor:pointer; 
+                           box-shadow:0 0 20px rgba(255,51,51,0.8); 
+                           width:280px; 
+                           animation:pulse 1.5s infinite;">
                 TAP FOR FULLSCREEN
             </button>
         </div>
@@ -554,6 +567,41 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
+
+function requestFullscreen() {
+    console.log("Fullscreen button clicked");
+    try {
+        // Visual feedback
+        document.getElementById('rotation-fullscreen-btn').textContent = "ENTERING FULLSCREEN...";
+        
+        // Try standard method first
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        // Fall back to vendor prefixes
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+            document.documentElement.msRequestFullscreen();
+        } else if (document.body.webkitRequestFullscreen) {
+            document.body.webkitRequestFullscreen();
+        } else if (document.body.mozRequestFullScreen) {
+            document.body.mozRequestFullScreen();
+        }
+        
+        // Reset button text after a delay
+        setTimeout(() => {
+            document.getElementById('rotation-fullscreen-btn').textContent = "TAP FOR FULLSCREEN";
+        }, 2000);
+    } catch (e) {
+        console.error("Fullscreen request failed:", e);
+        document.getElementById('rotation-fullscreen-btn').textContent = "FULLSCREEN FAILED";
+        
+        setTimeout(() => {
+            document.getElementById('rotation-fullscreen-btn').textContent = "TRY AGAIN";
+        }, 2000);
+    }
+}
+
         document.addEventListener('DOMContentLoaded', function() {
             // Update control overlay position to be higher on screen (middle instead of bottom)
             const controlsOverlay = document.getElementById('controlsOverlay');
