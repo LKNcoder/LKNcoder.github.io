@@ -5169,12 +5169,28 @@ function handleTargetHit(target, impactPoint) {
     if (stats.targetsRemaining <= 0) {
         console.log("All targets destroyed! Round complete.");
         
+         // 1. Add a flag to prevent double counting
+    if (!window.roundAlreadyWon) {
+        window.roundAlreadyWon = true;
+        
+        // Increment rounds won ONLY ONCE
+        playerStats.roundsWon++;
+        console.log("Player won round! Rounds won:", playerStats.roundsWon);
+        
+        // Show victory message
+        showRoundVictoryMessage();
+        
+        // Sync to Firebase with the update flag to prevent second increment
+        syncPlayerStatsToFirebase({ skipRoundIncrement: true });
+    }
+
         // Determine round winner
         determineRoundWinner();
         
         // Show game over screen
         showGameOver();
-        
+
+              
         // IMPORTANT: Always set up the next round via timeout
         // Clear any existing timeout first to prevent multiple restarts
         if (window.gameOverTimeout) {
@@ -5566,6 +5582,8 @@ function restartGame() {
 
     // Reset the game over triggered flag
     window.gameOverTriggered = false;
+
+    window.roundAlreadyWon = false;
 
     // Reset player stats for the new round (keep roundsWon)
     playerStats.targetsDestroyed = 0;
@@ -7632,7 +7650,7 @@ function determineRoundWinner() {
     
     // The winner is the fastest pilot (highest TPM)
     const winner = tiedPilots[0];
-    winner.roundsWon += 1;
+
     
     // Return just the single fastest pilot as the winner
     return [winner];
@@ -7780,6 +7798,20 @@ function handleEnemyTargetHit(target) {
         
         // Check if all targets are destroyed
         if (stats.targetsRemaining <= 0) {
+        // IMPORTANT: Set roundAlreadyWon to prevent player from getting credit
+        window.roundAlreadyWon = true;
+        
+        // Mark this enemy pilot as the winner of the round
+        if (pilotId) {
+            const winningPilot = enemyPilotStats.find(pilot => pilot.id === pilotId);
+            if (winningPilot) {
+                winningPilot.roundsWon++;
+                console.log(`Enemy pilot ${winningPilot.name} won the round!`);
+                // Update leaderboard
+                updateLeaderboard();
+            }
+        }
+        
         window.gameOverTriggered = true;
         gameActive = false;
         
@@ -8192,17 +8224,30 @@ function ensureReadableColor(color) {
 }
 
 
-function syncPlayerStatsToFirebase() {
-    // Skip if no Firebase connection
-    if (!window.firestore || !firebase.auth().currentUser) return;
+function syncPlayerStatsToFirebase(options = {}) {
+    if (!playerStats.firebaseId) return;
     
-    // Update player stats in the players collection
-    db.collection("players").doc(playerStats.id).update({
-        targetsDestroyed: playerStats.targetsDestroyed,
+    const statsToSync = {
+        name: playerStats.name,
         tpm: playerStats.tpm,
-        lastActive: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(error => {
-        console.error("Error updating player stats:", error);
+        targetsDestroyed: playerStats.targetsDestroyed,
+        allTimeTargetsDestroyed: playerStats.allTimeTargetsDestroyed || playerStats.targetsDestroyed,
+        totalPlayTimeSeconds: playerStats.totalPlayTimeSeconds,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+        color: playerStats.color
+    };
+    
+    // Only include roundsWon if we're not skipping the increment
+    if (!options.skipRoundIncrement) {
+        statsToSync.roundsWon = playerStats.roundsWon;
+    }
+    
+    // Send to Firebase
+    db.collection("players").doc(playerStats.firebaseId).set(
+        statsToSync, 
+        { merge: true }
+    ).catch(error => {
+        console.error("Error updating player data:", error);
     });
 }
 
@@ -8318,6 +8363,20 @@ function checkGameEndConditions() {
             
             // Force targetRemaining to 0 to ensure consistency
             stats.targetsRemaining = 0;
+
+            if (!window.roundAlreadyWon) {
+                window.roundAlreadyWon = true;
+                playerStats.roundsWon++;
+                console.log("Player won round from checkGameEndConditions! Rounds won:", playerStats.roundsWon);
+                
+                // Show victory message if that function exists
+                if (typeof showRoundVictoryMessage === 'function') {
+                    showRoundVictoryMessage();
+                }
+                
+                // Sync to Firebase with the update flag to prevent second increment
+                syncPlayerStatsToFirebase({ skipRoundIncrement: true });
+            }
             
             // Trigger game over sequence
             window.gameOverTriggered = true;
