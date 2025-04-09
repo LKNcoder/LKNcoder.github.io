@@ -157,6 +157,8 @@
             
             // Set up microphone button
             setupMicButton();
+
+            initPlaceholderAvatars();
             
             // Load avatar models
              loadAvatarModels();
@@ -229,76 +231,143 @@
         }
         
         
-        
-    function loadAvatarModels() {
-    // Load the NPC avatar model (Ready Player Me GLB)
+        function loadAvatarModels() {
+    // First initialize placeholder avatars so we always have something
+    initPlaceholderAvatars();
+    
+    // Then try loading the actual models
     const gltfLoader = new GLTFLoader(loadingManager);
+    
+    // Add error handler to the loading manager
+    loadingManager.onError = function(url) {
+        console.error('Error loading asset:', url);
+        loadingScreen.innerHTML = 'Error loading 3D models. Using placeholders instead.';
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 3000);
+    };
+    
+    // Try loading the NPC avatar model with error handling
     gltfLoader.load(
-        'npc-avatar.glb', // Make sure this file is in the same directory as your HTML
+        'npc-avatar.glb',
         function(gltf) {
-            // Remove placeholder
-            scene.remove(npcAvatar);
-            
-            // Add GLB model
-            npcAvatar = gltf.scene;
-            npcAvatar.position.set(2, 0, 0); // Position at the same place as placeholder
-            npcAvatar.scale.set(1, 1, 1);
-            npcAvatar.castShadow = true;
-            scene.add(npcAvatar);
-            
-            // Set up animation mixer
-            npcMixer = new THREE.AnimationMixer(npcAvatar);
-            
-            // Now load the FBX animations
-            loadNPCAnimations();
+            try {
+                // Remove placeholder
+                scene.remove(npcAvatar);
+                
+                // Add GLB model
+                npcAvatar = gltf.scene;
+                npcAvatar.position.set(2, 0, 0);
+                npcAvatar.scale.set(1, 1, 1);
+                npcAvatar.castShadow = true;
+                
+                // Find the actual mesh or group to apply animations to
+                let animationTarget = npcAvatar;
+                npcAvatar.traverse(function(child) {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        // If this is the first mesh, use it as animation target
+                        if (!animationTarget.isMesh) {
+                            animationTarget = child;
+                        }
+                    }
+                });
+                
+                scene.add(npcAvatar);
+                
+                // Set up animation mixer
+                npcMixer = new THREE.AnimationMixer(animationTarget);
+                
+                // Load animations
+                loadNPCAnimations();
+            } catch (e) {
+                console.error('Error processing NPC model:', e);
+                // Ensure we have the placeholder back if needed
+                initPlaceholderAvatars();
+            }
         },
         undefined,
         function(error) {
             console.error('Error loading NPC model:', error);
+            // We already have placeholders from initPlaceholderAvatars
         }
     );
+}       
+
+function initPlaceholderAvatars() {
+    // Create simple placeholder avatars until real models are loaded
+    
+    // User avatar placeholder (blue cylinder)
+    const userGeometry = new THREE.CapsuleGeometry(0.2, 1.2, 4, 8);
+    const userMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+    userAvatar = new THREE.Mesh(userGeometry, userMaterial);
+    userAvatar.position.set(0, userHeight / 2, 0);
+    userAvatar.castShadow = true;
+    scene.add(userAvatar);
+    
+    // NPC avatar placeholder (red cylinder)
+    const npcGeometry = new THREE.CapsuleGeometry(0.2, 1.2, 4, 8);
+    const npcMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    npcAvatar = new THREE.Mesh(npcGeometry, npcMaterial);
+    npcAvatar.position.set(2, userHeight / 2, 0);
+    npcAvatar.castShadow = true;
+    scene.add(npcAvatar);
 }
 
 function loadNPCAnimations() {
-    const fbxLoader = new FBXLoader(loadingManager);
-    
-    // Load idle animation
-    fbxLoader.load(
-        'idle.fbx', // Make sure this file is in the same directory
-        function(object) {
-            const animation = object.animations[0];
-            if (animation) {
-                // Might need to adjust animation to match the model
-                animation.name = 'idle';
-                const idleAction = npcMixer.clipAction(animation);
-                npcAnimations['idle'] = idleAction;
-                idleAction.play();
+    try {
+        const fbxLoader = new FBXLoader(loadingManager);
+        
+        // Load idle animation
+        fbxLoader.load(
+            'idle.fbx',
+            function(object) {
+                try {
+                    const animation = object.animations[0];
+                    if (animation) {
+                        // Create a clone of the animation for the specific target
+                        const clip = THREE.AnimationClip.parse(THREE.AnimationClip.toJSON(animation));
+                        const idleAction = npcMixer.clipAction(clip);
+                        npcAnimations['idle'] = idleAction;
+                        idleAction.play();
+                    } else {
+                        console.warn('No animation found in idle.fbx');
+                    }
+                } catch (e) {
+                    console.error('Error processing idle animation:', e);
+                }
+            },
+            undefined,
+            function(error) {
+                console.error('Error loading idle animation:', error);
             }
-        },
-        undefined,
-        function(error) {
-            console.error('Error loading idle animation:', error);
-        }
-    );
-    
-    // Load talking animation
-    fbxLoader.load(
-        'talking.fbx', // Make sure this file is in the same directory
-        function(object) {
-            const animation = object.animations[0];
-            if (animation) {
-                // Might need to adjust animation to match the model
-                animation.name = 'talking';
-                const talkingAction = npcMixer.clipAction(animation);
-                npcAnimations['talking'] = talkingAction;
-                // Don't play it yet, will be triggered when speaking
+        );
+        
+        // Load talking animation with same approach
+        fbxLoader.load(
+            'talking.fbx',
+            function(object) {
+                try {
+                    const animation = object.animations[0];
+                    if (animation) {
+                        const clip = THREE.AnimationClip.parse(THREE.AnimationClip.toJSON(animation));
+                        const talkingAction = npcMixer.clipAction(clip);
+                        npcAnimations['talking'] = talkingAction;
+                    } else {
+                        console.warn('No animation found in talking.fbx');
+                    }
+                } catch (e) {
+                    console.error('Error processing talking animation:', e);
+                }
+            },
+            undefined,
+            function(error) {
+                console.error('Error loading talking animation:', error);
             }
-        },
-        undefined,
-        function(error) {
-            console.error('Error loading talking animation:', error);
-        }
-    );
+        );
+    } catch (e) {
+        console.error('Error initiating animation loading:', e);
+    }
 }
 
         
