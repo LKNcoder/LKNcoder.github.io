@@ -98,6 +98,8 @@
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
+        let isMuted = false;
+        let muteButton;
         
         // Initialize and run the application
         init();
@@ -141,6 +143,8 @@
             
             // Set up controllers
             setupControllers();
+
+            createMuteToggle();
             
             
             setupAudioCapture();
@@ -225,67 +229,76 @@
         
         
         function loadAvatarModels() {
-    // First initialize placeholder avatars so we always have something
-    initPlaceholderAvatars();
-    
-    // Then try loading the actual models
-    const gltfLoader = new GLTFLoader(loadingManager);
-    
-    // Add error handler to the loading manager
-    loadingManager.onError = function(url) {
-        console.error('Error loading asset:', url);
-        loadingScreen.innerHTML = 'Error loading 3D models. Using placeholders instead.';
-        setTimeout(() => {
-            loadingScreen.style.display = 'none';
-        }, 3000);
-    };
-    
-    // Try loading the NPC avatar model with error handling
-    gltfLoader.load(
-        'npc-avatar.glb',
-        function(gltf) {
-            try {
-                // Remove placeholder
-                scene.remove(npcAvatar);
-                
-                // Add GLB model
-                npcAvatar = gltf.scene;
-                npcAvatar.position.set(2, 0, 0);
-                npcAvatar.scale.set(1, 1, 1);
-                npcAvatar.castShadow = true;
-                
-                // Find the actual mesh or group to apply animations to
-                let animationTarget = npcAvatar;
-                npcAvatar.traverse(function(child) {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        // If this is the first mesh, use it as animation target
-                        if (!animationTarget.isMesh) {
-                            animationTarget = child;
+        // First initialize placeholder avatars so we always have something
+        initPlaceholderAvatars();
+        
+        console.log('Starting to load avatar models...');
+        
+        // Then try loading the actual models
+        const gltfLoader = new GLTFLoader(loadingManager);
+        
+        // Add progress handler to the loading manager
+        loadingManager.onProgress = function(url, loaded, total) {
+            console.log(`Loading: ${url} - ${Math.round(loaded / total * 100)}% complete`);
+            loadingScreen.innerHTML = `Loading: ${Math.round(loaded / total * 100)}%`;
+        };
+        
+        // Add error handler to the loading manager
+        loadingManager.onError = function(url) {
+            console.error('Error loading asset:', url);
+            loadingScreen.innerHTML = 'Error loading 3D models. Using placeholders instead.';
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 3000);
+        };
+        
+        // Try loading the NPC avatar model with error handling
+        console.log('Attempting to load npc-avatar.glb...');
+        gltfLoader.load(
+            'npc-avatar.glb',
+            function(gltf) {
+                console.log('NPC model loaded successfully:', gltf);
+                try {
+                    // Remove placeholder
+                    scene.remove(npcAvatar);
+                    
+                    // Add GLB model
+                    npcAvatar = gltf.scene;
+                    npcAvatar.position.set(2, 0, 0);
+                    npcAvatar.scale.set(1, 1, 1);
+                    npcAvatar.castShadow = true;
+                    
+                    // Find the actual mesh or group to apply animations to
+                    let animationTarget = npcAvatar;
+                    npcAvatar.traverse(function(child) {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            console.log('Found mesh in NPC model:', child.name);
                         }
-                    }
-                });
-                
-                scene.add(npcAvatar);
-                
-                // Set up animation mixer
-                npcMixer = new THREE.AnimationMixer(animationTarget);
-                
-                // Load animations
-                loadNPCAnimations();
-            } catch (e) {
-                console.error('Error processing NPC model:', e);
-                // Ensure we have the placeholder back if needed
-                initPlaceholderAvatars();
+                    });
+                    
+                    scene.add(npcAvatar);
+                    
+                    // Set up animation mixer
+                    npcMixer = new THREE.AnimationMixer(npcAvatar);
+                    
+                    // Load animations
+                    loadNPCAnimations();
+                } catch (e) {
+                    console.error('Error processing NPC model:', e);
+                    // Ensure we have the placeholder back if needed
+                    initPlaceholderAvatars();
+                }
+            },
+            function(xhr) {
+                console.log('NPC model load progress:', (xhr.loaded / xhr.total * 100) + '%');
+            },
+            function(error) {
+                console.error('Error loading NPC model:', error);
+                // We already have placeholders from initPlaceholderAvatars
             }
-        },
-        undefined,
-        function(error) {
-            console.error('Error loading NPC model:', error);
-            // We already have placeholders from initPlaceholderAvatars
-        }
-    );
-}       
+        );
+    }
 
 function initPlaceholderAvatars() {
     // Create simple placeholder avatars until real models are loaded
@@ -308,60 +321,46 @@ function initPlaceholderAvatars() {
 }
 
 function loadNPCAnimations() {
-    try {
-        const fbxLoader = new FBXLoader(loadingManager);
-        
-        // Load idle animation
-        fbxLoader.load(
-            'idle.fbx',
-            function(object) {
-                try {
-                    const animation = object.animations[0];
-                    if (animation) {
-                        // Create a clone of the animation for the specific target
-                        const clip = THREE.AnimationClip.parse(THREE.AnimationClip.toJSON(animation));
-                        const idleAction = npcMixer.clipAction(clip);
-                        npcAnimations['idle'] = idleAction;
-                        idleAction.play();
-                    } else {
-                        console.warn('No animation found in idle.fbx');
+        try {
+            console.log('Starting to load animations...');
+            const fbxLoader = new FBXLoader(loadingManager);
+            
+            // Load idle animation
+            console.log('Attempting to load idle.fbx...');
+            fbxLoader.load(
+                'idle.fbx',
+                function(object) {
+                    console.log('Idle animation loaded:', object);
+                    try {
+                        const animation = object.animations[0];
+                        if (animation) {
+                            console.log('Found animation in idle.fbx:', animation);
+                            // Create a clone of the animation for the specific target
+                            const clip = THREE.AnimationClip.parse(THREE.AnimationClip.toJSON(animation));
+                            console.log('Cloned animation clip:', clip);
+                            const idleAction = npcMixer.clipAction(clip);
+                            npcAnimations['idle'] = idleAction;
+                            idleAction.play();
+                        } else {
+                            console.warn('No animation found in idle.fbx');
+                        }
+                    } catch (e) {
+                        console.error('Error processing idle animation:', e);
                     }
-                } catch (e) {
-                    console.error('Error processing idle animation:', e);
+                },
+                function(xhr) {
+                    console.log('Idle animation load progress:', (xhr.loaded / xhr.total * 100) + '%');
+                },
+                function(error) {
+                    console.error('Error loading idle animation:', error);
                 }
-            },
-            undefined,
-            function(error) {
-                console.error('Error loading idle animation:', error);
-            }
-        );
-        
-        // Load talking animation with same approach
-        fbxLoader.load(
-            'talking.fbx',
-            function(object) {
-                try {
-                    const animation = object.animations[0];
-                    if (animation) {
-                        const clip = THREE.AnimationClip.parse(THREE.AnimationClip.toJSON(animation));
-                        const talkingAction = npcMixer.clipAction(clip);
-                        npcAnimations['talking'] = talkingAction;
-                    } else {
-                        console.warn('No animation found in talking.fbx');
-                    }
-                } catch (e) {
-                    console.error('Error processing talking animation:', e);
-                }
-            },
-            undefined,
-            function(error) {
-                console.error('Error loading talking animation:', error);
-            }
-        );
-    } catch (e) {
-        console.error('Error initiating animation loading:', e);
+            );
+            
+            // Rest of the animation loading code...
+        } catch (e) {
+            console.error('Error initiating animation loading:', e);
+        }
     }
-}
 
         
         function setupSpeechRecognition() {
@@ -522,6 +521,77 @@ function loadNPCAnimations() {
                 alert('Audio is not fully supported in this browser. Some features may not work.');
             }
         }
+
+
+
+
+        function createMuteToggle() {
+        // Create a simple sphere as the mute toggle
+        const geometry = new THREE.SphereGeometry(0.05, 16, 16);
+        const material = new THREE.MeshStandardMaterial({ 
+            color: 0x44ff44,  // Green for unmuted
+            emissive: 0x224422,
+            roughness: 0.3,
+            metalness: 0.8
+        });
+        
+        muteButton = new THREE.Mesh(geometry, material);
+        muteButton.position.set(0, 1.4, -0.3); // Position near user's view
+        muteButton.userData.isInteractable = true;
+        muteButton.userData.type = 'muteToggle';
+        scene.add(muteButton);
+        
+        // Add interaction with controllers
+        controller1.addEventListener('selectstart', onControllerSelect);
+        controller2.addEventListener('selectstart', onControllerSelect);
+    }
+    
+    // Function to handle controller selection
+    function onControllerSelect(event) {
+        const controller = event.target;
+        const controllerPosition = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+        
+        // Use raycaster to check for intersection with mute button
+        const raycaster = new THREE.Raycaster();
+        const ray = new THREE.Vector3(0, 0, -1).applyQuaternion(controller.quaternion);
+        raycaster.set(controllerPosition, ray.normalize());
+        
+        const intersects = raycaster.intersectObjects([muteButton]);
+        
+        if (intersects.length > 0) {
+            toggleMute();
+        }
+    }
+    
+    // Function to toggle mute state
+    function toggleMute() {
+        isMuted = !isMuted;
+        
+        // Update button color
+        if (isMuted) {
+            muteButton.material.color.set(0xff4444); // Red for muted
+            muteButton.material.emissive.set(0x442222);
+            
+            // Stop audio processing
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.pause();
+            }
+            
+            showSpeechBubble('Microphone muted');
+        } else {
+            muteButton.material.color.set(0x44ff44); // Green for unmuted
+            muteButton.material.emissive.set(0x224422);
+            
+            // Resume audio processing
+            if (mediaRecorder && mediaRecorder.state === 'paused') {
+                mediaRecorder.resume();
+            }
+            
+            showSpeechBubble('Microphone active');
+        }
+    }
+
+
 
 // New function to start audio recording
 function startRecordingContinuous() {
