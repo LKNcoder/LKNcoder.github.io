@@ -30,22 +30,8 @@
             display: none;
             z-index: 100;
         }
-        #micButton {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: #ff4444;
-            border: none;
-            cursor: pointer;
-            z-index: 100;
-        }
-        #micButton.listening {
-            background: #44ff44;
-            animation: pulse 1.5s infinite;
-        }
+       
+
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(68, 255, 68, 0.7); }
             70% { box-shadow: 0 0 0 15px rgba(68, 255, 68, 0); }
@@ -71,7 +57,7 @@
 <body>
     <div id="info">WebXR NPC Salesperson Demo</div>
     <div id="speechBubble"></div>
-    <button id="micButton" title="Press to talk"></button>
+    
     <div class="loading" id="loadingScreen">Loading... Please wait</div>
 
     <!-- Import libraries via CDN -->
@@ -108,6 +94,10 @@
         let loadingManager;
         let loadingScreen;
         let npcSpeaking = false;
+        let audioContext;
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
         
         // Initialize and run the application
         init();
@@ -152,11 +142,12 @@
             // Set up controllers
             setupControllers();
             
-            // Set up speech recognition
-            setupSpeechRecognition();
             
-            // Set up microphone button
-            setupMicButton();
+            setupAudioCapture();
+
+            startRecordingContinuous();
+            
+           
 
             initPlaceholderAvatars();
             
@@ -167,6 +158,8 @@
             window.addEventListener('resize', onWindowResize);
         }
         
+
+
         function setupLighting() {
             // Ambient light
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -383,11 +376,7 @@ function loadNPCAnimations() {
                     const transcript = event.results[0][0].transcript;
                     handleUserSpeech(transcript);
                 };
-                
-                recognition.onend = function() {
-                    isListening = false;
-                    document.getElementById('micButton').classList.remove('listening');
-                };
+                          
                 
                 recognition.onerror = function(event) {
                     console.error('Speech recognition error:', event.error);
@@ -400,20 +389,7 @@ function loadNPCAnimations() {
             }
         }
         
-        function setupMicButton() {
-            const micButton = document.getElementById('micButton');
-            micButton.addEventListener('click', () => {
-                if (!isListening && recognition) {
-                    recognition.start();
-                    isListening = true;
-                    micButton.classList.add('listening');
-                } else if (isListening && recognition) {
-                    recognition.stop();
-                    isListening = false;
-                    micButton.classList.remove('listening');
-                }
-            });
-        }
+        
         
         function handleUserSpeech(text) {
             console.log('User said:', text);
@@ -537,6 +513,98 @@ function loadNPCAnimations() {
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
+        function setupAudioCapture() {
+            // Initialize Web Audio API context
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.error('Web Audio API is not supported in this browser:', e);
+                alert('Audio is not fully supported in this browser. Some features may not work.');
+            }
+        }
+
+// New function to start audio recording
+function startRecordingContinuous() {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                console.log('Microphone access granted, starting continuous listening');
+                showSpeechBubble('Listening...');
+                
+                // Create media recorder
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                // Handle data available event
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        
+                        // Process chunks periodically to detect speech
+                        if (audioChunks.length > 5) { // After collecting some audio
+                            processAudioChunks();
+                        }
+                    }
+                };
+                
+                // Handle recording stop event (shouldn't happen unless error)
+                mediaRecorder.onstop = () => {
+                    console.log('Recording stopped unexpectedly, restarting...');
+                    
+                    // Stop all audio tracks to release microphone
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Restart recording after a short delay
+                    setTimeout(() => startRecordingContinuous(), 1000);
+                };
+                
+                // Start recording with timeslices for continuous processing
+                mediaRecorder.start(1000); // 1 second chunks
+            })
+            .catch(err => {
+                console.error('Error accessing microphone:', err);
+                alert('Could not access your microphone. VR chat functionality will be limited.');
+            });
+    }
+    
+    // New function to process audio chunks continuously
+    function processAudioChunks() {
+        // Only process if we have enough audio data and not currently processing
+        if (audioChunks.length < 3 || npcSpeaking) return;
+        
+        // Create a blob from the recorded audio chunks
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        
+        // Reset chunks for next processing
+        audioChunks = [];
+        
+        // Create FormData for server upload
+        const formData = new FormData();
+        formData.append('audio', audioBlob);
+        
+        // Send to speech recognition service
+        sendAudioForRecognition(formData);
+    }
+
+    function sendAudioForRecognition(formData) {
+        // For demo purposes, we'll simulate detecting speech
+        // In a real implementation, you'd analyze audio energy level
+        
+        // Simulate 1 in 10 audio chunks containing speech
+        if (Math.random() < 0.1) {
+            // Simulate random user inputs for demonstration
+            const demoInputs = [
+                "Tell me about your products",
+                "What are the prices?",
+                "Do you have any special deals?",
+                "How does this product work?",
+                "Can I see a demonstration?"
+            ];
+            
+            const simulatedText = demoInputs[Math.floor(Math.random() * demoInputs.length)];
+            handleUserSpeech(simulatedText);
+        }
+    }
+
         function animate() {
             renderer.setAnimationLoop(render);
         }
