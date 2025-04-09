@@ -228,21 +228,33 @@
         }
 
 
-        fetch('npc-avatar.glb')
+        fetch('box.gltf') // Check the simple test file first
     .then(response => {
         if (!response.ok) {
             throw new Error(`HTTP error, status = ${response.status}`);
         }
+        console.log('Test GLTF file exists');
+        return true;
+    })
+    .then(() => {
+        // If box.gltf exists, check the npc avatar file
+        return fetch('npc-avatar.gltf');
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error, status = ${response.status}`);
+        }
+        console.log('NPC Avatar GLTF file exists');
         return response.blob();
     })
     .then(blob => {
-        console.log('GLB file size:', blob.size, 'bytes');
+        console.log('GLTF file size:', blob.size, 'bytes');
         if (blob.size < 1000) {
-            console.warn('Warning: GLB file is suspiciously small!');
+            console.warn('Warning: GLTF file is suspiciously small!');
         }
     })
     .catch(error => {
-        console.error('Error checking GLB file:', error);
+        console.error('Error checking model files:', error);
     });
         
     function loadAvatarModels() {
@@ -254,50 +266,85 @@
     // Then try loading the actual models
     const gltfLoader = new GLTFLoader(loadingManager);
     
-    // Try loading from your local file first
-    console.log('Attempting to load npc-avatar.glb...');
+    // Start by testing with the simple box to verify the loader works
+    console.log('Loading test box model...');
     gltfLoader.load(
-        'npc-avatar.glb',
-        onModelLoaded,
+        'box.gltf',
+        function(gltf) {
+            console.log('Test box loaded successfully!');
+            
+            // Now try loading the actual avatar
+            loadNPCAvatar();
+        },
         function(xhr) {
-            console.log('NPC model load progress:', (xhr.loaded / xhr.total * 100) + '%');
+            console.log('Box model loading: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
         },
         function(error) {
-            console.error('Error loading local NPC model:', error);
-            console.log('Trying fallback model from CDN...');
-            
-            // Try loading a fallback model
-            gltfLoader.load(
-                'https://assets.readyplayer.me/avatars/6495c87ff9e619e96d3445e2.glb',
-                onModelLoaded,
-                undefined,
-                function(fallbackError) {
-                    console.error('Error loading fallback model:', fallbackError);
-                }
-            );
+            console.error('Error loading test box:', error);
+            // Try loading the avatar anyway
+            loadNPCAvatar();
         }
     );
     
+    // Function to load the NPC avatar
+    function loadNPCAvatar() {
+        console.log('Attempting to load NPC avatar GLTF...');
+        gltfLoader.load(
+            'npc-avatar.gltf',
+            onModelLoaded,
+            function(xhr) {
+                console.log('NPC model load progress:', (xhr.loaded / xhr.total * 100) + '%');
+            },
+            function(error) {
+                console.error('Error loading local NPC model:', error);
+                console.log('Trying fallback model...');
+                
+                // The Duck model is a reliable test model from three.js examples
+                gltfLoader.load(
+                    'https://threejs.org/examples/models/gltf/Duck/glTF/Duck.gltf',
+                    onModelLoaded,
+                    undefined,
+                    function(fallbackError) {
+                        console.error('Error loading fallback model:', fallbackError);
+                        
+                        // Try the ReadyPlayerMe model as a last resort (GLB format)
+                        gltfLoader.load(
+                            'https://assets.readyplayer.me/avatars/6495c87ff9e619e96d3445e2.glb', 
+                            onModelLoaded,
+                            undefined,
+                            function(rpmError) {
+                                console.error('All model loading attempts failed:', rpmError);
+                            }
+                        );
+                    }
+                );
+            }
+        );
+    }
+    
     // Shared success handler function
     function onModelLoaded(gltf) {
-        console.log('NPC model loaded successfully:', gltf);
+        console.log('Model loaded successfully:', gltf);
         try {
             // Remove placeholder
             scene.remove(npcAvatar);
             
-            // Add GLB model
+            // Add model to the scene
             npcAvatar = gltf.scene;
             npcAvatar.position.set(2, 0.5, 0); // Raised position so not in ground
             npcAvatar.scale.set(1, 1, 1);
             npcAvatar.castShadow = true;
             
-            // Find the actual mesh or group to apply animations to
+            // Log model details
+            let meshCount = 0;
             npcAvatar.traverse(function(child) {
                 if (child.isMesh) {
                     child.castShadow = true;
-                    console.log('Found mesh in NPC model:', child.name);
+                    meshCount++;
+                    console.log(`Found mesh: ${child.name}`);
                 }
             });
+            console.log(`Total meshes in model: ${meshCount}`);
             
             scene.add(npcAvatar);
             
@@ -306,7 +353,10 @@
             
             // Check if the model has built-in animations
             if (gltf.animations && gltf.animations.length > 0) {
-                console.log('Model has built-in animations:', gltf.animations.length);
+                console.log(`Model has ${gltf.animations.length} built-in animations`);
+                gltf.animations.forEach((anim, index) => {
+                    console.log(`Animation ${index}: ${anim.name || 'Unnamed'} (Duration: ${anim.duration}s)`);
+                });
                 
                 // Use the first animation as idle
                 const idleAction = npcMixer.clipAction(gltf.animations[0]);
@@ -319,12 +369,12 @@
                     npcAnimations['talking'] = talkAction;
                 }
             } else {
-                console.log('No built-in animations, will try to load external animations');
-                // Load external animations
+                console.log('No built-in animations found, creating procedural animations');
+                // Load simple procedural animations
                 loadNPCAnimations();
             }
         } catch (e) {
-            console.error('Error processing NPC model:', e);
+            console.error('Error processing model:', e);
             // Ensure we have the placeholder back if needed
             initPlaceholderAvatars();
         }
@@ -352,49 +402,74 @@ function initPlaceholderAvatars() {
 }
 
 function loadNPCAnimations() {
-    console.log('Loading external animations...');
+    console.log('Creating procedural animations...');
     
     // Only continue if we have a valid mixer
     if (!npcMixer) {
-        console.error('Cannot load animations - npcMixer is not initialized');
+        console.error('Cannot create animations - npcMixer is not initialized');
         return;
     }
     
-    // Create a very simple animation for idle
-    const idleClip = THREE.AnimationClip.parse({
-        name: 'idle',
-        duration: 2,
-        tracks: [
-            new THREE.NumberKeyframeTrack(
-                '.position[y]', 
-                [0, 1, 2], 
-                [0.5, 0.52, 0.5]  // Small up and down movement
-            )
-        ]
-    });
-    
-    const idleAction = npcMixer.clipAction(idleClip);
-    npcAnimations['idle'] = idleAction;
-    idleAction.setLoop(THREE.LoopRepeat);
-    idleAction.play();
-    
-    // Create a simple animation for talking
-    const talkingClip = THREE.AnimationClip.parse({
-        name: 'talking',
-        duration: 0.5,
-        tracks: [
-            new THREE.NumberKeyframeTrack(
-                '.position[y]', 
-                [0, 0.25, 0.5], 
-                [0.5, 0.55, 0.5]  // Faster up and down movement
-            )
-        ]
-    });
-    
-    const talkingAction = npcMixer.clipAction(talkingClip);
-    npcAnimations['talking'] = talkingAction;
+    try {
+        // Find a suitable target for animations
+        let animationTarget = '.'; // Default to root
+        
+        // Try to find the character's head or body for targeting
+        npcAvatar.traverse(function(object) {
+            if (object.isMesh) {
+                const name = object.name.toLowerCase();
+                if (name.includes('head') || name.includes('face')) {
+                    console.log('Found head mesh for animations:', object.name);
+                    animationTarget = object.name;
+                    return;
+                } else if (name.includes('body') || name.includes('torso')) {
+                    console.log('Found body mesh for animations:', object.name);
+                    animationTarget = object.name;
+                }
+            }
+        });
+        
+        console.log('Using animation target:', animationTarget);
+        
+        // Create a very simple animation for idle
+        const idleClip = THREE.AnimationClip.parse({
+            name: 'idle',
+            duration: 4,
+            tracks: [
+                new THREE.NumberKeyframeTrack(
+                    `${animationTarget}.position[y]`, 
+                    [0, 2, 4], 
+                    [0.5, 0.53, 0.5]  // Gentle up and down movement
+                )
+            ]
+        });
+        
+        const idleAction = npcMixer.clipAction(idleClip);
+        npcAnimations['idle'] = idleAction;
+        idleAction.setLoop(THREE.LoopRepeat);
+        idleAction.play();
+        console.log('Idle animation created and playing');
+        
+        // Create a simple animation for talking
+        const talkingClip = THREE.AnimationClip.parse({
+            name: 'talking',
+            duration: 0.5,
+            tracks: [
+                new THREE.NumberKeyframeTrack(
+                    `${animationTarget}.position[y]`, 
+                    [0, 0.25, 0.5], 
+                    [0.5, 0.55, 0.5]  // Faster up and down movement for talking
+                )
+            ]
+        });
+        
+        const talkingAction = npcMixer.clipAction(talkingClip);
+        npcAnimations['talking'] = talkingAction;
+        console.log('Talking animation created');
+    } catch (e) {
+        console.error('Error creating procedural animations:', e);
+    }
 }
-
         
         function setupSpeechRecognition() {
             // Set up Web Speech API if available
