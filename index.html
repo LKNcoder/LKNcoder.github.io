@@ -158,8 +158,8 @@
             // Set up microphone button
             setupMicButton();
             
-            // Initialize avatars (placeholders until real models are loaded)
-            initPlaceholderAvatars();
+            // Load avatar models
+             loadAvatarModels();
             
             // Handle window resize
             window.addEventListener('resize', onWindowResize);
@@ -228,58 +228,79 @@
             scene.add(controllerGrip2);
         }
         
-        function initPlaceholderAvatars() {
-            // Create simple placeholder avatars until real models are loaded
+        
+        
+    function loadAvatarModels() {
+    // Load the NPC avatar model (Ready Player Me GLB)
+    const gltfLoader = new GLTFLoader(loadingManager);
+    gltfLoader.load(
+        'npc-avatar.glb', // Make sure this file is in the same directory as your HTML
+        function(gltf) {
+            // Remove placeholder
+            scene.remove(npcAvatar);
             
-            // User avatar placeholder (blue cylinder)
-            const userGeometry = new THREE.CapsuleGeometry(0.2, 1.2, 4, 8);
-            const userMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-            userAvatar = new THREE.Mesh(userGeometry, userMaterial);
-            userAvatar.position.set(0, userHeight / 2, 0);
-            userAvatar.castShadow = true;
-            scene.add(userAvatar);
-            
-            // NPC avatar placeholder (red cylinder)
-            const npcGeometry = new THREE.CapsuleGeometry(0.2, 1.2, 4, 8);
-            const npcMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-            npcAvatar = new THREE.Mesh(npcGeometry, npcMaterial);
-            npcAvatar.position.set(2, userHeight / 2, 0);
+            // Add GLB model
+            npcAvatar = gltf.scene;
+            npcAvatar.position.set(2, 0, 0); // Position at the same place as placeholder
+            npcAvatar.scale.set(1, 1, 1);
             npcAvatar.castShadow = true;
             scene.add(npcAvatar);
-        }
-        
-        function loadAvatarModels() {
-            // This function would load the actual avatar models
-            // For now, we'll use the placeholders
             
-            // Example of how you would load a GLTF model:
-            /*
-            const loader = new GLTFLoader(loadingManager);
-            loader.load(
-                'path/to/avatar.glb',
-                function(gltf) {
-                    userAvatar = gltf.scene;
-                    userAvatar.position.set(0, 0, 0);
-                    scene.add(userAvatar);
-                    
-                    // Set up animations
-                    userMixer = new THREE.AnimationMixer(userAvatar);
-                    gltf.animations.forEach((clip) => {
-                        userAnimations[clip.name] = userMixer.clipAction(clip);
-                    });
-                    
-                    // Play idle animation
-                    if (userAnimations['idle']) {
-                        userAnimations['idle'].play();
-                    }
-                },
-                undefined,
-                function(error) {
-                    console.error('Error loading model:', error);
-                }
-            );
-            */
+            // Set up animation mixer
+            npcMixer = new THREE.AnimationMixer(npcAvatar);
+            
+            // Now load the FBX animations
+            loadNPCAnimations();
+        },
+        undefined,
+        function(error) {
+            console.error('Error loading NPC model:', error);
         }
+    );
+}
+
+function loadNPCAnimations() {
+    const fbxLoader = new FBXLoader(loadingManager);
+    
+    // Load idle animation
+    fbxLoader.load(
+        'idle.fbx', // Make sure this file is in the same directory
+        function(object) {
+            const animation = object.animations[0];
+            if (animation) {
+                // Might need to adjust animation to match the model
+                animation.name = 'idle';
+                const idleAction = npcMixer.clipAction(animation);
+                npcAnimations['idle'] = idleAction;
+                idleAction.play();
+            }
+        },
+        undefined,
+        function(error) {
+            console.error('Error loading idle animation:', error);
+        }
+    );
+    
+    // Load talking animation
+    fbxLoader.load(
+        'talking.fbx', // Make sure this file is in the same directory
+        function(object) {
+            const animation = object.animations[0];
+            if (animation) {
+                // Might need to adjust animation to match the model
+                animation.name = 'talking';
+                const talkingAction = npcMixer.clipAction(animation);
+                npcAnimations['talking'] = talkingAction;
+                // Don't play it yet, will be triggered when speaking
+            }
+        },
+        undefined,
+        function(error) {
+            console.error('Error loading talking animation:', error);
+        }
+    );
+}
+
         
         function setupSpeechRecognition() {
             // Set up Web Speech API if available
@@ -375,17 +396,30 @@
             }, text.length * 100 + 2000); // Duration based on text length
         }
         
-        function npcSpeak(text) {
-            npcSpeaking = true;
-            
-            // Simulate lip sync and animations during speaking
-            animateNPCSpeaking();
-            
-            // End speaking after calculated duration
-            setTimeout(() => {
-                npcSpeaking = false;
-            }, text.length * 100); // Duration based on text length
+    function npcSpeak(text) {
+    npcSpeaking = true;
+    
+    // If we have a talking animation, use it
+    if (npcAnimations['talking']) {
+        // Crossfade from idle to talking
+        npcAnimations['idle'].fadeOut(0.5);
+        npcAnimations['talking'].reset().fadeIn(0.5).play();
+    } else {
+        // Fall back to simple animation if model/animations aren't loaded
+        animateNPCSpeaking();
+    }
+    
+    // End speaking after calculated duration
+    setTimeout(() => {
+        npcSpeaking = false;
+        
+        // Return to idle animation
+        if (npcAnimations['talking'] && npcAnimations['idle']) {
+            npcAnimations['talking'].fadeOut(0.5);
+            npcAnimations['idle'].reset().fadeIn(0.5).play();
         }
+    }, text.length * 100); // Duration based on text length
+}
         
         function animateNPCSpeaking() {
             // Placeholder for lip sync and animation logic
