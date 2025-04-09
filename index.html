@@ -226,79 +226,110 @@
             controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
             scene.add(controllerGrip2);
         }
+
+
+        fetch('npc-avatar.glb')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error, status = ${response.status}`);
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        console.log('GLB file size:', blob.size, 'bytes');
+        if (blob.size < 1000) {
+            console.warn('Warning: GLB file is suspiciously small!');
+        }
+    })
+    .catch(error => {
+        console.error('Error checking GLB file:', error);
+    });
         
-        
-        function loadAvatarModels() {
-        // First initialize placeholder avatars so we always have something
-        initPlaceholderAvatars();
-        
-        console.log('Starting to load avatar models...');
-        
-        // Then try loading the actual models
-        const gltfLoader = new GLTFLoader(loadingManager);
-        
-        // Add progress handler to the loading manager
-        loadingManager.onProgress = function(url, loaded, total) {
-            console.log(`Loading: ${url} - ${Math.round(loaded / total * 100)}% complete`);
-            loadingScreen.innerHTML = `Loading: ${Math.round(loaded / total * 100)}%`;
-        };
-        
-        // Add error handler to the loading manager
-        loadingManager.onError = function(url) {
-            console.error('Error loading asset:', url);
-            loadingScreen.innerHTML = 'Error loading 3D models. Using placeholders instead.';
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 3000);
-        };
-        
-        // Try loading the NPC avatar model with error handling
-        console.log('Attempting to load npc-avatar.glb...');
-        gltfLoader.load(
-            'npc-avatar.glb',
-            function(gltf) {
-                console.log('NPC model loaded successfully:', gltf);
-                try {
-                    // Remove placeholder
-                    scene.remove(npcAvatar);
-                    
-                    // Add GLB model
-                    npcAvatar = gltf.scene;
-                    npcAvatar.position.set(2, 0, 0);
-                    npcAvatar.scale.set(1, 1, 1);
-                    npcAvatar.castShadow = true;
-                    
-                    // Find the actual mesh or group to apply animations to
-                    let animationTarget = npcAvatar;
-                    npcAvatar.traverse(function(child) {
-                        if (child.isMesh) {
-                            child.castShadow = true;
-                            console.log('Found mesh in NPC model:', child.name);
-                        }
-                    });
-                    
-                    scene.add(npcAvatar);
-                    
-                    // Set up animation mixer
-                    npcMixer = new THREE.AnimationMixer(npcAvatar);
-                    
-                    // Load animations
-                    loadNPCAnimations();
-                } catch (e) {
-                    console.error('Error processing NPC model:', e);
-                    // Ensure we have the placeholder back if needed
-                    initPlaceholderAvatars();
+    function loadAvatarModels() {
+    // First initialize placeholder avatars so we always have something
+    initPlaceholderAvatars();
+    
+    console.log('Starting to load avatar models...');
+    
+    // Then try loading the actual models
+    const gltfLoader = new GLTFLoader(loadingManager);
+    
+    // Try loading from your local file first
+    console.log('Attempting to load npc-avatar.glb...');
+    gltfLoader.load(
+        'npc-avatar.glb',
+        onModelLoaded,
+        function(xhr) {
+            console.log('NPC model load progress:', (xhr.loaded / xhr.total * 100) + '%');
+        },
+        function(error) {
+            console.error('Error loading local NPC model:', error);
+            console.log('Trying fallback model from CDN...');
+            
+            // Try loading a fallback model
+            gltfLoader.load(
+                'https://assets.readyplayer.me/avatars/6495c87ff9e619e96d3445e2.glb',
+                onModelLoaded,
+                undefined,
+                function(fallbackError) {
+                    console.error('Error loading fallback model:', fallbackError);
                 }
-            },
-            function(xhr) {
-                console.log('NPC model load progress:', (xhr.loaded / xhr.total * 100) + '%');
-            },
-            function(error) {
-                console.error('Error loading NPC model:', error);
-                // We already have placeholders from initPlaceholderAvatars
+            );
+        }
+    );
+    
+    // Shared success handler function
+    function onModelLoaded(gltf) {
+        console.log('NPC model loaded successfully:', gltf);
+        try {
+            // Remove placeholder
+            scene.remove(npcAvatar);
+            
+            // Add GLB model
+            npcAvatar = gltf.scene;
+            npcAvatar.position.set(2, 0.5, 0); // Raised position so not in ground
+            npcAvatar.scale.set(1, 1, 1);
+            npcAvatar.castShadow = true;
+            
+            // Find the actual mesh or group to apply animations to
+            npcAvatar.traverse(function(child) {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    console.log('Found mesh in NPC model:', child.name);
+                }
+            });
+            
+            scene.add(npcAvatar);
+            
+            // Set up animation mixer
+            npcMixer = new THREE.AnimationMixer(npcAvatar);
+            
+            // Check if the model has built-in animations
+            if (gltf.animations && gltf.animations.length > 0) {
+                console.log('Model has built-in animations:', gltf.animations.length);
+                
+                // Use the first animation as idle
+                const idleAction = npcMixer.clipAction(gltf.animations[0]);
+                npcAnimations['idle'] = idleAction;
+                idleAction.play();
+                
+                // If there's a second animation, use it for talking
+                if (gltf.animations.length > 1) {
+                    const talkAction = npcMixer.clipAction(gltf.animations[1]);
+                    npcAnimations['talking'] = talkAction;
+                }
+            } else {
+                console.log('No built-in animations, will try to load external animations');
+                // Load external animations
+                loadNPCAnimations();
             }
-        );
+        } catch (e) {
+            console.error('Error processing NPC model:', e);
+            // Ensure we have the placeholder back if needed
+            initPlaceholderAvatars();
+        }
     }
+}
 
 function initPlaceholderAvatars() {
     // Create simple placeholder avatars until real models are loaded
@@ -321,46 +352,48 @@ function initPlaceholderAvatars() {
 }
 
 function loadNPCAnimations() {
-        try {
-            console.log('Starting to load animations...');
-            const fbxLoader = new FBXLoader(loadingManager);
-            
-            // Load idle animation
-            console.log('Attempting to load idle.fbx...');
-            fbxLoader.load(
-                'idle.fbx',
-                function(object) {
-                    console.log('Idle animation loaded:', object);
-                    try {
-                        const animation = object.animations[0];
-                        if (animation) {
-                            console.log('Found animation in idle.fbx:', animation);
-                            // Create a clone of the animation for the specific target
-                            const clip = THREE.AnimationClip.parse(THREE.AnimationClip.toJSON(animation));
-                            console.log('Cloned animation clip:', clip);
-                            const idleAction = npcMixer.clipAction(clip);
-                            npcAnimations['idle'] = idleAction;
-                            idleAction.play();
-                        } else {
-                            console.warn('No animation found in idle.fbx');
-                        }
-                    } catch (e) {
-                        console.error('Error processing idle animation:', e);
-                    }
-                },
-                function(xhr) {
-                    console.log('Idle animation load progress:', (xhr.loaded / xhr.total * 100) + '%');
-                },
-                function(error) {
-                    console.error('Error loading idle animation:', error);
-                }
-            );
-            
-            // Rest of the animation loading code...
-        } catch (e) {
-            console.error('Error initiating animation loading:', e);
-        }
+    console.log('Loading external animations...');
+    
+    // Only continue if we have a valid mixer
+    if (!npcMixer) {
+        console.error('Cannot load animations - npcMixer is not initialized');
+        return;
     }
+    
+    // Create a very simple animation for idle
+    const idleClip = THREE.AnimationClip.parse({
+        name: 'idle',
+        duration: 2,
+        tracks: [
+            new THREE.NumberKeyframeTrack(
+                '.position[y]', 
+                [0, 1, 2], 
+                [0.5, 0.52, 0.5]  // Small up and down movement
+            )
+        ]
+    });
+    
+    const idleAction = npcMixer.clipAction(idleClip);
+    npcAnimations['idle'] = idleAction;
+    idleAction.setLoop(THREE.LoopRepeat);
+    idleAction.play();
+    
+    // Create a simple animation for talking
+    const talkingClip = THREE.AnimationClip.parse({
+        name: 'talking',
+        duration: 0.5,
+        tracks: [
+            new THREE.NumberKeyframeTrack(
+                '.position[y]', 
+                [0, 0.25, 0.5], 
+                [0.5, 0.55, 0.5]  // Faster up and down movement
+            )
+        ]
+    });
+    
+    const talkingAction = npcMixer.clipAction(talkingClip);
+    npcAnimations['talking'] = talkingAction;
+}
 
         
         function setupSpeechRecognition() {
@@ -680,24 +713,49 @@ function startRecordingContinuous() {
         }
         
         function render() {
-            const delta = clock.getDelta();
-            
-            // Update NPC movement to follow user
-            updateNPCMovement();
-            
-            // Update animation mixers if available
-            if (userMixer) userMixer.update(delta);
-            if (npcMixer) npcMixer.update(delta);
-            
-            // Update user avatar position based on camera in VR
-            if (renderer.xr.isPresenting) {
-                // Position user avatar to match camera
-                userAvatar.position.x = camera.position.x;
-                userAvatar.position.z = camera.position.z;
-            }
-            
-            renderer.render(scene, camera);
+    try {
+        const delta = clock.getDelta();
+        
+        // Update NPC movement to follow user
+        updateNPCMovement();
+        
+        // Update animation mixers if available
+        if (userMixer) userMixer.update(delta);
+        if (npcMixer) npcMixer.update(delta);
+        
+        // Update user avatar position based on camera in VR
+        if (renderer.xr.isPresenting && userAvatar) {
+            // Position user avatar to match camera
+            userAvatar.position.x = camera.position.x;
+            userAvatar.position.z = camera.position.z;
         }
+        
+        // Update mute button to stay in front of the camera in VR
+        if (muteButton && renderer.xr.isPresenting) {
+            const xr = renderer.xr;
+            const xrCamera = xr.getCamera(camera);
+            
+            if (xrCamera && xrCamera.cameras.length) {
+                const camPos = new THREE.Vector3();
+                const camQuat = new THREE.Quaternion();
+                
+                xrCamera.getWorldPosition(camPos);
+                xrCamera.getWorldQuaternion(camQuat);
+                
+                // Position the button in front and slightly below the camera view
+                const offset = new THREE.Vector3(0, -0.2, -0.5);
+                offset.applyQuaternion(camQuat);
+                
+                muteButton.position.copy(camPos).add(offset);
+                muteButton.quaternion.copy(camQuat);
+            }
+        }
+        
+        renderer.render(scene, camera);
+    } catch (error) {
+        console.error('Error in render function:', error);
+    }
+}
     </script>
 </body>
 </html>
