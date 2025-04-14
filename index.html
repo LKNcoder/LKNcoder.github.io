@@ -2060,52 +2060,73 @@ function handleOrientationChange() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Fix rotation notice positioning and size
-    const rotationNotice = document.getElementById('rotation-notice');
-    if (rotationNotice) {
-        // Ensure proper sizing and positioning
-        const fixRotationStyle = document.createElement('style');
-        fixRotationStyle.textContent = `
-            #rotation-notice {
+    // Create a complete style override that will replace all existing rotation notice styling
+    const rotationStyleFix = document.createElement('style');
+    rotationStyleFix.innerHTML = `
+        /* Core rotation notice styling - completely rewritten */
+        #rotation-notice {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-height: 100% !important;
-            overflow: hidden !important;
+            width: 100% !important; 
+            height: 100% !important;
             background-color: rgba(0,0,0,0.95) !important;
             z-index: 999999 !important;
-            display: flex !important;
+            display: none !important; /* Hidden by default */
             flex-direction: column !important;
             justify-content: center !important;
             align-items: center !important;
-            box-sizing: border-box !important;
-            padding: 0 !important; /* Remove padding that might cause overflow */
-            margin: 0 !important;
+            overflow: hidden !important; /* Prevent scrolling */
         }
         
+        /* Apply portrait orientation display rule with device check */
+        @media screen and (orientation: portrait) {
+            .mobile #rotation-notice {
+                display: flex !important;
+            }
+            
+            .mobile #gameCanvas,
+            .mobile #hud,
+            .mobile #minimap, 
+            .mobile #leaderboard,
+            .mobile #settingsBtn,
+            .mobile #soundBtn,
+            .mobile #micButton {
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+        }
+        
+        /* Never show rotation notice on desktop */
+        .desktop #rotation-notice {
+            display: none !important;
+        }
+        
+        /* Properly size all rotation notice elements */
         #rotation-notice svg {
             width: 12vh !important;
             height: 12vh !important;
-            max-width: 120px;
-            max-height: 120px;
+            max-width: 120px !important;
+            max-height: 120px !important;
+            margin-bottom: 2vh !important;
         }
         
         #rotation-notice h2 {
             color: white !important;
-            font-size: 4.5vh !important;
-            margin: 2vh 0 1.5vh 0 !important;
+            font-size: min(4.5vh, 32px) !important;
+            margin: 2vh 0 !important;
+            padding: 0 20px !important;
             text-align: center !important;
-            padding: 0 10px !important;
+            width: 100% !important;
         }
         
         #rotation-notice p {
             color: #cccccc !important;
-            font-size: 2.5vh !important;
-            margin-bottom: 2.5vh !important;
+            font-size: min(2.5vh, 22px) !important;
+            margin-bottom: 3vh !important;
+            padding: 0 20px !important;
             text-align: center !important;
-            padding: 0 10px !important;
+            width: 100% !important;
         }
         
         #rotation-fullscreen-btn {
@@ -2113,58 +2134,38 @@ document.addEventListener('DOMContentLoaded', function() {
             background-color: #ff3333 !important;
             color: white !important;
             border: none !important;
-            padding: 2vh 4vh !important;
+            padding: min(2vh, 20px) min(4vh, 30px) !important;
             border-radius: 10px !important;
-            font-size: 3vh !important;
+            font-size: min(3vh, 26px) !important;
             font-weight: bold !important;
             cursor: pointer !important;
             box-shadow: 0 0 20px rgba(255,51,51,0.8) !important;
             width: 70vw !important;
             max-width: 280px !important;
             animation: pulse 1.5s infinite !important;
-            -webkit-tap-highlight-color: transparent !important;
         }
         
-        /* Hide scrollbars and prevent scrolling when rotation notice is visible */
+        /* Force body to be fixed when rotation notice shown */
         body:has(#rotation-notice[style*="display: flex"]) {
-            overflow: hidden !important;
             position: fixed !important;
             width: 100% !important;
             height: 100% !important;
+            overflow: hidden !important;
         }
     `;
-        document.head.appendChild(fixRotationStyle);
-    }
-
+    document.head.appendChild(rotationStyleFix);
+    
+    // Add class to HTML element to distinguish device type
     document.documentElement.classList.add(isMobile ? 'mobile' : 'desktop');
     
-    // Add style override to ensure rotation notice never shows on desktop
-    const styleOverride = document.createElement('style');
-    styleOverride.textContent = `
-        /* Override the media query for desktop devices */
-        html.desktop #rotation-notice {
-            display: none !important;
-        }
-        
-        /* Only apply the orientation media query for mobile */
-        @media screen and (orientation: portrait) {
-            html.mobile #rotation-notice {
-                display: flex !important;
-            }
-            html.mobile #gameCanvas,
-            html.mobile #hud,
-            html.mobile #minimap,
-            html.mobile #leaderboard,
-            html.mobile #settingsBtn,
-            html.mobile #soundBtn,
-            html.mobile #micButton {
-                opacity: 0;
-                pointer-events: none;
-            }
-        }
-    `;
-    document.head.appendChild(styleOverride);
-
+    // Ensure the rotation notice doesn't have inline styles that might conflict
+    const rotationNotice = document.getElementById('rotation-notice');
+    if (rotationNotice) {
+        rotationNotice.removeAttribute('style');
+    }
+    
+    // Force immediate orientation check
+    handleOrientationChange();
 });
 
 // Make sure the rotation notice has appropriate z-index and fully visible content
