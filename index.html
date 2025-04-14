@@ -2067,43 +2067,72 @@ document.addEventListener('DOMContentLoaded', function() {
         const fixRotationStyle = document.createElement('style');
         fixRotationStyle.textContent = `
             #rotation-notice {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                background-color: rgba(0,0,0,0.95) !important;
-                z-index: 100000 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-                align-items: center !important;
-                box-sizing: border-box !important;
-                padding: 20px !important;
-            }
-            
-            #rotation-fullscreen-btn {
-                margin-top: 30px !important;
-                background-color: #ff3333 !important;
-                color: white !important;
-                border: none !important;
-                padding: 20px 30px !important;
-                border-radius: 10px !important;
-                font-size: 26px !important;
-                font-weight: bold !important;
-                cursor: pointer !important;
-                box-shadow: 0 0 20px rgba(255,51,51,0.8) !important;
-                width: 280px !important;
-                animation: pulse 1.5s infinite !important;
-                -webkit-tap-highlight-color: transparent !important;
-            }
-            
-            @keyframes pulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-                100% { transform: scale(1); }
-            }
-        `;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
+            background-color: rgba(0,0,0,0.95) !important;
+            z-index: 999999 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            box-sizing: border-box !important;
+            padding: 0 !important; /* Remove padding that might cause overflow */
+            margin: 0 !important;
+        }
+        
+        #rotation-notice svg {
+            width: 12vh !important;
+            height: 12vh !important;
+            max-width: 120px;
+            max-height: 120px;
+        }
+        
+        #rotation-notice h2 {
+            color: white !important;
+            font-size: 4.5vh !important;
+            margin: 2vh 0 1.5vh 0 !important;
+            text-align: center !important;
+            padding: 0 10px !important;
+        }
+        
+        #rotation-notice p {
+            color: #cccccc !important;
+            font-size: 2.5vh !important;
+            margin-bottom: 2.5vh !important;
+            text-align: center !important;
+            padding: 0 10px !important;
+        }
+        
+        #rotation-fullscreen-btn {
+            margin-top: 3vh !important;
+            background-color: #ff3333 !important;
+            color: white !important;
+            border: none !important;
+            padding: 2vh 4vh !important;
+            border-radius: 10px !important;
+            font-size: 3vh !important;
+            font-weight: bold !important;
+            cursor: pointer !important;
+            box-shadow: 0 0 20px rgba(255,51,51,0.8) !important;
+            width: 70vw !important;
+            max-width: 280px !important;
+            animation: pulse 1.5s infinite !important;
+            -webkit-tap-highlight-color: transparent !important;
+        }
+        
+        /* Hide scrollbars and prevent scrolling when rotation notice is visible */
+        body:has(#rotation-notice[style*="display: flex"]) {
+            overflow: hidden !important;
+            position: fixed !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+    `;
         document.head.appendChild(fixRotationStyle);
     }
 
