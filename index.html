@@ -572,6 +572,33 @@ function requestFullscreen() {
         // Visual feedback
         document.getElementById('rotation-fullscreen-btn').textContent = "ENTERING FULLSCREEN...";
         
+        // This ensures audio works on mobile browsers that require user gesture
+        if (window.AudioContext || window.webkitAudioContext) {
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                window.gameAudioContext = new AudioContextClass();
+                
+                // Create and immediately use a silent oscillator to unlock audio
+                const oscillator = window.gameAudioContext.createOscillator();
+                const gainNode = window.gameAudioContext.createGain();
+                gainNode.gain.value = 0; // Silent
+                oscillator.connect(gainNode);
+                gainNode.connect(window.gameAudioContext.destination);
+                oscillator.start();
+                oscillator.stop(0.1);
+                
+                console.log("Audio context initialized:", window.gameAudioContext.state);
+                
+                // Force recreate sound button and voice chat UI to ensure they appear
+                setTimeout(() => {
+                    if (typeof createSoundButton === 'function') createSoundButton();
+                    if (typeof createVoiceChatUI === 'function') createVoiceChatUI();
+                }, 300);
+            } catch (e) {
+                console.error("Failed to initialize audio context:", e);
+            }
+        }
+
         // Try standard method first
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
@@ -584,6 +611,12 @@ function requestFullscreen() {
             document.body.webkitRequestFullscreen();
         } else if (document.body.mozRequestFullScreen) {
             document.body.mozRequestFullScreen();
+        }
+
+            // Try to force landscape orientation
+            if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape')
+                .catch(e => console.log("Could not lock to landscape:", e));
         }
         
         // Reset button text after a delay
@@ -861,7 +894,7 @@ function markLeaderboardForUpdate() {
 
 // Initialize Agora client
 async function initializeAgoraVoiceChat() {
-    const AGORA_APP_ID = "YOUR_AGORA_APP_ID"; // Replace with your App ID
+    const AGORA_APP_ID = "eb09df7b0c164f50b417131a567d9507"; // Replace with your App ID
     
     try {
         // Check if Agora is available
@@ -1969,27 +2002,104 @@ function handleOrientationChange() {
             rotationNotice.style.display = 'flex';
             
             // Game elements should be hidden
-            document.getElementById('gameCanvas').style.opacity = '0';
-            document.getElementById('hud').style.opacity = '0';
-            document.getElementById('minimap').style.opacity = '0';
-            document.getElementById('leaderboard').style.opacity = '0';
+            const gameElements = [
+                document.getElementById('gameCanvas'), 
+                document.getElementById('hud'), 
+                document.getElementById('minimap'), 
+                document.getElementById('leaderboard'), 
+                document.getElementById('soundBtn'),
+                document.getElementById('micButton')
+            ];
+            
+            // Hide all game elements
+            gameElements.forEach(el => {
+                if (el) {
+                    el.style.opacity = '0';
+                    el.style.pointerEvents = 'none';
+                }
+            });
         } else {
             // In landscape OR fullscreen, hide rotation notice
             rotationNotice.style.display = 'none';
             
             // Game elements should be visible
-            document.getElementById('gameCanvas').style.opacity = '1';
-            document.getElementById('hud').style.opacity = '1';
-            document.getElementById('minimap').style.opacity = '1';
-            document.getElementById('leaderboard').style.opacity = '1';
+            const gameElements = [
+                document.getElementById('gameCanvas'), 
+                document.getElementById('hud'), 
+                document.getElementById('minimap'), 
+                document.getElementById('leaderboard'), 
+                document.getElementById('soundBtn'),
+                document.getElementById('micButton')
+            ];
+            
+            // Show all game elements
+            gameElements.forEach(el => {
+                if (el) {
+                    el.style.opacity = '1';
+                    el.style.pointerEvents = 'auto';
+                }
+            });
             
             // Force a rerender to fix any layout issues
             setTimeout(() => {
                 onWindowResize();
+                // Explicitly recreate UI elements that might have failed to load
+                if (typeof createSoundButton === 'function') createSoundButton();
+                if (typeof createVoiceChatUI === 'function') createVoiceChatUI();
+                scaleMobileUI();
             }, 300);
         }
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix rotation notice positioning and size
+    const rotationNotice = document.getElementById('rotation-notice');
+    if (rotationNotice) {
+        // Ensure proper sizing and positioning
+        const fixRotationStyle = document.createElement('style');
+        fixRotationStyle.textContent = `
+            #rotation-notice {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                background-color: rgba(0,0,0,0.95) !important;
+                z-index: 100000 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: center !important;
+                box-sizing: border-box !important;
+                padding: 20px !important;
+            }
+            
+            #rotation-fullscreen-btn {
+                margin-top: 30px !important;
+                background-color: #ff3333 !important;
+                color: white !important;
+                border: none !important;
+                padding: 20px 30px !important;
+                border-radius: 10px !important;
+                font-size: 26px !important;
+                font-weight: bold !important;
+                cursor: pointer !important;
+                box-shadow: 0 0 20px rgba(255,51,51,0.8) !important;
+                width: 280px !important;
+                animation: pulse 1.5s infinite !important;
+                -webkit-tap-highlight-color: transparent !important;
+            }
+            
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(fixRotationStyle);
+    }
+});
 
 // Make sure the rotation notice has appropriate z-index and fully visible content
 const rotationNoticeStyle = document.createElement('style');
@@ -2185,6 +2295,8 @@ function addMobileUIStyles() {
 function scaleMobileUI() {
     if (!isMobile) return;
     
+    console.log("Scaling UI for mobile");
+    
     // Get screen dimensions and orientation
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -2204,30 +2316,67 @@ function scaleMobileUI() {
         minimap: document.getElementById('minimap'),
         settingsBtn: document.getElementById('settingsBtn'),
         soundBtn: document.getElementById('soundBtn'),
+        micButton: document.getElementById('micButton'),
         playerCounter: document.getElementById('player-counter')
     };
     
     // Apply scale to each element if it exists
-    Object.values(elements).forEach(el => {
+    Object.entries(elements).forEach(([key, el]) => {
         if (el) {
+            // Apply scale transform
             el.style.transform = `scale(${scale})`;
             
+            // Ensure proper visibility
+            el.style.opacity = '1';
+            
             // Special positioning for certain elements
-            if (el.id === 'minimap') {
+            if (key === 'minimap') {
                 // Keep minimap in corner by adjusting for scale
                 const offset = (1 - scale) * 50;
                 el.style.marginLeft = `${offset}px`;
                 el.style.marginBottom = `${offset}px`;
             }
+            
+            // Ensure sound and mic buttons are visible and properly positioned
+            if (key === 'soundBtn' || key === 'micButton') {
+                el.style.display = 'block';
+                el.style.zIndex = '1000';
+                
+                // Force size and position
+                if (key === 'soundBtn') {
+                    el.style.width = '50px';
+                    el.style.height = '50px';
+                    el.style.bottom = '40px';
+                    el.style.right = '130px';
+                    el.style.fontSize = '24px';
+                }
+                
+                if (key === 'micButton') {
+                    el.style.width = '50px';
+                    el.style.height = '50px';
+                    el.style.bottom = '40px';
+                    el.style.right = '190px';
+                    el.style.fontSize = '24px';
+                }
+            }
         }
     });
     
-    // Apply scale to any other UI elements that might need it
-    const otherElements = document.querySelectorAll('.ui-element');
-    otherElements.forEach(el => {
-        el.style.transform = `scale(${scale})`;
-    });
+    // Force audio elements to recreate if they don't exist
+    const soundBtn = document.getElementById('soundBtn');
+    const micButton = document.getElementById('micButton');
     
+    if (!soundBtn && typeof createSoundButton === 'function') {
+        console.log("Recreating missing sound button");
+        createSoundButton();
+    }
+    
+    if (!micButton && typeof createVoiceChatUI === 'function') {
+        console.log("Recreating missing mic button");
+        createVoiceChatUI();
+    }
+    
+    // Log status for debugging
     console.log(`Applied mobile UI scaling: ${scale.toFixed(2)} for ${width}x${height}`);
 }
 
@@ -8094,8 +8243,35 @@ function createSoundButton() {
     soundBtn.style.justifyContent = 'center';
     soundBtn.style.alignItems = 'center';
     
-    // Toggle mute on click
+    // Toggle mute on click with ADDED AUDIO INITIALIZATION
     soundBtn.addEventListener('click', () => {
+        // Initialize audio context if needed - this fixes mobile audio issues
+        if ((!window.gameAudioContext || window.gameAudioContext.state === 'suspended') && 
+            (window.AudioContext || window.webkitAudioContext)) {
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                window.gameAudioContext = window.gameAudioContext || new AudioContextClass();
+                
+                if (window.gameAudioContext.state === 'suspended') {
+                    window.gameAudioContext.resume();
+                }
+                
+                // Create silent oscillator to unlock audio on iOS/mobile browsers
+                const oscillator = window.gameAudioContext.createOscillator();
+                const gainNode = window.gameAudioContext.createGain();
+                gainNode.gain.value = 0; // Silent
+                oscillator.connect(gainNode);
+                gainNode.connect(window.gameAudioContext.destination);
+                oscillator.start();
+                oscillator.stop(0.1);
+                
+                console.log("Audio context initialized from sound button:", window.gameAudioContext.state);
+            } catch (e) {
+                console.error("Failed to initialize audio context:", e);
+            }
+        }
+        
+        // Original toggle functionality
         toggleMute();
         soundBtn.innerHTML = sounds.muted ? '🔇' : '🔊';
         
@@ -9030,7 +9206,7 @@ function updateLeaderboard() {
     
     nameElement.appendChild(colorIndicator);
     nameElement.appendChild(document.createTextNode(
-      entry.isLocalPlayer ? `${entry.name} (You)` : entry.name
+      entry.isLocalPlayer ? `${entry.name}` : entry.name
     ));
     
     // Create score element
