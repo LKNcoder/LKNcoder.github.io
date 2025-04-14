@@ -2006,30 +2006,50 @@ function handleOrientationChange() {
     const isPortrait = window.innerHeight > window.innerWidth;
     
     if (isPortrait) {
-        // Show rotation notice on mobile devices in portrait mode
-        document.documentElement.classList.add('showing-rotation-notice');
+        // Show rotation notice with fixed sizing that won't overflow
         rotationNotice.style.display = 'flex';
+        rotationNotice.style.position = 'fixed';
+        rotationNotice.style.top = '0';
+        rotationNotice.style.left = '0';
+        rotationNotice.style.width = '100%';
+        rotationNotice.style.height = '100%'; 
+        rotationNotice.style.overflow = 'hidden';
+        rotationNotice.style.backgroundColor = 'rgba(0,0,0,0.95)';
+        rotationNotice.style.zIndex = '9999999';
+        rotationNotice.style.alignItems = 'center';
+        rotationNotice.style.justifyContent = 'center';
+        rotationNotice.style.flexDirection = 'column';
         
-        // Game elements should be hidden - use classes instead of direct style manipulation
-        document.body.classList.add('hide-game-ui');
+        // Resize contents to fit on smaller screens
+        const rotationHeading = rotationNotice.querySelector('h2');
+        if (rotationHeading) {
+            rotationHeading.style.fontSize = '6vw'; // Responsive font size
+            rotationHeading.style.margin = '3vh 0';
+            rotationHeading.style.textAlign = 'center';
+        }
         
-        // Ensure the rotation notice button is visible and sized correctly
+        const rotationParagraph = rotationNotice.querySelector('p');
+        if (rotationParagraph) {
+            rotationParagraph.style.fontSize = '4vw'; // Responsive font size
+            rotationParagraph.style.margin = '2vh 0';
+            rotationParagraph.style.textAlign = 'center';
+        }
+        
+        // Make button size responsive
         const rotationBtn = document.getElementById('rotation-fullscreen-btn');
         if (rotationBtn) {
-            rotationBtn.style.width = '280px';
-            rotationBtn.style.fontSize = '26px';
-            rotationBtn.style.padding = '20px 30px';
+            rotationBtn.style.width = '70vw';
+            rotationBtn.style.maxWidth = '300px';
+            rotationBtn.style.fontSize = '5vw';
+            rotationBtn.style.padding = '3vh 5vw';
         }
+        
+        // Hide game elements
+        document.body.classList.add('hide-game-ui');
     } else {
         // In landscape, hide rotation notice
-        document.documentElement.classList.remove('showing-rotation-notice');
         rotationNotice.style.display = 'none';
         document.body.classList.remove('hide-game-ui');
-        
-        // Force a rerender to fix any layout issues
-        setTimeout(() => {
-            onWindowResize();
-        }, 300);
     }
 }
 
