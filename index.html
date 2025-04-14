@@ -572,33 +572,6 @@ function requestFullscreen() {
         // Visual feedback
         document.getElementById('rotation-fullscreen-btn').textContent = "ENTERING FULLSCREEN...";
         
-        // This ensures audio works on mobile browsers that require user gesture
-        if (window.AudioContext || window.webkitAudioContext) {
-            try {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                window.gameAudioContext = new AudioContextClass();
-                
-                // Create and immediately use a silent oscillator to unlock audio
-                const oscillator = window.gameAudioContext.createOscillator();
-                const gainNode = window.gameAudioContext.createGain();
-                gainNode.gain.value = 0; // Silent
-                oscillator.connect(gainNode);
-                gainNode.connect(window.gameAudioContext.destination);
-                oscillator.start();
-                oscillator.stop(0.1);
-                
-                console.log("Audio context initialized:", window.gameAudioContext.state);
-                
-                // Force recreate sound button and voice chat UI to ensure they appear
-                setTimeout(() => {
-                    if (typeof createSoundButton === 'function') createSoundButton();
-                    if (typeof createVoiceChatUI === 'function') createVoiceChatUI();
-                }, 300);
-            } catch (e) {
-                console.error("Failed to initialize audio context:", e);
-            }
-        }
-
         // Try standard method first
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
@@ -611,12 +584,6 @@ function requestFullscreen() {
             document.body.webkitRequestFullscreen();
         } else if (document.body.mozRequestFullScreen) {
             document.body.mozRequestFullScreen();
-        }
-
-            // Try to force landscape orientation
-            if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape')
-                .catch(e => console.log("Could not lock to landscape:", e));
         }
         
         // Reset button text after a delay
@@ -1992,69 +1959,58 @@ function cleanupAllOtherPlayerMissiles() {
 }
 
 function handleOrientationChange() {
-    // Get the rotation notice element
-    const rotationNotice = document.getElementById('rotation-notice');
-    if (!rotationNotice) return;
-    
-    // For non-mobile devices, always hide rotation notice
-    if (!isMobile) {
-        rotationNotice.style.display = 'none';
-        return;
-    }
-    
-    // For mobile devices, check orientation
+    // Check if device is in portrait mode
     const isPortrait = window.innerHeight > window.innerWidth;
-    
-    if (isPortrait) {
-        // Show rotation notice with fixed sizing that won't overflow
-        rotationNotice.style.display = 'flex';
-        rotationNotice.style.position = 'fixed';
-        rotationNotice.style.top = '0';
-        rotationNotice.style.left = '0';
-        rotationNotice.style.width = '100%';
-        rotationNotice.style.height = '100%'; 
-        rotationNotice.style.overflow = 'hidden';
-        rotationNotice.style.backgroundColor = 'rgba(0,0,0,0.95)';
-        rotationNotice.style.zIndex = '9999999';
-        rotationNotice.style.alignItems = 'center';
-        rotationNotice.style.justifyContent = 'center';
-        rotationNotice.style.flexDirection = 'column';
-        
-        // Resize contents to fit on smaller screens
-        const rotationHeading = rotationNotice.querySelector('h2');
-        if (rotationHeading) {
-            rotationHeading.style.fontSize = '6vw'; // Responsive font size
-            rotationHeading.style.margin = '3vh 0';
-            rotationHeading.style.textAlign = 'center';
+    const rotationNotice = document.getElementById('rotation-notice');
+
+    if (rotationNotice) {
+        if (isPortrait && !document.fullscreenElement) {
+            // Only show rotation notice in portrait mode AND not in fullscreen
+            rotationNotice.style.display = 'flex';
+            
+            // Game elements should be hidden
+            document.getElementById('gameCanvas').style.opacity = '0';
+            document.getElementById('hud').style.opacity = '0';
+            document.getElementById('minimap').style.opacity = '0';
+            document.getElementById('leaderboard').style.opacity = '0';
+        } else {
+            // In landscape OR fullscreen, hide rotation notice
+            rotationNotice.style.display = 'none';
+            
+            // Game elements should be visible
+            document.getElementById('gameCanvas').style.opacity = '1';
+            document.getElementById('hud').style.opacity = '1';
+            document.getElementById('minimap').style.opacity = '1';
+            document.getElementById('leaderboard').style.opacity = '1';
+            
+            // Force a rerender to fix any layout issues
+            setTimeout(() => {
+                onWindowResize();
+            }, 300);
         }
-        
-        const rotationParagraph = rotationNotice.querySelector('p');
-        if (rotationParagraph) {
-            rotationParagraph.style.fontSize = '4vw'; // Responsive font size
-            rotationParagraph.style.margin = '2vh 0';
-            rotationParagraph.style.textAlign = 'center';
-        }
-        
-        // Make button size responsive
-        const rotationBtn = document.getElementById('rotation-fullscreen-btn');
-        if (rotationBtn) {
-            rotationBtn.style.width = '70vw';
-            rotationBtn.style.maxWidth = '300px';
-            rotationBtn.style.fontSize = '5vw';
-            rotationBtn.style.padding = '3vh 5vw';
-        }
-        
-        // Hide game elements
-        document.body.classList.add('hide-game-ui');
-    } else {
-        // In landscape, hide rotation notice
-        rotationNotice.style.display = 'none';
-        document.body.classList.remove('hide-game-ui');
     }
 }
 
-
-
+// Make sure the rotation notice has appropriate z-index and fully visible content
+const rotationNoticeStyle = document.createElement('style');
+rotationNoticeStyle.textContent = `
+    #rotation-notice {
+        z-index: 99999;
+        background-color: rgba(0,0,0,0.95);
+    }
+    #rotation-notice * {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    #rotation-fullscreen-btn {
+        transform: scale(1.1);
+        transition: transform 0.2s;
+    }
+    #rotation-fullscreen-btn:active {
+        transform: scale(0.95);
+    }
+`;
+document.head.appendChild(rotationNoticeStyle);
 
 
 
@@ -2163,165 +2119,6 @@ function optimizeForMobile() {
     document.addEventListener('fullscreenchange', scaleMobileUI);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Create a single master style that will take precedence
-    const masterStyle = document.createElement('style');
-    masterStyle.innerHTML = `
-        /* Reset and prevent conflicts */
-        #rotation-notice {
-            all: initial !important; /* Reset all properties */
-            
-            /* Core positioning */
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            
-            /* Appearance */
-            background-color: rgba(0,0,0,0.95) !important;
-            z-index: 2147483647 !important; /* Maximum allowed z-index */
-            
-            /* Layout */
-            display: none !important;
-            font-family: 'Quantico', sans-serif !important;
-            box-sizing: border-box !important;
-            
-            /* Prevent scrolling */
-            overflow: hidden !important;
-            touch-action: none !important;
-            
-            /* Center content */
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: center !important;
-            padding: 20px !important;
-        }
-        
-        /* Set display based on orientation with higher specificity */
-        @media screen and (orientation: portrait) {
-            html.mobile .showing-rotation-notice #rotation-notice {
-                display: flex !important;
-            }
-            
-            body.hide-game-ui #gameCanvas,
-            body.hide-game-ui #hud,
-            body.hide-game-ui #minimap,
-            body.hide-game-ui #leaderboard,
-            body.hide-game-ui #settingsBtn,
-            body.hide-game-ui #soundBtn,
-            body.hide-game-ui #micButton {
-                opacity: 0 !important;
-                pointer-events: none !important;
-                visibility: hidden !important;
-            }
-        }
-        
-        /* Elements inside rotation notice */
-        #rotation-notice svg {
-            width: 120px !important;
-            height: 120px !important;
-            margin-bottom: 20px !important;
-        }
-        
-        #rotation-notice h2 {
-            margin: 15px 0 !important;
-            font-size: 32px !important;
-            color: white !important;
-            text-align: center !important;
-            width: 100% !important;
-            max-width: 500px !important;
-        }
-        
-        #rotation-notice p {
-            margin: 0 0 25px 0 !important;
-            font-size: 22px !important;
-            color: #cccccc !important;
-            text-align: center !important;
-            width: 100% !important;
-            max-width: 500px !important;
-        }
-        
-        #rotation-fullscreen-btn {
-            margin-top: 30px !important;
-            width: 280px !important;
-            padding: 20px 30px !important;
-            font-size: 26px !important;
-            background-color: #ff3333 !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 10px !important;
-            font-weight: bold !important;
-            cursor: pointer !important;
-            box-shadow: 0 0 20px rgba(255,51,51,0.8) !important;
-            animation: pulse 1.5s infinite !important;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        
-        #rotation-fullscreen-btn:active {
-            transform: scale(0.95) !important;
-        }
-        
-        /* Reset any transforms on the button */
-        #rotation-notice #rotation-fullscreen-btn {
-            display: block !important;
-            transform: none !important;
-            transform-origin: center !important;
-        }
-        
-        /* Ensure all content inside is visible */
-        #rotation-notice * {
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-        
-        /* Desktop never shows rotation notice */
-        html.desktop #rotation-notice {
-            display: none !important;
-        }
-    `;
-    
-    // Insert at the beginning of head to ensure high priority
-    document.head.insertBefore(masterStyle, document.head.firstChild);
-    
-    // Add classes to HTML element for better targeting
-    document.documentElement.classList.add(isMobile ? 'mobile' : 'desktop');
-    
-    // Remove any inline styles from rotation notice
-    const rotationNotice = document.getElementById('rotation-notice');
-    if (rotationNotice) {
-        rotationNotice.removeAttribute('style');
-        
-        // Force the rotation notice to reflow
-        void rotationNotice.offsetWidth;
-    }
-    
-    // Check orientation after styles are applied
-    setTimeout(handleOrientationChange, 100);
-});
-
-// Modify mobile viewport settings
-document.addEventListener('DOMContentLoaded', function() {
-    if (isMobile) {
-        // Use a more responsive viewport setting for the rotation notice
-        let viewportMeta = document.querySelector('meta[name="viewport"]');
-        if (viewportMeta) {
-            // For portrait orientation (showing rotation notice)
-            if (window.innerHeight > window.innerWidth) {
-                viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
-            }
-        }
-    }
-});
-
 function addMobileUIStyles() {
     // Create or update global mobile UI styles
     let mobileStyles = document.getElementById('mobile-ui-styles');
@@ -2388,8 +2185,6 @@ function addMobileUIStyles() {
 function scaleMobileUI() {
     if (!isMobile) return;
     
-    console.log("Scaling UI for mobile");
-    
     // Get screen dimensions and orientation
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -2409,67 +2204,30 @@ function scaleMobileUI() {
         minimap: document.getElementById('minimap'),
         settingsBtn: document.getElementById('settingsBtn'),
         soundBtn: document.getElementById('soundBtn'),
-        micButton: document.getElementById('micButton'),
         playerCounter: document.getElementById('player-counter')
     };
     
     // Apply scale to each element if it exists
-    Object.entries(elements).forEach(([key, el]) => {
+    Object.values(elements).forEach(el => {
         if (el) {
-            // Apply scale transform
             el.style.transform = `scale(${scale})`;
             
-            // Ensure proper visibility
-            el.style.opacity = '1';
-            
             // Special positioning for certain elements
-            if (key === 'minimap') {
+            if (el.id === 'minimap') {
                 // Keep minimap in corner by adjusting for scale
                 const offset = (1 - scale) * 50;
                 el.style.marginLeft = `${offset}px`;
                 el.style.marginBottom = `${offset}px`;
             }
-            
-            // Ensure sound and mic buttons are visible and properly positioned
-            if (key === 'soundBtn' || key === 'micButton') {
-                el.style.display = 'block';
-                el.style.zIndex = '1000';
-                
-                // Force size and position
-                if (key === 'soundBtn') {
-                    el.style.width = '50px';
-                    el.style.height = '50px';
-                    el.style.bottom = '40px';
-                    el.style.right = '130px';
-                    el.style.fontSize = '24px';
-                }
-                
-                if (key === 'micButton') {
-                    el.style.width = '50px';
-                    el.style.height = '50px';
-                    el.style.bottom = '40px';
-                    el.style.right = '190px';
-                    el.style.fontSize = '24px';
-                }
-            }
         }
     });
     
-    // Force audio elements to recreate if they don't exist
-    const soundBtn = document.getElementById('soundBtn');
-    const micButton = document.getElementById('micButton');
+    // Apply scale to any other UI elements that might need it
+    const otherElements = document.querySelectorAll('.ui-element');
+    otherElements.forEach(el => {
+        el.style.transform = `scale(${scale})`;
+    });
     
-    if (!soundBtn && typeof createSoundButton === 'function') {
-        console.log("Recreating missing sound button");
-        createSoundButton();
-    }
-    
-    if (!micButton && typeof createVoiceChatUI === 'function') {
-        console.log("Recreating missing mic button");
-        createVoiceChatUI();
-    }
-    
-    // Log status for debugging
     console.log(`Applied mobile UI scaling: ${scale.toFixed(2)} for ${width}x${height}`);
 }
 
@@ -8336,35 +8094,8 @@ function createSoundButton() {
     soundBtn.style.justifyContent = 'center';
     soundBtn.style.alignItems = 'center';
     
-    // Toggle mute on click with ADDED AUDIO INITIALIZATION
+    // Toggle mute on click
     soundBtn.addEventListener('click', () => {
-        // Initialize audio context if needed - this fixes mobile audio issues
-        if ((!window.gameAudioContext || window.gameAudioContext.state === 'suspended') && 
-            (window.AudioContext || window.webkitAudioContext)) {
-            try {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                window.gameAudioContext = window.gameAudioContext || new AudioContextClass();
-                
-                if (window.gameAudioContext.state === 'suspended') {
-                    window.gameAudioContext.resume();
-                }
-                
-                // Create silent oscillator to unlock audio on iOS/mobile browsers
-                const oscillator = window.gameAudioContext.createOscillator();
-                const gainNode = window.gameAudioContext.createGain();
-                gainNode.gain.value = 0; // Silent
-                oscillator.connect(gainNode);
-                gainNode.connect(window.gameAudioContext.destination);
-                oscillator.start();
-                oscillator.stop(0.1);
-                
-                console.log("Audio context initialized from sound button:", window.gameAudioContext.state);
-            } catch (e) {
-                console.error("Failed to initialize audio context:", e);
-            }
-        }
-        
-        // Original toggle functionality
         toggleMute();
         soundBtn.innerHTML = sounds.muted ? '🔇' : '🔊';
         
