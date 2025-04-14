@@ -1992,63 +1992,70 @@ function cleanupAllOtherPlayerMissiles() {
 }
 
 function handleOrientationChange() {
-    // Check if device is in portrait mode
-    const isPortrait = window.innerHeight > window.innerWidth;
+    // Get the rotation notice element
     const rotationNotice = document.getElementById('rotation-notice');
-
-    if (rotationNotice) {
-        if (isPortrait && !document.fullscreenElement) {
-            // Only show rotation notice in portrait mode AND not in fullscreen
-            rotationNotice.style.display = 'flex';
-            
-            // Game elements should be hidden
-            const gameElements = [
-                document.getElementById('gameCanvas'), 
-                document.getElementById('hud'), 
-                document.getElementById('minimap'), 
-                document.getElementById('leaderboard'), 
-                document.getElementById('soundBtn'),
-                document.getElementById('micButton')
-            ];
-            
-            // Hide all game elements
-            gameElements.forEach(el => {
-                if (el) {
-                    el.style.opacity = '0';
-                    el.style.pointerEvents = 'none';
-                }
-            });
-        } else {
-            // In landscape OR fullscreen, hide rotation notice
-            rotationNotice.style.display = 'none';
-            
-            // Game elements should be visible
-            const gameElements = [
-                document.getElementById('gameCanvas'), 
-                document.getElementById('hud'), 
-                document.getElementById('minimap'), 
-                document.getElementById('leaderboard'), 
-                document.getElementById('soundBtn'),
-                document.getElementById('micButton')
-            ];
-            
-            // Show all game elements
-            gameElements.forEach(el => {
-                if (el) {
-                    el.style.opacity = '1';
-                    el.style.pointerEvents = 'auto';
-                }
-            });
-            
-            // Force a rerender to fix any layout issues
-            setTimeout(() => {
-                onWindowResize();
-                // Explicitly recreate UI elements that might have failed to load
-                if (typeof createSoundButton === 'function') createSoundButton();
-                if (typeof createVoiceChatUI === 'function') createVoiceChatUI();
-                scaleMobileUI();
-            }, 300);
-        }
+    if (!rotationNotice) return;
+    
+    // For non-mobile devices, always hide rotation notice
+    if (!isMobile) {
+        rotationNotice.style.display = 'none';
+        return;
+    }
+    
+    // For mobile devices, check orientation
+    const isPortrait = window.innerHeight > window.innerWidth;
+    
+    if (isPortrait && !document.fullscreenElement) {
+        // Only show rotation notice on mobile devices in portrait mode AND not in fullscreen
+        rotationNotice.style.display = 'flex';
+        
+        // Game elements should be hidden
+        const gameElements = [
+            document.getElementById('gameCanvas'), 
+            document.getElementById('hud'), 
+            document.getElementById('minimap'), 
+            document.getElementById('leaderboard'), 
+            document.getElementById('soundBtn'),
+            document.getElementById('micButton')
+        ];
+        
+        // Hide all game elements
+        gameElements.forEach(el => {
+            if (el) {
+                el.style.opacity = '0';
+                el.style.pointerEvents = 'none';
+            }
+        });
+    } else {
+        // In landscape OR fullscreen, hide rotation notice
+        rotationNotice.style.display = 'none';
+        
+        // Game elements should be visible
+        const gameElements = [
+            document.getElementById('gameCanvas'), 
+            document.getElementById('hud'), 
+            document.getElementById('minimap'), 
+            document.getElementById('leaderboard'), 
+            document.getElementById('soundBtn'),
+            document.getElementById('micButton')
+        ];
+        
+        // Show all game elements
+        gameElements.forEach(el => {
+            if (el) {
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'auto';
+            }
+        });
+        
+        // Force a rerender to fix any layout issues
+        setTimeout(() => {
+            onWindowResize();
+            // Explicitly recreate UI elements that might have failed to load
+            if (typeof createSoundButton === 'function') createSoundButton();
+            if (typeof createVoiceChatUI === 'function') createVoiceChatUI();
+            scaleMobileUI();
+        }, 300);
     }
 }
 
@@ -2099,6 +2106,36 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         document.head.appendChild(fixRotationStyle);
     }
+
+    document.documentElement.classList.add(isMobile ? 'mobile' : 'desktop');
+    
+    // Add style override to ensure rotation notice never shows on desktop
+    const styleOverride = document.createElement('style');
+    styleOverride.textContent = `
+        /* Override the media query for desktop devices */
+        html.desktop #rotation-notice {
+            display: none !important;
+        }
+        
+        /* Only apply the orientation media query for mobile */
+        @media screen and (orientation: portrait) {
+            html.mobile #rotation-notice {
+                display: flex !important;
+            }
+            html.mobile #gameCanvas,
+            html.mobile #hud,
+            html.mobile #minimap,
+            html.mobile #leaderboard,
+            html.mobile #settingsBtn,
+            html.mobile #soundBtn,
+            html.mobile #micButton {
+                opacity: 0;
+                pointer-events: none;
+            }
+        }
+    `;
+    document.head.appendChild(styleOverride);
+
 });
 
 // Make sure the rotation notice has appropriate z-index and fully visible content
