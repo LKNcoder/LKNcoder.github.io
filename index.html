@@ -417,29 +417,15 @@
     z-index: 15; /* Higher than regular buttons but lower than hovered */
 }
  
-
-    @media screen and (max-height: 500px) {
-    #rotation-notice svg {
-        width: 60px;
-        height: 60px;
+@media screen and (orientation: portrait) {
+        #rotation-notice {
+            display: flex !important;
+        }
+        #gameCanvas, #hud, #minimap, #leaderboard, #settingsBtn, #soundBtn, #micButton {
+            opacity: 0;
+            pointer-events: none;
+        }
     }
-    
-    #rotation-notice h2 {
-        font-size: 22px;
-        margin: 10px 0 5px 0;
-    }
-    
-    #rotation-notice p {
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-    
-    #rotation-fullscreen-btn {
-        padding: 10px 20px;
-        font-size: 18px;
-        margin-top: 10px;
-    }
-}
     
     @media screen and (orientation: landscape) and (max-width: 926px) {
         /* Landscape phone optimization (iPhone 13 Pro Max width in landscape is 926px) */
@@ -481,52 +467,21 @@
     /* Rotation notice styling */
     #rotation-notice {
         position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.9);
-    z-index: 10000;
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-family: 'Quantico', sans-serif;
-    text-align: center;
-    padding: 10px;
-    box-sizing: border-box
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+        z-index: 10000;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-family: 'Quantico', sans-serif;
+        text-align: center;
+        padding: 20px;
     }
-
-    #rotation-notice h2 {
-    color: white;
-    font-size: 28px; /* Smaller font size */
-    margin: 15px 0 10px 0;
-    max-width: 90%; /* Prevent text from being cut off */
-    line-height: 1.2;
-}
-
-#rotation-notice p {
-    color: #cccccc;
-    font-size: 18px; /* Smaller font size */
-    margin-bottom: 20px;
-    max-width: 90%;
-}
-
-#rotation-fullscreen-btn {
-    margin-top: 20px;
-    background: #ff3333;
-    color: white;
-    border: none;
-    padding: 15px 25px;
-    border-radius: 10px;
-    font-size: 22px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(255,51,51,0.8);
-    width: 250px; /* Fixed width but slightly smaller */
-    animation: pulse 1.5s infinite;
-}
     
     #rotation-notice img {
         width: 80px;
@@ -553,14 +508,26 @@
     
         <!-- Add this at the beginning of the body -->
         <div id="rotation-notice">
-            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
                 <path d="M21 12C21 7.03 16.97 3 12 3C7.03 3 3 7.03 3 12"></path>
                 <path d="M12 15l-3-3m0 0l3-3m-3 3h12"></path>
             </svg>
-            <h2>PLEASE ROTATE YOUR DEVICE</h2>
-            <p>This game is designed for landscape mode</p>
+            <h2 style="color:white; font-size:32px; margin:25px 0 15px 0;">PLEASE ROTATE YOUR DEVICE</h2>
+            <p style="color:#cccccc; font-size:22px; margin-bottom:25px;">This game is designed for landscape mode</p>
             
-            <button id="rotation-fullscreen-btn">
+            <button id="rotation-fullscreen-btn" 
+                    style="margin-top:30px; 
+                           background:#ff3333; 
+                           color:white; 
+                           border:none; 
+                           padding:20px 30px; 
+                           border-radius:10px; 
+                           font-size:26px; 
+                           font-weight:bold; 
+                           cursor:pointer; 
+                           box-shadow:0 0 20px rgba(255,51,51,0.8); 
+                           width:280px; 
+                           animation:pulse 1.5s infinite;">
                 TAP FOR FULLSCREEN
             </button>
         </div>
@@ -601,87 +568,36 @@
 
 function requestFullscreen() {
     console.log("Fullscreen button clicked");
-    const button = document.getElementById('rotation-fullscreen-btn');
-    
-    // Visual feedback
-    button.textContent = "ENTERING FULLSCREEN...";
-    button.style.opacity = "0.7";
-    
-    // Try to force landscape orientation first
-    tryLockOrientation()
-    .then(() => {
-        // After trying orientation lock, attempt fullscreen
-        return tryEnterFullscreen();
-    })
-    .catch(error => {
-        console.error("Error in fullscreen sequence:", error);
-        // Still try to continue even on errors
-        return tryEnterFullscreen();
-    })
-    .finally(() => {
-        // Reset button text after a delay regardless of outcome
-        setTimeout(() => {
-            button.textContent = "TAP FOR FULLSCREEN";
-            button.style.opacity = "1";
-        }, 2000);
+    try {
+        // Visual feedback
+        document.getElementById('rotation-fullscreen-btn').textContent = "ENTERING FULLSCREEN...";
         
-        // Check orientation after a short delay
-        setTimeout(handleOrientationChange, 1000);
-    });
-}
-
-function tryLockOrientation() {
-    return new Promise((resolve, reject) => {
-        try {
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape')
-                    .then(resolve)
-                    .catch(error => {
-                        console.warn("Could not lock orientation:", error);
-                        resolve(); // Continue even if orientation lock fails
-                    });
-            } else if (screen.lockOrientation) {
-                screen.lockOrientation('landscape');
-                resolve();
-            } else if (screen.mozLockOrientation) {
-                screen.mozLockOrientation('landscape');
-                resolve();
-            } else if (screen.msLockOrientation) {
-                screen.msLockOrientation('landscape');
-                resolve();
-            } else {
-                console.log("No orientation API available");
-                resolve(); // No API available, but continue
-            }
-        } catch (e) {
-            console.warn("Error in orientation lock:", e);
-            resolve(); // Continue anyway
+        // Try standard method first
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        // Fall back to vendor prefixes
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+            document.documentElement.msRequestFullscreen();
+        } else if (document.body.webkitRequestFullscreen) {
+            document.body.webkitRequestFullscreen();
+        } else if (document.body.mozRequestFullScreen) {
+            document.body.mozRequestFullScreen();
         }
-    });
-}
-
-function tryEnterFullscreen() {
-    return new Promise((resolve, reject) => {
-        try {
-            // Try standard method first
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().then(resolve).catch(resolve);
-            // Fall back to vendor prefixes
-            } else if (document.documentElement.webkitRequestFullscreen) {
-                document.documentElement.webkitRequestFullscreen();
-                resolve();
-            } else if (document.documentElement.msRequestFullscreen) {
-                document.documentElement.msRequestFullscreen();
-                resolve();
-            } else {
-                console.warn("No fullscreen API available");
-                resolve(); // No API available, but continue
-            }
-        } catch (e) {
-            console.warn("Error requesting fullscreen:", e);
-            resolve(); // Continue anyway
-        }
-    });
+        
+        // Reset button text after a delay
+        setTimeout(() => {
+            document.getElementById('rotation-fullscreen-btn').textContent = "TAP FOR FULLSCREEN";
+        }, 2000);
+    } catch (e) {
+        console.error("Fullscreen request failed:", e);
+        document.getElementById('rotation-fullscreen-btn').textContent = "FULLSCREEN FAILED";
+        
+        setTimeout(() => {
+            document.getElementById('rotation-fullscreen-btn').textContent = "TRY AGAIN";
+        }, 2000);
+    }
 }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -2053,30 +1969,23 @@ function handleOrientationChange() {
             rotationNotice.style.display = 'flex';
             
             // Game elements should be hidden
-            const gameElements = document.querySelectorAll('#gameCanvas, #hud, #minimap, #leaderboard, #settingsBtn, #soundBtn, #micButton');
-            gameElements.forEach(el => {
-                if (el) {
-                    el.style.opacity = '0';
-                    el.style.pointerEvents = 'none';
-                }
-            });
+            document.getElementById('gameCanvas').style.opacity = '0';
+            document.getElementById('hud').style.opacity = '0';
+            document.getElementById('minimap').style.opacity = '0';
+            document.getElementById('leaderboard').style.opacity = '0';
         } else {
             // In landscape OR fullscreen, hide rotation notice
             rotationNotice.style.display = 'none';
             
             // Game elements should be visible
-            const gameElements = document.querySelectorAll('#gameCanvas, #hud, #minimap, #leaderboard, #settingsBtn, #soundBtn, #micButton');
-            gameElements.forEach(el => {
-                if (el) {
-                    el.style.opacity = '1';
-                    el.style.pointerEvents = 'auto';
-                }
-            });
+            document.getElementById('gameCanvas').style.opacity = '1';
+            document.getElementById('hud').style.opacity = '1';
+            document.getElementById('minimap').style.opacity = '1';
+            document.getElementById('leaderboard').style.opacity = '1';
             
             // Force a rerender to fix any layout issues
             setTimeout(() => {
                 onWindowResize();
-                scaleMobileUI(); // Apply mobile scaling if needed
             }, 300);
         }
     }
