@@ -2192,14 +2192,6 @@ function scaleMobileUI() {
     
     // Skip if not in landscape mode
     if (!isLandscape) return;
-
-      // Create or update the rotate device screen with proper sizing
-      if (window.innerHeight > window.innerWidth) {
-        createRotateDeviceScreen();
-    } else {
-        const rotateScreen = document.getElementById('rotate-device-screen');
-        if (rotateScreen) rotateScreen.style.display = 'none';
-    }
     
     // Calculate scale factor based on screen height
     const baseHeight = 800; // Base design height
@@ -6518,110 +6510,17 @@ function onWindowResize() {
     
     if (isMobile) {
         scaleMobileUI();
-        
-        // Check orientation and show/hide rotation screen
-        const isPortrait = window.innerHeight > window.innerWidth;
-        const rotateScreen = document.getElementById('rotate-device-screen');
-        
-        if (isPortrait && rotateScreen) {
-            rotateScreen.style.display = 'flex';
-        } else if (rotateScreen) {
-            rotateScreen.style.display = 'none';
-        } else if (isPortrait) {
-            createRotateDeviceScreen();
-        }
     }
 }
 
-function createRotateDeviceScreen() {
-    // Remove any existing rotation screen
-    let existingScreen = document.getElementById('rotate-device-screen');
-    if (existingScreen) existingScreen.remove();
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
     
-    const rotateScreen = document.createElement('div');
-    rotateScreen.id = 'rotate-device-screen';
-    rotateScreen.style.position = 'fixed';
-    rotateScreen.style.top = '0';
-    rotateScreen.style.left = '0';
-    rotateScreen.style.width = '100%';
-    rotateScreen.style.height = '100%';
-    rotateScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
-    rotateScreen.style.zIndex = '10000';
-    rotateScreen.style.display = 'flex';
-    rotateScreen.style.flexDirection = 'column';
-    rotateScreen.style.justifyContent = 'center';
-    rotateScreen.style.alignItems = 'center';
-    rotateScreen.style.textAlign = 'center';
-    rotateScreen.style.padding = '20px';
-    rotateScreen.style.boxSizing = 'border-box'; 
-    
-    // Add phone rotation icon
-    const rotateIcon = document.createElement('div');
-    rotateIcon.innerHTML = '📱↔️';
-    rotateIcon.style.fontSize = '32px';
-    rotateIcon.style.marginBottom = '16px';
-    
-    // Add message with better sized text
-    const message = document.createElement('div');
-    message.textContent = 'Please rotate your device for the best experience';
-    message.style.color = 'white';
-    message.style.fontFamily = 'Quantico, sans-serif';
-    message.style.fontSize = '14px';
-    message.style.marginBottom = '16px';
-    message.style.maxWidth = '230px';
-    
-    // Add properly sized button
-    const button = document.createElement('button');
-    button.textContent = 'Continue in Fullscreen';
-    button.style.backgroundColor = '#ff3333';
-    button.style.color = 'white';
-    button.style.border = 'none';
-    button.style.padding = '8px 12px';
-    button.style.borderRadius = '5px';
-    button.style.fontSize = '13px';
-    button.style.cursor = 'pointer';
-    button.style.fontFamily = 'Quantico, sans-serif';
-    
-    // Add button event
-    button.addEventListener('click', () => {
-        // Request fullscreen
-        const element = document.documentElement;
-        
-        const requestFullscreen = element.requestFullscreen || 
-                               element.webkitRequestFullscreen || 
-                               element.mozRequestFullScreen || 
-                               element.msRequestFullscreen;
-        
-        if (requestFullscreen) {
-            requestFullscreen.call(element).then(() => {
-                // After fullscreen is granted, force landscape orientation
-                if (screen.orientation && screen.orientation.lock) {
-                    screen.orientation.lock('landscape').catch(err => {
-                        console.warn('Could not lock orientation:', err);
-                    });
-                } else if (screen.lockOrientation) {
-                    screen.lockOrientation('landscape');
-                } else if (screen.mozLockOrientation) {
-                    screen.mozLockOrientation('landscape');
-                } else if (screen.msLockOrientation) {
-                    screen.msLockOrientation('landscape');
-                }
-                
-                // Hide rotation screen after successful fullscreen
-                rotateScreen.style.display = 'none';
-            }).catch(err => {
-                console.warn('Fullscreen request failed:', err);
-            });
-        }
-    });
-    
-    // Assemble the screen
-    rotateScreen.appendChild(rotateIcon);
-    rotateScreen.appendChild(message);
-    rotateScreen.appendChild(button);
-    document.body.appendChild(rotateScreen);
-    
-    return rotateScreen;
+    if (isMobile) {
+        scaleMobileUI();
+    }
 }
 
 
@@ -6657,16 +6556,6 @@ function onKeyUp(event) {
         
 function handleDeviceOrientation(event) {
     if (!gameActive || !isMobile) return;
-
-      // Check if orientation changed
-      const isPortrait = window.innerHeight > window.innerWidth;
-    const rotateScreen = document.getElementById('rotate-device-screen');
-    
-    if (isPortrait && !rotateScreen) {
-        createRotateDeviceScreen();
-    } else if (!isPortrait && rotateScreen) {
-        rotateScreen.style.display = 'none';
-    }
     
     // alpha: rotation around z-axis (0-360)
     // beta: front-back tilt (-180 to 180, front is positive)
