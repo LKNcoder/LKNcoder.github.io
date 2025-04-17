@@ -1520,18 +1520,7 @@ function initializeGameSessions() {
   
   console.log("Initializing game session system with efficient multiplayer...");
   
-  // Check for explicit solo mode request (inverse of current logic)
-  const wantsSoloMode = new URLSearchParams(window.location.search).get('solo') === 'true';
-  
-  if (wantsSoloMode) {
-    console.log("Starting in explicit solo mode (no Firebase syncing)");
-    createCity();
-    return;
-  }
-  
-  // Get URL-based sessionId to group players on same URL
-  
-  const sessionId = `session_${urlPath.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const sessionId = "global_game_session"; // Fixed session ID for everyone
   
   // Store the session ID for this player
   playerStats.sessionId = sessionId;
@@ -1891,23 +1880,19 @@ function setupMultiplayerSync() {
             y: missileDirection.y, 
             z: missileDirection.z 
         },
-        sessionId: playerStats.sessionId,
+        sessionId: playerStats.sessionId || "global_game_session",
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
         isActive: true,
         isAccelerating: false
     };
     
-    // Create or update player entry
-    playerRef.set(playerData, { merge: true })
+    
+       // Create or update player entry
+       playerRef.set(playerData, { merge: true })
         .then(() => {
             setupPlayerPresence(playerRef);
             startPositionSync(playerRef);
             window.multiplayerSyncInitialized = true;
-            
-            // Force a player update to ensure visibility to others
-            setTimeout(() => {
-                syncPlayerStatsToFirebase({forceSend: true});
-            }, 1000);
         })
         .catch(error => {
             console.error("Error joining multiplayer:", error);
@@ -5374,7 +5359,7 @@ function listenForOtherPlayers(playersCollection) {
         // Listen for active players IN THE SAME SESSION
         window.otherPlayersListener = playersCollection
             .where("isActive", "==", true)
-            .where("sessionId", "==", playerStats.sessionId) // Filter by session
+            .where("sessionId", "==", playerStats.sessionId || "global_game_session")  // Filter by session
             .onSnapshot(snapshot => {
                 snapshot.docChanges().forEach(change => {
                     const playerId = change.doc.id;
