@@ -5497,116 +5497,100 @@ function updateOtherPlayer(playerId, playerData) {
   
   // Check session ID match - always process players in the same session
   if (playerData.sessionId && playerData.sessionId === playerStats.sessionId) {
-  
-  // Create player if doesn't exist
-  if (!otherPlayers[playerId]) {
-    console.log(`New player joined: ${playerData.name}`);
     
-    // Create missile model for this player
-    const otherMissile = createOtherPlayerMissile(playerData.color || "#5c5c5c");
-    scene.add(otherMissile);
-    
-    otherPlayers[playerId] = {
-        id: playerId,
-        name: playerData.name,
-        missile: otherMissile,
-        lastPosition: new THREE.Vector3(),
-        targetPosition: new THREE.Vector3(),
-        direction: new THREE.Vector3(),
-        targetDirection: new THREE.Vector3(),
-        color: playerData.color,
-        isAccelerating: playerData.isAccelerating || false,
-        targetsDestroyed: playerData.targetsDestroyed || 0,
-        roundsWon: playerData.roundsWon || 0,
-        lastUpdateTime: Date.now(),
-        updateCount: 0,
-        velocity: new THREE.Vector3()
+    // Create player if doesn't exist
+    if (!otherPlayers[playerId]) {
+      console.log(`New player joined: ${playerData.name}`);
+      
+      // Create missile model for this player
+      const otherMissile = createOtherPlayerMissile(playerData.color || "#5c5c5c");
+      scene.add(otherMissile);
+      
+      otherPlayers[playerId] = {
+          id: playerId,
+          name: playerData.name,
+          missile: otherMissile,
+          lastPosition: new THREE.Vector3(),
+          targetPosition: new THREE.Vector3(),
+          direction: new THREE.Vector3(),
+          targetDirection: new THREE.Vector3(),
+          color: playerData.color,
+          isAccelerating: playerData.isAccelerating || false,
+          targetsDestroyed: playerData.targetsDestroyed || 0,
+          roundsWon: playerData.roundsWon || 0,
+          lastUpdateTime: Date.now(),
+          updateCount: 0,
+          velocity: new THREE.Vector3()
       };
-    
-    // Add marker to minimap
-    addOtherPlayerMinimapMarker(playerId, playerData.color);
-    
-    // Update the leaderboard to show the new player
-    updatePlayerCountUI();
-    markLeaderboardForUpdate();
-  }
-  
-  // Update player data
-  const player = otherPlayers[playerId];
-  player.name = playerData.name;
-  
-  // Get timestamp from Firebase or use current time as fallback
-  const updateTime = playerData.lastUpdated?.toMillis() || Date.now();
-  const timeDelta = (updateTime - player.lastUpdateTime) / 1000; // seconds
-  
-  // Update leaderboard stats if available
-  if (playerData.targetsDestroyed !== undefined) {
-    player.targetsDestroyed = playerData.targetsDestroyed;
-    markLeaderboardForUpdate(); // Update leaderboard when kills change
-  }
-  
-  if (playerData.roundsWon !== undefined) {
-    player.roundsWon = playerData.roundsWon;
-  }
-  
-  // Set target position and direction for smooth interpolation
-  if (playerData.position) {
-    // Store previous position for velocity calculation
-    const previousPosition = player.targetPosition.clone();
-    
-    // Update target position
-    player.targetPosition.set(
-      playerData.position.x,
-      playerData.position.y,
-      playerData.position.z
-    );
-    
-    // Store position in history (limited to last 5 positions)
-    player.positionHistory.push({
-      position: player.targetPosition.clone(),
-      time: updateTime
-    });
-    
-    // Keep history at maximum 5 entries
-    if (player.positionHistory.length > 5) {
-      player.positionHistory.shift();
+      
+      // Add marker to minimap
+      addOtherPlayerMinimapMarker(playerId, playerData.color);
+      
+      // Update the leaderboard to show the new player
+      updatePlayerCountUI();
+      markLeaderboardForUpdate();
     }
     
-    // Calculate velocity based on position change and time elapsed
-    // Only if we have a reasonable time delta (avoid huge jumps)
-    if (timeDelta > 0.01 && timeDelta < 5.0) {
-      // Calculate instantaneous velocity
-      const instantVelocity = new THREE.Vector3()
-        .subVectors(player.targetPosition, previousPosition)
-        .divideScalar(timeDelta);
+    // Update player data
+    const player = otherPlayers[playerId];
+    player.name = playerData.name;
+    
+    // Get timestamp from Firebase or use current time as fallback
+    const updateTime = playerData.lastUpdated?.toMillis() || Date.now();
+    const timeDelta = (updateTime - player.lastUpdateTime) / 1000; // seconds
+    
+    // Update leaderboard stats if available
+    if (playerData.targetsDestroyed !== undefined) {
+      player.targetsDestroyed = playerData.targetsDestroyed;
+      markLeaderboardForUpdate(); // Update leaderboard when kills change
+    }
+    
+    if (playerData.roundsWon !== undefined) {
+      player.roundsWon = playerData.roundsWon;
+    }
+    
+    // Set target position and direction for smooth interpolation
+    if (playerData.position) {
+      player.targetPosition.set(
+        playerData.position.x,
+        playerData.position.y,
+        playerData.position.z
+      );
       
-      // Smooth velocity changes (blend old and new)
-      if (player.updateCount > 1) {
-        player.velocity.lerp(instantVelocity, 0.3); // 30% weight to new velocity
-      } else {
-        player.velocity.copy(instantVelocity); // First update, use direct value
+      // Calculate velocity for prediction
+      if (player.updateCount > 0 && timeDelta > 0) {
+        const instantVelocity = new THREE.Vector3()
+          .subVectors(player.targetPosition, player.lastPosition)
+          .divideScalar(timeDelta);
+        
+        if (player.velocity.lengthSq() > 0) {
+          player.velocity.lerp(instantVelocity, 0.3); // 30% weight to new velocity
+        } else {
+          player.velocity.copy(instantVelocity); // First update, use direct value
+        }
       }
     }
+    
+    if (playerData.direction) {
+      player.targetDirection.set(
+        playerData.direction.x,
+        playerData.direction.y,
+        playerData.direction.z
+      );
+    }
+    
+    // Update acceleration state
+    player.isAccelerating = playerData.isAccelerating || false;
+    
+    // Update timestamp and increment counter
+    player.lastUpdateTime = updateTime;
+    player.updateCount++;
+    
+    // Return true to indicate successful update
+    return true;
   }
   
-  if (playerData.direction) {
-    player.targetDirection.set(
-      playerData.direction.x,
-      playerData.direction.y,
-      playerData.direction.z
-    );
-  }
-  
-  // Update acceleration state
-  player.isAccelerating = playerData.isAccelerating || false;
-  
-  // Update timestamp and increment counter
-  player.lastUpdateTime = updateTime;
-  player.updateCount++;
-  
-  // Return true to indicate successful update
-  return true;
-}
+  return false;
 }
 
 function removeOtherPlayer(playerId) {
