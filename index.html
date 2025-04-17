@@ -1442,8 +1442,8 @@ function initPortals() {
 
 // Add this function to detect solo play
 function isPlayingSolo() {
-  // Check if no other players or not in a session
-  const currentlySolo = !playerStats.sessionId || Object.keys(otherPlayers).length === 0;
+  // SIMPLIFIED: Only check if we have a session ID, ignore otherPlayers count
+  const currentlySolo = !playerStats.sessionId;
   
   // Track state transition from solo to multiplayer
   if (window.wasSoloMode && !currentlySolo) {
@@ -1530,7 +1530,7 @@ function initializeGameSessions() {
   }
   
   // Get URL-based sessionId to group players on same URL
-  const urlPath = window.location.pathname;
+  
   const sessionId = `session_${urlPath.replace(/[^a-zA-Z0-9]/g, '_')}`;
   
   // Store the session ID for this player
@@ -1565,15 +1565,7 @@ function initializeGameSessions() {
       setupMultiplayerSync();
       setupSessionPresence();
       
-      // Listen for other players joining this session
-      return db.collection("players")
-        .where("sessionId", "==", sessionId)
-        .onSnapshot(snapshot => {
-          if (snapshot.size > 1 && window.wasSoloMode) {
-            console.log("Other players detected! Switching to multiplayer mode");
-            onMultiplayerJoin();
-          }
-        });
+    
     })
     .catch(error => {
       console.error("Error setting up multiplayer:", error);
@@ -1899,6 +1891,7 @@ function setupMultiplayerSync() {
             y: missileDirection.y, 
             z: missileDirection.z 
         },
+        sessionId: playerStats.sessionId,
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
         isActive: true,
         isAccelerating: false
@@ -1910,6 +1903,11 @@ function setupMultiplayerSync() {
             setupPlayerPresence(playerRef);
             startPositionSync(playerRef);
             window.multiplayerSyncInitialized = true;
+            
+            // Force a player update to ensure visibility to others
+            setTimeout(() => {
+                syncPlayerStatsToFirebase({forceSend: true});
+            }, 1000);
         })
         .catch(error => {
             console.error("Error joining multiplayer:", error);
@@ -5364,7 +5362,7 @@ function updateHUD() {
 }
 
 function listenForOtherPlayers(playersCollection) {
-    console.log("Setting up listener for other players using consolidated collection...");
+    console.log("Setting up listener for other players in global session...");
     
     try {
         // Unsubscribe from any existing listener
@@ -5373,9 +5371,10 @@ function listenForOtherPlayers(playersCollection) {
             window.otherPlayersListener = null;
         }
         
-        // Listen for active players changes with error handling
+        // Listen for active players IN THE SAME SESSION
         window.otherPlayersListener = playersCollection
-            .where("isActive", "==", true) // Only show active players
+            .where("isActive", "==", true)
+            .where("sessionId", "==", playerStats.sessionId) // Filter by session
             .onSnapshot(snapshot => {
                 snapshot.docChanges().forEach(change => {
                     const playerId = change.doc.id;
@@ -5511,11 +5510,8 @@ function updateOtherPlayer(playerId, playerData) {
   // Skip if this is current player or player data is invalid
   if (playerId === playerStats.id || !playerData) return;
   
-  // Skip updates in solo mode to reduce Firebase overhead
-  if (isPlayingSolo() && !playerData.forceSend) {
-    console.log("Solo mode: skipping other player update");
-    return;
-  }
+  // Check session ID match - always process players in the same session
+  if (playerData.sessionId && playerData.sessionId === playerStats.sessionId) {
   
   // Create player if doesn't exist
   if (!otherPlayers[playerId]) {
@@ -5526,25 +5522,27 @@ function updateOtherPlayer(playerId, playerData) {
     scene.add(otherMissile);
     
     otherPlayers[playerId] = {
-      id: playerId,
-      name: playerData.name,
-      missile: otherMissile,
-      lastPosition: new THREE.Vector3(),
-      targetPosition: new THREE.Vector3(),
-      direction: new THREE.Vector3(),
-      targetDirection: new THREE.Vector3(),
-      color: playerData.color,
-      isAccelerating: playerData.isAccelerating || false,
-      lastUpdateTime: Date.now(),
-      velocity: new THREE.Vector3(), // Add velocity for prediction
-      positionHistory: [], // Track position history for velocity calculation
-      updateCount: 0 // Track number of updates received
-    };
+        id: playerId,
+        name: playerData.name,
+        missile: otherMissile,
+        lastPosition: new THREE.Vector3(),
+        targetPosition: new THREE.Vector3(),
+        direction: new THREE.Vector3(),
+        targetDirection: new THREE.Vector3(),
+        color: playerData.color,
+        isAccelerating: playerData.isAccelerating || false,
+        targetsDestroyed: playerData.targetsDestroyed || 0,
+        roundsWon: playerData.roundsWon || 0,
+        lastUpdateTime: Date.now(),
+        updateCount: 0,
+        velocity: new THREE.Vector3()
+      };
     
     // Add marker to minimap
     addOtherPlayerMinimapMarker(playerId, playerData.color);
     
     // Update the leaderboard to show the new player
+    updatePlayerCountUI();
     markLeaderboardForUpdate();
   }
   
@@ -5623,6 +5621,7 @@ function updateOtherPlayer(playerId, playerData) {
   
   // Return true to indicate successful update
   return true;
+}
 }
 
 function removeOtherPlayer(playerId) {
