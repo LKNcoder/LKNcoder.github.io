@@ -1518,38 +1518,65 @@ function onMultiplayerJoin() {
 function initializeGameSessions() {
   if (!db) return;
   
-  console.log("Initializing game session system with solo-first approach...");
+  console.log("Initializing game session system with efficient multiplayer...");
   
-  // Check if user explicitly wants multiplayer (could be a URL parameter or button)
-  const wantsMultiplayer = new URLSearchParams(window.location.search).get('multiplayer') === 'true';
+  // Check for explicit solo mode request (inverse of current logic)
+  const wantsSoloMode = new URLSearchParams(window.location.search).get('solo') === 'true';
   
-  if (!wantsMultiplayer) {
-    console.log("Starting in solo mode (no Firebase syncing)");
-    // Skip session joining and just start the game
+  if (wantsSoloMode) {
+    console.log("Starting in explicit solo mode (no Firebase syncing)");
     createCity();
-    
     return;
   }
   
-  // Continue with multiplayer session logic for those who want it
+  // Get URL-based sessionId to group players on same URL
+  const urlPath = window.location.pathname;
+  const sessionId = `session_${urlPath.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  
+  // Store the session ID for this player
+  playerStats.sessionId = sessionId;
+  
+  // Start with local city creation for immediate gameplay
+  createCity();
+  
+  // But also set up multiplayer in the background
   db.collection("gameSessions")
-    .where("playerCount", "<", 8)
-    .where("active", "==", true)
-    .orderBy("playerCount", "desc")
-    .limit(1)
+    .doc(sessionId)
     .get()
-    .then(snapshot => {
-      if (snapshot.empty) {
-        createNewGameSession();
+    .then(doc => {
+      if (!doc.exists) {
+        // First player - create session
+        return db.collection("gameSessions").doc(sessionId).set({
+          host: playerStats.id,
+          created: firebase.firestore.FieldValue.serverTimestamp(),
+          playerCount: 1,
+          active: true,
+          players: [playerStats.id]
+        });
       } else {
-        joinGameSession(snapshot.docs[0].id);
+        // Add player to existing session
+        return db.collection("gameSessions").doc(sessionId).update({
+          playerCount: firebase.firestore.FieldValue.increment(1),
+          players: firebase.firestore.FieldValue.arrayUnion(playerStats.id)
+        });
       }
     })
-    .catch(error => {
-      console.error("Error finding game sessions:", error);
-      // Fall back to solo mode on error
-      createCity();
+    .then(() => {
+      setupMultiplayerSync();
+      setupSessionPresence();
       
+      // Listen for other players joining this session
+      return db.collection("players")
+        .where("sessionId", "==", sessionId)
+        .onSnapshot(snapshot => {
+          if (snapshot.size > 1 && window.wasSoloMode) {
+            console.log("Other players detected! Switching to multiplayer mode");
+            onMultiplayerJoin();
+          }
+        });
+    })
+    .catch(error => {
+      console.error("Error setting up multiplayer:", error);
     });
 }
 
