@@ -8982,19 +8982,17 @@ function updateLeaderboard() {
     isLocalPlayer: true
   });
   
-  // Add enemy pilots in solo mode
-  if (isPlayingSolo()) {
-    enemyPilotStats.forEach(pilot => {
-      displayEntries.push({
-        id: pilot.id,
-        name: pilot.name,
-        targetsDestroyed: pilot.targetsDestroyed,
-        roundsWon: pilot.roundsWon || 0,
-        color: pilot.color || "#888888",
-        isEnemyPilot: true
-      });
+  // Add enemy pilots
+  enemyPilotStats.forEach(pilot => {
+    displayEntries.push({
+      id: pilot.id,
+      name: pilot.name,
+      targetsDestroyed: pilot.targetsDestroyed,
+      roundsWon: pilot.roundsWon || 0,
+      color: pilot.color || "#888888",
+      isEnemyPilot: true
     });
-  }
+  });
   
   // Add other human players in multiplayer mode
   Object.values(otherPlayers).forEach(player => {
