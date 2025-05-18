@@ -184,62 +184,62 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
         // Create jars for each color
         function createJars() {
             const jarPositions = [
-                new THREE.Vector3(-1.5, 0.5, -1), // Purple jar
-                new THREE.Vector3(0, 0.5, -1),    // Green jar
-                new THREE.Vector3(1.5, 0.5, -1)   // Yellow jar
+                new THREE.Vector3(-0.375, 0.125, -0.25), // Purple jar 
+        new THREE.Vector3(0, 0.125, -0.25),      // Green jar
+        new THREE.Vector3(0.375, 0.125, -0.25)   // Yellow jar 
             ];
             
             for (let i = 0; i < 3; i++) {
-                // Create jar base
-                const baseGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
-                const baseMaterial = new THREE.MeshStandardMaterial({ 
-                    color: 0x444444,
-                    roughness: 0.8
-                });
-                const base = new THREE.Mesh(baseGeometry, baseMaterial);
-                base.position.copy(jarPositions[i]);
-                base.position.y = 0.05;
-                base.receiveShadow = true;
-                scene.add(base);
-                
-                // Create jar
-                const jarGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.8, 16, 1, true);
-                const jarMaterial = new THREE.MeshPhysicalMaterial({
-                    color: 0xffffff,
-                    roughness: 0.1,
-                    metalness: 0.1,
-                    transmission: 0.9, // Glass-like
-                    transparent: true,
-                    opacity: 0.3
-                });
-                const jar = new THREE.Mesh(jarGeometry, jarMaterial);
-                jar.position.copy(jarPositions[i]);
-                jar.position.y = 0.5;
-                scene.add(jar);
-                
-                // Add a glowing inner cylinder to indicate jar color
-                const glowGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.7, 16);
-                const glowMaterial = new THREE.MeshStandardMaterial({
-                    color: fireflyColors[i],
-                    emissive: fireflyColors[i],
-                    emissiveIntensity: 0.2,
-                    transparent: true,
-                    opacity: 0.1
-                });
-                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-                glow.position.copy(jarPositions[i]);
-                glow.position.y = 0.5;
-                scene.add(glow);
-                
-                jars.push({
-                    position: jarPositions[i],
-                    color: i,
-                    mesh: jar,
-                    glow: glow,
-                    fireflies: []
-                });
-            }
-        }
+        // Create jar base
+        const baseGeometry = new THREE.CylinderGeometry(0.075, 0.075, 0.025, 16); 
+        const baseMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x444444,
+            roughness: 0.8
+        });
+        const base = new THREE.Mesh(baseGeometry, baseMaterial);
+        base.position.copy(jarPositions[i]);
+        base.position.y = 0.0125; // Reduced from 0.05
+        base.receiveShadow = true;
+        scene.add(base);
+        
+        // Create jar
+        const jarGeometry = new THREE.CylinderGeometry(0.0625, 0.0625, 0.2, 16, 1, true); 
+        const jarMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            roughness: 0.1,
+            metalness: 0.1,
+            transmission: 0.9, // Glass-like
+            transparent: true,
+            opacity: 0.3
+        });
+        const jar = new THREE.Mesh(jarGeometry, jarMaterial);
+        jar.position.copy(jarPositions[i]);
+        jar.position.y = 0.125; // Reduced from 0.5
+        scene.add(jar);
+        
+        // Add a glowing inner cylinder to indicate jar color
+        const glowGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.175, 16); 
+        const glowMaterial = new THREE.MeshStandardMaterial({
+            color: fireflyColors[i],
+            emissive: fireflyColors[i],
+            emissiveIntensity: 0.2,
+            transparent: true,
+            opacity: 0.1
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.copy(jarPositions[i]);
+        glow.position.y = 0.125; // Reduced from 0.5
+        scene.add(glow);
+        
+        jars.push({
+            position: jarPositions[i],
+            color: i,
+            mesh: jar,
+            glow: glow,
+            fireflies: []
+        });
+    }
+}
         
         // Create fireflies
         function createFireflies(count) {
@@ -248,7 +248,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 const color = fireflyColors[colorIndex];
                 
                 // Create firefly body
-                const bodyGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+                const bodyGeometry = new THREE.SphereGeometry(0.0075, 8, 8); 
                 const bodyMaterial = new THREE.MeshStandardMaterial({
                     color: color,
                     emissive: color,
@@ -257,7 +257,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
                 
                 // Create simple wings (two small planes)
-                const wingGeometry = new THREE.PlaneGeometry(0.05, 0.04);
+                const wingGeometry = new THREE.PlaneGeometry(0.0125, 0.01); 
                 const wingMaterial = new THREE.MeshStandardMaterial({
                     color: 0xffffff,
                     transparent: true,
@@ -266,25 +266,25 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 });
                 
                 const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-                leftWing.position.set(-0.03, 0, 0);
+                leftWing.position.set(-0.0075, 0, 0); 
                 leftWing.rotation.y = Math.PI / 4;
                 body.add(leftWing);
                 
                 const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-                rightWing.position.set(0.03, 0, 0);
+                rightWing.position.set(0.0075, 0, 0); 
                 rightWing.rotation.y = -Math.PI / 4;
                 body.add(rightWing);
                 
                 // Create point light for the glow effect
-                const light = new THREE.PointLight(color, 0, 0.5);
+                 const light = new THREE.PointLight(color, 0, 0.125); 
                 light.intensity = 0;
                 body.add(light);
                 
                 // Position randomly in the scene
                 body.position.set(
-                    (Math.random() - 0.5) * 8,
-                    1 + Math.random() * 2,
-                    (Math.random() - 0.5) * 8
+                 (Math.random() - 0.5) * 2, 
+            0.25 + Math.random() * 0.5,
+            (Math.random() - 0.5) * 2  
                 );
                 
                 scene.add(body);
@@ -296,9 +296,9 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                     material: bodyMaterial,
                     colorIndex: colorIndex,
                     velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 0.02,
-                        (Math.random() - 0.5) * 0.02,
-                        (Math.random() - 0.5) * 0.02
+                       (Math.random() - 0.5) * 0.005, 
+                (Math.random() - 0.5) * 0.005, 
+                (Math.random() - 0.5) * 0.005  
                     ),
                     blinkTimer: Math.random() * 5,
                     blinkDuration: 0.3,
@@ -366,33 +366,27 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
         
         // Create UI elements
         function createUI() {
-            // Score and timer display
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 128;
-            const context = canvas.getContext('2d');
+           // Score and timer display
+        const geometry = new THREE.PlaneGeometry(0.25, 0.0625); 
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(0, 0.125, -0.5);
             
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.MeshBasicMaterial({
-                map: texture,
-                transparent: true,
-                side: THREE.DoubleSide
-            });
             
-            const geometry = new THREE.PlaneGeometry(1, 0.25);
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(0, 0.5, -2);
             scene.add(mesh);
             
             // Quit button
-            const quitGeometry = new THREE.PlaneGeometry(0.4, 0.15);
-            const quitMaterial = new THREE.MeshBasicMaterial({
-                color: 0xff0000,
-                side: THREE.DoubleSide
-            });
-            
-            const quitButton = new THREE.Mesh(quitGeometry, quitMaterial);
-            quitButton.position.set(0, 0.1, -2);
+            const quitGeometry = new THREE.PlaneGeometry(0.1, 0.0375); 
+            const quitMaterial = new THREE.MeshStandardMaterial({
+    color: 0x400000, // Much darker red
+    emissive: 0xff0000, // Red glow
+    emissiveIntensity: 0.2, // Very subtle intensity
+    transparent: true,
+    opacity: 0.6, // Partially transparent
+    side: THREE.DoubleSide
+});
+
+           const quitButton = new THREE.Mesh(quitGeometry, quitMaterial);
+            quitButton.position.set(0, 0.025, -0.5);
             scene.add(quitButton);
             
             // Quit text
@@ -413,9 +407,9 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 side: THREE.DoubleSide
             });
             
-            const quitTextGeometry = new THREE.PlaneGeometry(0.35, 0.12);
+            const quitTextGeometry = new THREE.PlaneGeometry(0.0875, 0.03); 
             const quitTextMesh = new THREE.Mesh(quitTextGeometry, quitTextMaterial);
-            quitTextMesh.position.set(0, 0.1, -1.99);
+            quitTextMesh.position.set(0, 0.025, -0.49);
             scene.add(quitTextMesh);
             
             // Update UI function
@@ -466,14 +460,14 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 if (!firefly.isCaught) {
                     // Add random movement changes
                     if (Math.random() < 0.05) {
-                        firefly.velocity.x += (Math.random() - 0.5) * 0.01;
-                        firefly.velocity.y += (Math.random() - 0.5) * 0.01;
-                        firefly.velocity.z += (Math.random() - 0.5) * 0.01;
+                       firefly.velocity.x += (Math.random() - 0.5) * 0.0025; 
+                       firefly.velocity.y += (Math.random() - 0.5) * 0.0025; 
+                       firefly.velocity.z += (Math.random() - 0.5) * 0.0025; 
                         
                         // Limit velocity
                         const speed = firefly.velocity.length();
-                        if (speed > 0.05) {
-                            firefly.velocity.multiplyScalar(0.05 / speed);
+                         if (speed > 0.0125) { // Reduced from 0.05
+                     firefly.velocity.multiplyScalar(0.0125 / speed);
                         }
                     }
                     
@@ -481,12 +475,12 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                     mesh.position.add(firefly.velocity);
                     
                     // Boundary checking - keep fireflies within a certain volume
-                    if (mesh.position.x < -10 || mesh.position.x > 10) firefly.velocity.x *= -1;
-                    if (mesh.position.y < 0.5 || mesh.position.y > 4) firefly.velocity.y *= -1;
-                    if (mesh.position.z < -10 || mesh.position.z > 10) firefly.velocity.z *= -1;
-                    
-                    // Ensure they stay above the ground
-                    if (mesh.position.y < 0.5) mesh.position.y = 0.5;
+                 if (mesh.position.x < -2.5 || mesh.position.x > 2.5) firefly.velocity.x *= -1; 
+                 if (mesh.position.y < 0.125 || mesh.position.y > 1) firefly.velocity.y *= -1;
+                   if (mesh.position.z < -2.5 || mesh.position.z > 2.5) firefly.velocity.z *= -1; 
+                
+              // Ensure they stay above the ground
+               if (mesh.position.y < 0.125) mesh.position.y = 0.125; 
                 }
                 
                 // Handle blinking
@@ -521,7 +515,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
             controllers[1].getWorldPosition(controller2Pos);
             
             const controllerDistance = controller1Pos.distanceTo(controller2Pos);
-            const clapThreshold = 0.25; // How close controllers need to be to "clap"
+            const clapThreshold = 0.0625; // How close controllers need to be to "clap"
             
             const isClapping = controllerDistance < clapThreshold;
             
@@ -570,7 +564,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                     const distanceToJar = fireflyPos.distanceTo(jar.position);
                     
                     // If the firefly is close enough to the jar
-                    if (distanceToJar < 0.3) {
+                    if (distanceToJar < 0.075) {
                         placeFireflyInJar(firefly, jar);
                         break;
                     }
@@ -587,7 +581,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
             controller.add(firefly.mesh);
             
             // Position firefly in front of the controller
-            firefly.mesh.position.set(0, 0, -0.1);
+            firefly.mesh.position.set(0, 0, -0.025);
             
             // Make it glow constantly
             firefly.material.emissiveIntensity = 1;
@@ -613,8 +607,8 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 
                 // Calculate random position within jar
                 const randomAngle = Math.random() * Math.PI * 2;
-                const randomRadius = Math.random() * 0.15;
-                const randomHeight = Math.random() * 0.4;
+                const randomRadius = Math.random() * 0.0375; 
+                const randomHeight = Math.random() * 0.1; 
                 
                 firefly.mesh.position.set(
                     jar.position.x + Math.cos(randomAngle) * randomRadius,
