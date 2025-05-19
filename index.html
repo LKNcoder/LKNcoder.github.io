@@ -146,100 +146,54 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
         
         // Setup the game environment
         function setup() {
-            // Add ambient light
-            const ambientLight = new THREE.AmbientLight(0x111111);
-            scene.add(ambientLight);
-            
-            // Add directional light (very dim for atmosphere)
-            const directionalLight = new THREE.DirectionalLight(0x222222, 0.5);
-            directionalLight.position.set(0, 10, 0);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-            
-            // Create the ground plane
-            const groundGeometry = new THREE.PlaneGeometry(20, 20);
-            const groundMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x333333, 
-                roughness: 0.8,
-                metalness: 0.2
-            });
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
-            scene.add(ground);
-            
-            // Create jars for each color
-            createJars();
-            
-            // Create fireflies
-            createFireflies(25); // 25 fireflies total
-            
-            // Setup controllers
-            setupControllers();
-            
-            // Create UI elements
-            createUI();
+    // Add ambient light - bluish violet for swamp atmosphere
+    const ambientLight = new THREE.AmbientLight(0x2A1E5C, 0.2); // Inky bluish-violet, low intensity
+    scene.add(ambientLight);
+    
+    // Add directional moonlight (very dim for atmosphere)
+    const directionalLight = new THREE.DirectionalLight(0x5D4E8C, 0.3);
+    directionalLight.position.set(0, 10, 0);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+    
+    // Create the ground plane (swampy terrain)
+    const groundGeometry = new THREE.PlaneGeometry(20, 20, 32, 32);
+    // Add some vertex displacement for uneven swampy ground
+    const vertices = groundGeometry.attributes.position.array;
+    for (let i = 0; i < vertices.length; i += 3) {
+        // Skip the edges to keep them level
+        if (Math.abs(vertices[i]) < 9 && Math.abs(vertices[i+2]) < 9) {
+            vertices[i+1] = Math.random() * 0.1 - 0.05; // Small bumps
         }
-        
-        // Create jars for each color
-        function createJars() {
-            const jarPositions = [
-                new THREE.Vector3(-0.375, 0.125, -0.25), // Purple jar 
-        new THREE.Vector3(0, 0.125, -0.25),      // Green jar
-        new THREE.Vector3(0.375, 0.125, -0.25)   // Yellow jar 
-            ];
-            
-            for (let i = 0; i < 3; i++) {
-        // Create jar base
-        const baseGeometry = new THREE.CylinderGeometry(0.075, 0.075, 0.025, 16); 
-        const baseMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x444444,
-            roughness: 0.8
-        });
-        const base = new THREE.Mesh(baseGeometry, baseMaterial);
-        base.position.copy(jarPositions[i]);
-        base.position.y = 0.0125; // Reduced from 0.05
-        base.receiveShadow = true;
-        scene.add(base);
-        
-        // Create jar
-        const jarGeometry = new THREE.CylinderGeometry(0.0625, 0.0625, 0.2, 16, 1, true); 
-        const jarMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            roughness: 0.1,
-            metalness: 0.1,
-            transmission: 0.9, // Glass-like
-            transparent: true,
-            opacity: 0.3
-        });
-        const jar = new THREE.Mesh(jarGeometry, jarMaterial);
-        jar.position.copy(jarPositions[i]);
-        jar.position.y = 0.125; // Reduced from 0.5
-        scene.add(jar);
-        
-        // Add a glowing inner cylinder to indicate jar color
-        const glowGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.175, 16); 
-        const glowMaterial = new THREE.MeshStandardMaterial({
-            color: fireflyColors[i],
-            emissive: fireflyColors[i],
-            emissiveIntensity: 0.2,
-            transparent: true,
-            opacity: 0.1
-        });
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.copy(jarPositions[i]);
-        glow.position.y = 0.125; // Reduced from 0.5
-        scene.add(glow);
-        
-        jars.push({
-            position: jarPositions[i],
-            color: i,
-            mesh: jar,
-            glow: glow,
-            fireflies: []
-        });
     }
+    
+    const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x0A3B0A, // Dark swamp green
+        roughness: 0.9,
+        metalness: 0.1
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+    
+    // Create swampy elements
+    createSwampEnvironment();
+    
+    // Create glowing mushrooms
+    createMushrooms(30); // Create 30 mushrooms
+    
+    // Create fireflies
+    createFireflies(25); // 25 fireflies
+    
+    // Setup controllers with nets
+    setupNetControllers();
+    
+    // Create UI elements
+    createUI();
 }
+        
+    
         
         // Create fireflies
         function createFireflies(count) {
@@ -316,63 +270,366 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
                 fireflies.push(firefly);
             }
         }
+
+
+
+// Create elements for swamp environment
+function createSwampEnvironment() {
+    // Create some reeds/cattails
+    for (let i = 0; i < 50; i++) {
+        const height = 0.3 + Math.random() * 0.6;
+        const reedGeometry = new THREE.CylinderGeometry(0.005, 0.01, height, 5);
+        const reedMaterial = new THREE.MeshStandardMaterial({
+            color: 0x6B8E23, // Olive green
+            roughness: 0.9
+        });
+        const reed = new THREE.Mesh(reedGeometry, reedMaterial);
         
-        // Setup VR controllers
-        function setupControllers() {
-            const controllerModelFactory = new XRControllerModelFactory();
+        // Position randomly around the scene, but avoid the center
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 1.5 + Math.random() * 8;
+        reed.position.set(
+            Math.cos(angle) * radius,
+            height / 2,
+            Math.sin(angle) * radius
+        );
+        
+        // Random slight tilt
+        reed.rotation.x = (Math.random() - 0.5) * 0.2;
+        reed.rotation.z = (Math.random() - 0.5) * 0.2;
+        
+        reed.castShadow = true;
+        reed.receiveShadow = true;
+        scene.add(reed);
+    }
+    
+    // Create some tree stumps
+    for (let i = 0; i < 8; i++) {
+        const stumpGeometry = new THREE.CylinderGeometry(0.2, 0.25, 0.3, 8);
+        const stumpMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3D2817, // Dark brown
+            roughness: 1.0
+        });
+        const stump = new THREE.Mesh(stumpGeometry, stumpMaterial);
+        
+        // Position randomly around the scene
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 2 + Math.random() * 7;
+        stump.position.set(
+            Math.cos(angle) * radius,
+            0.15,
+            Math.sin(angle) * radius
+        );
+        
+        stump.castShadow = true;
+        stump.receiveShadow = true;
+        scene.add(stump);
+    }
+    
+    // Create some rocks
+    for (let i = 0; i < 15; i++) {
+        const rockGeometry = new THREE.DodecahedronGeometry(0.1 + Math.random() * 0.15, 0);
+        const rockMaterial = new THREE.MeshStandardMaterial({
+            color: 0x555555,
+            roughness: 0.8
+        });
+        const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+        
+        // Position randomly
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * 9;
+        rock.position.set(
+            Math.cos(angle) * radius,
+            0.05,
+            Math.sin(angle) * radius
+        );
+        
+        // Random rotation
+        rock.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+        
+        rock.castShadow = true;
+        rock.receiveShadow = true;
+        scene.add(rock);
+    }
+    
+    // Add some fog for atmosphere
+    scene.fog = new THREE.FogExp2(0x0A1A2A, 0.05);
+}
+
+// Create glowing mushrooms
+let mushrooms = [];
+function createMushrooms(count) {
+    for (let i = 0; i < count; i++) {
+        // Create stem
+        const stemHeight = 0.05 + Math.random() * 0.1;
+        const stemRadius = 0.01 + Math.random() * 0.015;
+        const stemGeometry = new THREE.CylinderGeometry(stemRadius, stemRadius * 1.2, stemHeight, 8);
+        const stemMaterial = new THREE.MeshStandardMaterial({
+            color: 0xDDBBDD, // Light purplish
+            roughness: 0.7
+        });
+        const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+        
+        // Create cap
+        const capRadius = stemRadius * 3;
+        const capHeight = stemRadius * 2;
+        const capGeometry = new THREE.ConeGeometry(capRadius, capHeight, 8, 1, true);
+        
+        // Random mushroom colors with low initial emissive intensity
+        const capColor = new THREE.Color(
+            0.3 + Math.random() * 0.7,
+            0.2 + Math.random() * 0.3,
+            0.5 + Math.random() * 0.5
+        );
+        
+        const capMaterial = new THREE.MeshStandardMaterial({
+            color: capColor,
+            emissive: capColor,
+            emissiveIntensity: 0.05, // Start with low glow
+            roughness: 0.7
+        });
+        const cap = new THREE.Mesh(capGeometry, capMaterial);
+        cap.position.y = stemHeight / 2;
+        cap.rotation.x = Math.PI; // Flip the cone upside down
+        
+        // Create mushroom group
+        const mushroom = new THREE.Group();
+        mushroom.add(stem);
+        mushroom.add(cap);
+        
+        // Position randomly
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 0.5 + Math.random() * 9;
+        mushroom.position.set(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+        );
+        
+        // Random slight tilt
+        mushroom.rotation.x = (Math.random() - 0.5) * 0.2;
+        mushroom.rotation.z = (Math.random() - 0.5) * 0.2;
+        
+        mushroom.userData = {
+            cap: cap,
+            originalIntensity: 0.05,
+            maxIntensity: 0.3 + Math.random() * 0.7 // Different max intensity for variation
+        };
+        
+        scene.add(mushroom);
+        mushrooms.push(mushroom);
+    }
+}
+
+// Setup VR controllers with nets
+function setupNetControllers() {
+    const controllerModelFactory = new XRControllerModelFactory();
+    
+    // Create controller objects and add them to the scene
+    for (let i = 0; i < 2; i++) {
+        // Controller
+        const controller = renderer.xr.getController(i);
+        controller.addEventListener('connected', (event) => {
+            controller.userData.gamepad = event.data.gamepad;
+        });
+        controller.addEventListener('disconnected', () => {
+            controller.remove(controller.children[0]);
+            controller.userData.gamepad = null;
+        });
+        scene.add(controller);
+        controllers.push(controller);
+        
+        // Create the net model (handle + cylinder)
+        const handleGeometry = new THREE.BoxGeometry(0.01, 0.01, 0.2);
+        const handleMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513, // Wood color
+            roughness: 0.8
+        });
+        const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+        handle.position.z = -0.1; // Position handle behind the net
+        
+        // Create the net cylinder
+        const netGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16, 1, true);
+        const netMaterial = new THREE.MeshStandardMaterial({
+            color: 0xCCCCCC,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide,
+            wireframe: true
+        });
+        const net = new THREE.Mesh(netGeometry, netMaterial);
+        net.rotation.x = Math.PI / 2; // Rotate to make circular opening face forward
+        net.position.z = -0.02; // Position at the end of the handle
+        
+        // Create a group for the net and handle
+        const netTool = new THREE.Group();
+        netTool.add(handle);
+        netTool.add(net);
+        
+        // Add to controller
+        controller.add(netTool);
+        
+        // Store the net part for collision detection
+        controller.userData.net = net;
+        controller.userData.netFlashing = false;
+        
+        controllers.push(controller);
+    }
+}
+
+// Check for controller collisions with fireflies
+function checkCollisions() {
+    // For each controller
+    for (let c = 0; c < controllers.length; c++) {
+        const controller = controllers[c];
+        if (!controller.userData.net) continue;
+        
+        // Get the net's world position and rotation
+        const netWorldPosition = new THREE.Vector3();
+        controller.userData.net.getWorldPosition(netWorldPosition);
+        
+        // Check each firefly
+        for (let i = 0; i < fireflies.length; i++) {
+            const firefly = fireflies[i];
             
-            // Create controller objects and add them to the scene
-            for (let i = 0; i < 2; i++) {
-                // Controller
-                const controller = renderer.xr.getController(i);
-                controller.addEventListener('connected', (event) => {
-                    controller.userData.gamepad = event.data.gamepad;
-                });
-                controller.addEventListener('disconnected', () => {
-                    controller.remove(controller.children[0]);
-                    controller.userData.gamepad = null;
-                });
-                scene.add(controller);
-                controllers.push(controller);
-                
-                // Controller grip
-                const controllerGrip = renderer.xr.getControllerGrip(i);
-                controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
-                scene.add(controllerGrip);
-                controllerGrips.push(controllerGrip);
-                
-                // Hemisphere for catching fireflies (facing inward)
-                const hemisphereGeometry = new THREE.SphereGeometry(0.08, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-                const hemisphereMaterial = new THREE.MeshStandardMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0.2,
-                    side: THREE.DoubleSide
-                });
-                const hemisphere = new THREE.Mesh(hemisphereGeometry, hemisphereMaterial);
-                
-                // Rotate the hemisphere so the flat part faces inward toward the other controller
-                hemisphere.rotation.x = Math.PI;
-                if (i === 0) {
-                    hemisphere.rotation.z = Math.PI / 2; // Left hand
-                } else {
-                    hemisphere.rotation.z = -Math.PI / 2; // Right hand
-                }
-                
-                controller.add(hemisphere);
-                controllerHemispheres.push(hemisphere);
+            // Skip if already caught
+            if (firefly.isCaught) continue;
+            
+            // Get firefly position
+            const fireflyPos = new THREE.Vector3();
+            firefly.mesh.getWorldPosition(fireflyPos);
+            
+            // Calculate distance to the net
+            const distanceToNet = fireflyPos.distanceTo(netWorldPosition);
+            
+            // If the firefly is close enough to the net, catch it
+            if (distanceToNet < 0.07) { // Net radius + small margin
+                catchFirefly(firefly, c);
+                break; // Only catch one firefly at a time
             }
         }
+    }
+}
+
+// Catch a firefly
+function catchFirefly(firefly, controllerIndex) {
+    firefly.isCaught = true;
+    
+    // Flash the net
+    flashNet(controllers[controllerIndex]);
+    
+    // Trigger haptic feedback
+    triggerHapticFeedback(controllerIndex, 0.8, 100);
+    
+    // Remove the firefly after a brief flash
+    setTimeout(() => {
+        scene.remove(firefly.mesh);
+        
+        // Remove from array by setting it to null
+        // We'll filter these out later if needed
+        const index = fireflies.indexOf(firefly);
+        if (index !== -1) {
+            fireflies[index] = null;
+        }
+        
+        // Increase the brightness of mushrooms
+        increaseMushromBrightness();
+        
+        // Add points
+        score += 10;
+    }, 300);
+}
+
+// Flash the net when catching a firefly
+function flashNet(controller) {
+    if (!controller.userData.net || controller.userData.netFlashing) return;
+    
+    controller.userData.netFlashing = true;
+    
+    // Store original material
+    const originalMaterial = controller.userData.net.material;
+    
+    // Create a glowing material
+    const flashMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFFFFF, 
+        transparent: true,
+        opacity: 0.7
+    });
+    
+    // Apply flash material
+    controller.userData.net.material = flashMaterial;
+    
+    // Reset after flash
+    setTimeout(() => {
+        controller.userData.net.material = originalMaterial;
+        controller.userData.netFlashing = false;
+    }, 300);
+}
+
+// Increase mushroom brightness when a firefly is caught
+function increaseMushromBrightness() {
+    // Count remaining fireflies
+    const remainingFireflies = fireflies.filter(f => f !== null).length;
+    
+    // Calculate global intensity factor based on how many fireflies have been caught
+    const intensityFactor = 1 - (remainingFireflies / 25); // Assuming 25 was the initial count
+    
+    // Apply the new intensity to each mushroom
+    for (let i = 0; i < mushrooms.length; i++) {
+        const mushroom = mushrooms[i];
+        const capMaterial = mushroom.userData.cap.material;
+        
+        // Calculate new intensity between original and max, based on how many fireflies are caught
+        const newIntensity = mushroom.userData.originalIntensity + 
+            (mushroom.userData.maxIntensity - mushroom.userData.originalIntensity) * intensityFactor;
+        
+        capMaterial.emissiveIntensity = newIntensity;
+    }
+    
+    // Also increase the ambient light slightly
+    ambientLight.intensity = 0.2 + (0.3 * intensityFactor);
+}
+
+
+
+
+
+
+        
+      
         
         // Create UI elements
-        function createUI() {
-           // Score and timer display
-        const geometry = new THREE.PlaneGeometry(0.25, 0.0625); 
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(0, 0.125, -0.5);
-            
-            
-            scene.add(mesh);
+      function createUI() {
+    // Score and timer display
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    
+    // Fill with initial content
+    context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = 'white';
+    context.font = '32px Arial';
+    context.textAlign = 'center';
+    context.fillText(`Score: ${score}   Time: ${Math.ceil(timeRemaining)}s`, 256, 64);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    const geometry = new THREE.PlaneGeometry(0.25, 0.0625); 
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(0, 0.125, -0.5);
+    
+    scene.add(mesh);
             
             // Quit button
             const quitGeometry = new THREE.PlaneGeometry(0.1, 0.0375); 
@@ -572,130 +829,16 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
             }
         }
         
-        // Catch a firefly and attach it to a controller
-        function catchFirefly(firefly, controller) {
-            firefly.isCaught = true;
-            
-            // Remove from scene and add to controller
-            scene.remove(firefly.mesh);
-            controller.add(firefly.mesh);
-            
-            // Position firefly in front of the controller
-            firefly.mesh.position.set(0, 0, -0.025);
-            
-            // Make it glow constantly
-            firefly.material.emissiveIntensity = 1;
-            firefly.light.intensity = 1;
-            firefly.isBlinking = true;
-            
-            // Add points
-            score += 10;
-        }
-        
-        // Place a firefly in a jar
-        function placeFireflyInJar(firefly, jar) {
-            // Check if correct color jar
-            const isCorrectJar = firefly.colorIndex === jar.color;
-            
-            // Take the firefly from the controller
-            const controller = firefly.mesh.parent;
-            controller.remove(firefly.mesh);
-            
-            if (isCorrectJar) {
-                // Add to scene at jar position
-                scene.add(firefly.mesh);
-                
-                // Calculate random position within jar
-                const randomAngle = Math.random() * Math.PI * 2;
-                const randomRadius = Math.random() * 0.0375; 
-                const randomHeight = Math.random() * 0.1; 
-                
-                firefly.mesh.position.set(
-                    jar.position.x + Math.cos(randomAngle) * randomRadius,
-                    jar.position.y + randomHeight,
-                    jar.position.z + Math.sin(randomAngle) * randomRadius
-                );
-                
-                // Mark as in jar
-                firefly.isInJar = true;
-                firefly.isCaught = false;
-                
-                // Add to jar's firefly list
-                jar.fireflies.push(firefly);
-                
-                // Increase the jar's glow intensity
-                jar.glow.material.emissiveIntensity += 0.1;
-                
-                // Add points
-                score += 50;
-                
-                // Haptic feedback
-                const controllerIndex = controller === controllers[0] ? 0 : 1;
-                triggerHapticFeedback(controllerIndex, 0.5, 200);
-                
-                // Check if all fireflies are collected
-                checkGameCompletion();
-            } else {
-                // Wrong jar - send firefly back into the wild
-                scene.add(firefly.mesh);
-                
-                // Position away from the jar
-                const awayVector = new THREE.Vector3().subVectors(jar.position, controller.position).normalize().multiplyScalar(-1);
-                firefly.mesh.position.set(
-                    jar.position.x + awayVector.x,
-                    jar.position.y + 1,
-                    jar.position.z + awayVector.z
-                );
-                
-                firefly.isCaught = false;
-                
-                // Penalize the score
-                score = Math.max(0, score - 20);
-                
-                // Haptic feedback (error)
-                const controllerIndex = controller === controllers[0] ? 0 : 1;
-                triggerHapticFeedback(controllerIndex, 0.8, 50);
-                setTimeout(() => triggerHapticFeedback(controllerIndex, 0.8, 50), 100);
-            }
-        }
-        
-        // Trigger haptic feedback on a controller
-        function triggerHapticFeedback(controllerIndex, intensity, duration) {
-            if (controllers[controllerIndex].userData.gamepad && controllers[controllerIndex].userData.gamepad.hapticActuators) {
-                controllers[controllerIndex].userData.gamepad.hapticActuators[0].pulse(intensity, duration);
-            }
-        }
-        
-        // Check if all fireflies have been collected correctly
-        function checkGameCompletion() {
-            let allCollected = true;
-            let correctlyPlaced = true;
-            
-            // Count fireflies in each jar
-            const jarCounts = [0, 0, 0];
-            for (let i = 0; i < jars.length; i++) {
-                jarCounts[i] = jars[i].fireflies.length;
-            }
-            
-            // Count total fireflies by color
-            const colorCounts = [0, 0, 0];
-            for (let i = 0; i < fireflies.length; i++) {
-                colorCounts[fireflies[i].colorIndex]++;
-            }
-            
-            // Check if all fireflies of each color are in the correct jar
-            for (let i = 0; i < 3; i++) {
-                if (jarCounts[i] < colorCounts[i]) {
-                    allCollected = false;
-                    break;
-                }
-            }
-            
-            if (allCollected && !gameEnded) {
-                gameEnded = true;
-                celebrateVictory();
-            }
-        }
+    
+
+
+
+
+
+
+
+
+
         
         // Victory celebration
         function celebrateVictory() {
@@ -827,30 +970,30 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
         }
         
         // Animation loop
-        function animate() {
-            const deltaTime = clock.getDelta();
-            
-            if (gameStarted && !gameEnded) {
-                // Update game timer
-                timeRemaining -= deltaTime;
-                if (timeRemaining <= 0) {
-                    timeRemaining = 0;
-                    // Game over logic could go here
-                }
-                
-                // Update fireflies
-                updateFireflies(deltaTime);
-                
-                // Check for collisions
-                checkCollisions();
-                
-                // Update UI
-                if (ui) ui.update();
-            }
-            
-            // Render the scene
-            renderer.render(scene, camera);
+       function animate() {
+    const deltaTime = clock.getDelta();
+    
+    if (gameStarted && !gameEnded) {
+        // Update game timer
+        timeRemaining -= deltaTime;
+        if (timeRemaining <= 0) {
+            timeRemaining = 0;
+            // Game over logic could go here
         }
+        
+        // Update fireflies
+        updateFireflies(deltaTime);
+        
+        // Check for collisions with the nets
+        checkCollisions();
+        
+        // Update UI
+        if (ui) ui.update();
+    }
+    
+    // Render the scene
+    renderer.render(scene, camera);
+}
         
         // Initialize UI
         let ui = null;
