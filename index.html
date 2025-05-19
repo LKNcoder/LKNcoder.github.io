@@ -481,39 +481,7 @@ function setupNetControllers() {
     }
 }
 
-// Check for controller collisions with fireflies
-function checkCollisions() {
-    // For each controller
-    for (let c = 0; c < controllers.length; c++) {
-        const controller = controllers[c];
-        if (!controller.userData.net) continue;
-        
-        // Get the net's world position and rotation
-        const netWorldPosition = new THREE.Vector3();
-        controller.userData.net.getWorldPosition(netWorldPosition);
-        
-        // Check each firefly
-        for (let i = 0; i < fireflies.length; i++) {
-            const firefly = fireflies[i];
-            
-            // Skip if already caught
-            if (firefly.isCaught) continue;
-            
-            // Get firefly position
-            const fireflyPos = new THREE.Vector3();
-            firefly.mesh.getWorldPosition(fireflyPos);
-            
-            // Calculate distance to the net
-            const distanceToNet = fireflyPos.distanceTo(netWorldPosition);
-            
-            // If the firefly is close enough to the net, catch it
-            if (distanceToNet < 0.07) { // Net radius + small margin
-                catchFirefly(firefly, c);
-                break; // Only catch one firefly at a time
-            }
-        }
-    }
-}
+
 
 // Catch a firefly
 function catchFirefly(firefly, controllerIndex) {
@@ -762,75 +730,94 @@ function increaseMushromBrightness() {
                 }
             }
         }
+
         
-        // Check for controller collisions with fireflies
-        function checkCollisions() {
-            // Check if the controllers are close enough to "clap" together
-            const controller1Pos = new THREE.Vector3();
-            const controller2Pos = new THREE.Vector3();
-            controllers[0].getWorldPosition(controller1Pos);
-            controllers[1].getWorldPosition(controller2Pos);
+    
+// Check for controller collisions with fireflies
+function checkCollisions() {
+    // Individual controller net collision detection
+    for (let c = 0; c < controllers.length; c++) {
+        const controller = controllers[c];
+        if (!controller.userData.net) continue;
+        
+        // Get the net's world position
+        const netWorldPosition = new THREE.Vector3();
+        controller.userData.net.getWorldPosition(netWorldPosition);
+        
+        // Check each firefly
+        for (let i = 0; i < fireflies.length; i++) {
+            const firefly = fireflies[i];
             
-            const controllerDistance = controller1Pos.distanceTo(controller2Pos);
-            const clapThreshold = 0.0625; // How close controllers need to be to "clap"
+            // Skip if already caught
+            if (firefly.isCaught || firefly === null) continue;
             
-            const isClapping = controllerDistance < clapThreshold;
+            // Get firefly position
+            const fireflyPos = new THREE.Vector3();
+            firefly.mesh.getWorldPosition(fireflyPos);
             
-            // If clapping, check for fireflies between the controllers
-            if (isClapping) {
-                // Calculate the midpoint between controllers
-                const midpoint = new THREE.Vector3().addVectors(controller1Pos, controller2Pos).multiplyScalar(0.5);
+            // Calculate distance to the net
+            const distanceToNet = fireflyPos.distanceTo(netWorldPosition);
+            
+            // If the firefly is close enough to the net, catch it
+            if (distanceToNet < 0.07) {
+                catchFirefly(firefly, c);
+                break; // Only catch one firefly at a time
+            }
+        }
+    }
+    
+    // Check for clapping motion to catch fireflies (if we have at least 2 controllers)
+    if (controllers.length >= 2) {
+        const controller1Pos = new THREE.Vector3();
+        const controller2Pos = new THREE.Vector3();
+        controllers[0].getWorldPosition(controller1Pos);
+        controllers[1].getWorldPosition(controller2Pos);
+        
+        const controllerDistance = controller1Pos.distanceTo(controller2Pos);
+        const clapThreshold = 0.0625;
+        
+        if (controllerDistance < clapThreshold) {
+            // Calculate midpoint between controllers
+            const midpoint = new THREE.Vector3().addVectors(controller1Pos, controller2Pos).multiplyScalar(0.5);
+            
+            // Check each firefly
+            for (let i = 0; i < fireflies.length; i++) {
+                const firefly = fireflies[i];
                 
-                // Check each firefly
-                for (let i = 0; i < fireflies.length; i++) {
-                    const firefly = fireflies[i];
+                // Skip if already caught or null
+                if (!firefly || firefly.isCaught) continue;
+                
+                const fireflyPos = new THREE.Vector3();
+                firefly.mesh.getWorldPosition(fireflyPos);
+                
+                // Calculate distance to midpoint
+                const distanceToMidpoint = fireflyPos.distanceTo(midpoint);
+                
+                // If the firefly is close enough to the midpoint, catch it
+                if (distanceToMidpoint < clapThreshold) {
+                    catchFirefly(firefly, 0);
                     
-                    // Skip if already caught or in jar
-                    if (firefly.isCaught || firefly.isInJar) continue;
-                    
-                    const fireflyPos = new THREE.Vector3();
-                    firefly.mesh.getWorldPosition(fireflyPos);
-                    
-                    // Calculate distance to midpoint
-                    const distanceToMidpoint = fireflyPos.distanceTo(midpoint);
-                    
-                    // If the firefly is close enough to the midpoint, catch it
-                    if (distanceToMidpoint < clapThreshold) {
-                        catchFirefly(firefly, controllers[0]); // Attach to first controller
-                        
-                        // Trigger haptic feedback on both controllers
+                    // Implement haptic feedback if it exists
+                    if (typeof triggerHapticFeedback === 'function') {
                         triggerHapticFeedback(0, 0.8, 100);
                         triggerHapticFeedback(1, 0.8, 100);
                     }
                 }
             }
-            
-            // Check for caught fireflies being placed in jars
-            for (let i = 0; i < fireflies.length; i++) {
-                const firefly = fireflies[i];
-                
-                // Skip if not caught or already in jar
-                if (!firefly.isCaught || firefly.isInJar) continue;
-                
-                const fireflyPos = new THREE.Vector3();
-                firefly.mesh.getWorldPosition(fireflyPos);
-                
-                // Check each jar
-                for (let j = 0; j < jars.length; j++) {
-                    const jar = jars[j];
-                    const distanceToJar = fireflyPos.distanceTo(jar.position);
-                    
-                    // If the firefly is close enough to the jar
-                    if (distanceToJar < 0.075) {
-                        placeFireflyInJar(firefly, jar);
-                        break;
-                    }
-                }
-            }
         }
-        
-    
+    }
+}
 
+// Add the missing triggerHapticFeedback function
+function triggerHapticFeedback(controllerIndex, intensity, duration) {
+    // Only proceed if we have controllers with gamepads that support haptics
+    if (controllers[controllerIndex] && 
+        controllers[controllerIndex].userData.gamepad && 
+        controllers[controllerIndex].userData.gamepad.hapticActuators && 
+        controllers[controllerIndex].userData.gamepad.hapticActuators.length > 0) {
+        controllers[controllerIndex].userData.gamepad.hapticActuators[0].pulse(intensity, duration);
+    }
+}
 
 
 
