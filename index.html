@@ -91,6 +91,7 @@
     let grabPoints = [];
     let clock = new THREE.Clock();
     let score = 0;
+    let lastScoreUpdate = 0;
     let level = 1;
     let fliesCaught = 0;
     let gameStarted = false;
@@ -98,6 +99,14 @@
     let caughtFly = null;
     let wrapCount = 0;
     let ambientLight, directionalLight;
+    let health = 100; // Start with full health
+    let maxHealth = 100;
+    let jumping = false;
+    let canJump = true;
+    let jumpVelocity = 0;
+    const DEBUG_VISUALS = false;
+
+
     
     // Scale factor - everything relative to spider size
     const SCALE = 5.0; // 1 unit = 2cm (spider size)
@@ -116,8 +125,8 @@
         scene.background = new THREE.Color(0x87CEEB); // Sky blue background
         
         // Create the camera (spider's view)
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, SCALE * 0.2, 0); // Position at web level
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+        camera.position.set(0, SCALE * 0.25, 0); // Lower position to be at spider body level
         
         // Create the renderer
         renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -259,26 +268,7 @@
             scene.add(rock);
         }
         
-        // Add distant trees silhouette
-        const treesGeometry = new THREE.PlaneGeometry(SCALE * 1000, SCALE * 50);
-        const treesMaterial = new THREE.MeshBasicMaterial({
-            color: 0x005500,
-            transparent: true,
-            opacity: 0.8,
-            side: THREE.DoubleSide
-        });
-        
-        for (let i = 0; i < 4; i++) {
-            const trees = new THREE.Mesh(treesGeometry, treesMaterial);
-            const angle = i * Math.PI / 2;
-            trees.position.set(
-                Math.cos(angle) * SCALE * 250,
-                -SCALE * 5 + SCALE * 25,
-                Math.sin(angle) * SCALE * 250
-            );
-            trees.lookAt(0, -SCALE * 5 + SCALE * 25, 0);
-            scene.add(trees);
-        }
+       
     }
     
     // Create the spider web
@@ -496,52 +486,10 @@ function createSpiderWeb() {
         }
     }
     
-    // Create grab points for player interaction
-    createGrabPoints();
+  
 }
 
-// Create grab points along the web strands
-function createGrabPoints() {
-    grabPoints = []; // Clear existing grab points
-    
-    for (const strand of web.strands) {
-        // Create more grab points on longer strands
-        const distance = strand.start.distanceTo(strand.end);
-        const pointCount = Math.max(3, Math.floor(distance / (SCALE * 0.5)));
-        
-        for (let i = 1; i < pointCount; i++) {
-            const t = i / pointCount;
-            const position = new THREE.Vector3().lerpVectors(strand.start, strand.end, t);
-            
-            // Add some natural variation
-            position.x += (Math.random() - 0.5) * SCALE * 0.1;
-            position.y += (Math.random() - 0.5) * SCALE * 0.1;
-            position.z += (Math.random() - 0.5) * SCALE * 0.1;
-            
-            // Create invisible grab point
-            const grabPoint = {
-                position: position,
-                strand: strand,
-                isGrabbed: false
-            };
-            
-            // Optional: Create a small visual indicator for debugging
-            if (false) { // Set to true to see grab points
-                const indicator = new THREE.Mesh(
-                    new THREE.SphereGeometry(SCALE * 0.02, 4, 4),
-                    new THREE.MeshBasicMaterial({ color: 0xFF0000, transparent: true, opacity: 0.5 })
-                );
-                indicator.position.copy(position);
-                scene.add(indicator);
-                grabPoint.indicator = indicator;
-            }
-            
-            grabPoints.push(grabPoint);
-        }
-    }
-    
-    console.log(`Created ${grabPoints.length} grab points on the web`);
-}
+
 
 // Create a strand of web between two points
 function createWebStrand(point1, point2, material, isRadial = false) {
@@ -582,74 +530,152 @@ function createWebStrand(point1, point2, material, isRadial = false) {
     return strand;
 }
     
+
+// Create a proper spider body that the player embodies
+function createSpiderBody() {
+    // Create a spider body that will be attached to the camera
+    const bodyGroup = new THREE.Group();
+    
+    // Main body (cephalothorax)
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x332211,
+        roughness: 0.7
+    });
+    
+    const cephalothorax = new THREE.Mesh(
+        new THREE.SphereGeometry(SCALE * 0.15, 12, 8),
+        bodyMaterial
+    );
+    cephalothorax.position.set(0, 0, 0);
+    bodyGroup.add(cephalothorax);
+    
+    // Abdomen (rear part)
+    const abdomen = new THREE.Mesh(
+        new THREE.SphereGeometry(SCALE * 0.18, 12, 8),
+        bodyMaterial
+    );
+    abdomen.position.set(0, 0, SCALE * 0.25);
+    bodyGroup.add(abdomen);
+    
+    // Position just below the camera
+    bodyGroup.position.set(0, -SCALE * 0.2, -SCALE * 0.1);
+    
+    // Add to camera so it moves with the player
+    camera.add(bodyGroup);
+    
+    return bodyGroup;
+}
+
+
+
+
+
     // Create spider legs attached to the camera (player's view)
-    function createSpiderLegs() {
-        const legMaterial = new THREE.MeshStandardMaterial({
-            color: 0x332211,
-            roughness: 0.9
-        });
+    function createSpiderLegs(spiderBody) {
+    const legMaterial = new THREE.MeshStandardMaterial({
+        color: 0x332211,
+        roughness: 0.9
+    });
+    
+    // Create 8 legs (4 pairs)
+    for (let i = 0; i < 8; i++) {
+        const legGroup = new THREE.Group();
         
-        // Create 8 legs (4 pairs)
-        for (let i = 0; i < 8; i++) {
-            const legGroup = new THREE.Group();
-            
-            // Which side (left/right)
-            const side = i % 2 === 0 ? -1 : 1;
-            // Which pair (front to back)
-            const pair = Math.floor(i / 2);
-            
-            // Create segments for each leg
-            const segment1 = new THREE.Mesh(
-                new THREE.CylinderGeometry(SCALE * 0.05, SCALE * 0.08, SCALE * 1, 8),
-                legMaterial
-            );
-            segment1.position.set(0, 0, SCALE * 0.5);
-            segment1.rotation.x = Math.PI / 2;
-            
-            const joint1 = new THREE.Mesh(
-                new THREE.SphereGeometry(SCALE * 0.08, 8, 8),
-                legMaterial
-            );
-            joint1.position.set(0, 0, SCALE * 1);
-            
-            const segment2 = new THREE.Mesh(
-                new THREE.CylinderGeometry(SCALE * 0.08, SCALE * 0.04, SCALE * 1.5, 8),
-                legMaterial
-            );
-            segment2.position.set(0, 0, SCALE * 1.75);
-            segment2.rotation.x = Math.PI / 2;
-            
-            // Add segments to the leg group
-            legGroup.add(segment1);
-            legGroup.add(joint1);
-            legGroup.add(segment2);
-            
-            // Position the leg relative to camera
-            legGroup.position.set(
-                side * SCALE * (0.5 + pair * 0.2),
+        // Which side (left/right)
+        const side = i % 2 === 0 ? -1 : 1;
+        // Which pair (front to back)
+        const pair = Math.floor(i / 2);
+        
+        // Hip joint (connects to body)
+        const hipJoint = new THREE.Mesh(
+            new THREE.SphereGeometry(SCALE * 0.03, 8, 8),
+            legMaterial
+        );
+        legGroup.add(hipJoint);
+        
+        // Upper segment (femur)
+        const upperLeg = new THREE.Mesh(
+            new THREE.CylinderGeometry(SCALE * 0.02, SCALE * 0.015, SCALE * 0.3, 8),
+            legMaterial
+        );
+        upperLeg.position.set(side * SCALE * 0.15, -SCALE * 0.15, 0);
+        upperLeg.rotation.z = side * Math.PI/3;
+        hipJoint.add(upperLeg);
+        
+        // Knee joint
+        const kneeJoint = new THREE.Mesh(
+            new THREE.SphereGeometry(SCALE * 0.025, 8, 8),
+            legMaterial
+        );
+        kneeJoint.position.set(0, -SCALE * 0.3, 0);
+        upperLeg.add(kneeJoint);
+        
+        // Lower segment (tibia)
+        const lowerLeg = new THREE.Mesh(
+            new THREE.CylinderGeometry(SCALE * 0.015, SCALE * 0.01, SCALE * 0.4, 8),
+            legMaterial
+        );
+        lowerLeg.position.set(0, -SCALE * 0.2, 0);
+        lowerLeg.rotation.x = Math.PI/6;
+        kneeJoint.add(lowerLeg);
+        
+        // Foot
+        const foot = new THREE.Mesh(
+            new THREE.SphereGeometry(SCALE * 0.01, 6, 6),
+            new THREE.MeshStandardMaterial({
+                color: 0x111111,
+                emissive: 0x222222,
+                emissiveIntensity: 0.3
+            })
+        );
+        foot.position.set(0, -SCALE * 0.4, 0);
+        lowerLeg.add(foot);
+        
+        // Position leg on spider body based on pair
+        const angle = (Math.PI/5) * (pair - 1.5);
+        legGroup.position.set(
+            Math.sin(angle) * SCALE * 0.1,
+            0, 
+            Math.cos(angle) * SCALE * 0.1
+        );
+        
+        spiderBody.children[0].add(legGroup);
+        
+        // Store reference for animation
+        spiderLegs.push({
+            group: legGroup,
+            hip: hipJoint,
+            upperLeg: upperLeg,
+            knee: kneeJoint,
+            lowerLeg: lowerLeg,
+            foot: foot,
+            pair: pair,
+            side: side,
+            targetPosition: new THREE.Vector3(),
+            moving: false,
+            restingPos: new THREE.Vector3(
+                side * SCALE * 0.4,
                 -SCALE * 0.2,
-                -SCALE * (0.5 + pair * 0.3)
-            );
-            
-            // Angle the leg outward
-            legGroup.rotation.y = side * (Math.PI / 4 + pair * 0.2);
-            
-            // Add to camera
-            camera.add(legGroup);
-            
-            // Store reference
-            spiderLegs.push({
-                group: legGroup,
-                segments: [segment1, segment2],
-                joints: [joint1],
-                baseRotation: legGroup.rotation.clone(),
-                targetPosition: new THREE.Vector3(),
-                moving: false,
-                side: side,
-                pair: pair
-            });
-        }
+                pair * SCALE * 0.2 - SCALE * 0.3
+            )
+        });
     }
+    
+    return spiderLegs;
+}
+
+// Add controller to leg mapping to make legs follow controllers
+function setupLegControllerMapping() {
+    // Map the front legs to the controllers
+    if (spiderLegs.length >= 2 && controllers.length >= 2) {
+        // Front right leg (index 0)
+        spiderLegs[0].controller = controllers[0];
+        // Front left leg (index 1)
+        spiderLegs[1].controller = controllers[1];
+    }
+}
+
+
     
     // Create flies
     function createFlies(count) {
@@ -865,24 +891,35 @@ legGroup.baseRotation = side * Math.PI / 4;  // Store original rotation angle
         const controller = renderer.xr.getController(i);
         controller.addEventListener('selectstart', onSelectStart);
         controller.addEventListener('selectend', onSelectEnd);
-        controller.addEventListener('connected', (event) => {
-            controller.userData.gamepad = event.data.gamepad;
-        });
-        controller.addEventListener('disconnected', () => {
-            controller.userData.gamepad = null;
-        });
+        controller.addEventListener('connected', onControllerConnected);
+        controller.addEventListener('disconnected', onControllerDisconnected);
+        
+        // Add button press listeners
+        controller.addEventListener('squeezestart', onJumpPressed); // B/Y buttons
         scene.add(controller);
         
-        // Create controller leg representation
-        const legGroup = createSpiderLeg(i === 0 ? -1 : 1, 0);
-        controller.add(legGroup);
-        controller.userData.leg = legGroup;
-        controller.userData.isGrabbing = false;
-        controller.userData.grabPoint = null;
-        
         controllers.push(controller);
-        controllerLegs.push(legGroup);
     }
+}
+
+// Add controller connected event to get button mapping
+function onControllerConnected(event) {
+    const controller = event.target;
+    controller.userData.gamepad = event.data.gamepad;
+    
+    // Create a small visual indicator for the controller in debug mode
+    if (DEBUG_VISUALS) {
+        const geometry = new THREE.SphereGeometry(SCALE * 0.02, 8, 8);
+        const material = new THREE.MeshBasicMaterial({color: 0xff0000});
+        const mesh = new THREE.Mesh(geometry, material);
+        controller.add(mesh);
+    }
+}
+
+// Add controller disconnected event
+function onControllerDisconnected() {
+    this.userData.gamepad = null;
+    this.children = [];
 }
 
 
@@ -941,47 +978,165 @@ function createSpiderLeg(side, pair) {
 
     
     // Controller select start - grab web
-    function onSelectStart(event) {
+   function onSelectStart(event) {
     const controller = event.target;
     const controllerPosition = new THREE.Vector3();
     controller.getWorldPosition(controllerPosition);
     
     // Check if there's a fly to wrap
     if (caughtFly) {
-        const flyPosition = new THREE.Vector3();
-        caughtFly.mesh.getWorldPosition(flyPosition);
+        // Existing code for wrapping flies...
+    }
+    
+    // Find the closest web strand to grab
+    let closestStrand = null;
+    let closestPoint = null;
+    let closestDistance = SCALE * 0.5; // Max grab distance
+    
+    for (let i = 0; i < web.strands.length; i++) {
+        const strand = web.strands[i];
         
-        // Only allow wrapping when close enough
-        const distanceToFly = controllerPosition.distanceTo(flyPosition);
-        if (distanceToFly < SCALE * 1.0) {
-            wrapFly(controller);
-            return;
+        // Find closest point on the strand line segment
+        const closest = closestPointOnLineSegment(
+            controllerPosition,
+            strand.start,
+            strand.end
+        );
+        
+        const distance = controllerPosition.distanceTo(closest);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestStrand = strand;
+            closestPoint = closest.clone();
         }
     }
     
-    // Check if near any grab points
-    for (let i = 0; i < grabPoints.length; i++) {
-        const grabPoint = grabPoints[i];
-        const distance = controllerPosition.distanceTo(grabPoint.position);
+    // If we found a close enough strand, grab it
+    if (closestStrand && closestPoint) {
+        controller.userData.isGrabbing = true;
+        controller.userData.grabStrand = closestStrand;
+        controller.userData.grabPoint = closestPoint;
         
-        if (distance < SCALE * 0.5) { // Increased grab distance for larger scale
-            controller.userData.isGrabbing = true;
-            controller.userData.grabPoint = grabPoint;
-            grabPoint.isGrabbed = true;
+        // Trigger haptic feedback
+        triggerHapticFeedback(controllers.indexOf(controller), 0.5, 50);
+    }
+}
+
+// Helper function to find closest point on a line segment
+function closestPointOnLineSegment(point, lineStart, lineEnd) {
+    const line = new THREE.Vector3().subVectors(lineEnd, lineStart);
+    const len = line.length();
+    line.normalize();
+    
+    const v = new THREE.Vector3().subVectors(point, lineStart);
+    const d = v.dot(line);
+    
+    if (d <= 0) return lineStart.clone();
+    if (d >= len) return lineEnd.clone();
+    
+    return new THREE.Vector3().addVectors(
+        lineStart,
+        line.multiplyScalar(d)
+    );
+}
+
+
+// Implement jumping when pressing buttons
+function onJumpPressed(event) {
+    if (canJump) {
+        jumping = true;
+        jumpVelocity = SCALE * 0.2; // Initial upward velocity
+        
+        // Trigger haptic feedback on both controllers
+        triggerHapticFeedback(0, 0.7, 100);
+        triggerHapticFeedback(1, 0.7, 100);
+    }
+}
+
+// Add jump physics to updatePlayerMovement
+function updatePlayerMovement(deltaTime) {
+    // Existing controller grabbing code...
+    
+    // Handle jumping
+    if (jumping) {
+        // Apply gravity
+        jumpVelocity -= SCALE * 0.5 * deltaTime; // Gravity
+        
+        // Move the camera up/down
+        camera.position.y += jumpVelocity * deltaTime;
+        
+        // Check if landed
+        if (camera.position.y <= SCALE * 0.25 && jumpVelocity < 0) {
+            camera.position.y = SCALE * 0.25;
+            jumping = false;
+            canJump = true;
+            
+            // Vibrate web on landing
+            const centerStrand = web.strands[0]; // Usually a central strand
+            if (centerStrand) {
+                vibrateWeb(centerStrand, 1.0);
+            }
+        }
+        
+        // Check for collision with flies while jumping
+        checkJumpFlyCollision();
+    }
+}
+
+// Check for collision between jumping spider and flies
+function checkJumpFlyCollision() {
+    const cameraPosition = new THREE.Vector3();
+    camera.getWorldPosition(cameraPosition);
+    
+    for (let i = 0; i < flies.length; i++) {
+        const fly = flies[i];
+        
+        // Skip flies that are already trapped or wrapped
+        if (fly.isTrapped || fly.isWrapped) continue;
+        
+        // Check distance between player and fly
+        const distance = cameraPosition.distanceTo(fly.mesh.position);
+        
+        if (distance < SCALE * 0.5) {
+            // Collision! Knock the fly down
+            knockFlyOntoWeb(fly);
             
             // Trigger haptic feedback
-            triggerHapticFeedback(controllers.indexOf(controller), 0.5, 50);
+            triggerHapticFeedback(0, 1.0, 200);
+            triggerHapticFeedback(1, 1.0, 200);
             
-            // Change visual appearance of the leg tip
-            if (controller.userData.leg) {
-                const foot = controller.userData.leg.children[3];
-                foot.material.emissive.setRGB(0.5, 0.5, 0);
-            }
-            
-            return;
+            break; // Only knock down one fly at a time
         }
     }
 }
+
+// Knock a fly onto the web
+function knockFlyOntoWeb(fly) {
+    // Find a random strand to land on
+    const strandIndex = Math.floor(Math.random() * web.strands.length);
+    const targetStrand = web.strands[strandIndex];
+    
+    // Choose a position along the strand
+    const t = Math.random();
+    const targetPosition = new THREE.Vector3().lerpVectors(
+        targetStrand.start, targetStrand.end, t
+    );
+    
+    // Set fly as being knocked down
+    fly.isKnockedDown = true;
+    fly.isAttractedToWeb = true;
+    fly.webTarget = targetPosition;
+    fly.targetStrand = targetStrand;
+    
+    // Set velocity toward the web (faster than normal attraction)
+    const direction = new THREE.Vector3().subVectors(targetPosition, fly.mesh.position).normalize();
+    fly.velocity = direction.multiplyScalar(SCALE * 0.5);
+    
+    // When it reaches the web, it will get trapped through the normal updateFlies logic
+}
+
+
     
     // Controller select end - release web
  function onSelectEnd(event) {
@@ -1015,34 +1170,38 @@ function createSpiderLeg(side, pair) {
         triggerHapticFeedback(controllers.indexOf(controller), 0.3, 30);
         
         // Check if fully wrapped
-        if (wrapCount >= 8) {
-            caughtFly.isWrapped = true;
-            fliesCaught++;
-            
-            // Check for level completion
-            if (fliesCaught >= 3 * level) {
-                level++;
-                // Add more flies for the next level
-                createFlies(2 + level);
-                updateLevelIndicator();
-            }
-            
-            // Reset for next fly
-            setTimeout(() => {
-                scene.remove(caughtFly.mesh);
-                const index = flies.indexOf(caughtFly);
-                if (index !== -1) {
-                    flies.splice(index, 1);
-                }
-                caughtFly = null;
-                wrapCount = 0;
-            }, 2000);
-        }
+    if (wrapCount >= 8) {
+        caughtFly.isWrapped = true;
         
-        // Rotate the fly as it's being wrapped
-        const rotation = Math.PI / 4;
-        caughtFly.mesh.rotateY(rotation);
+        // Health boost from eating the fly!
+        const healthBoost = 20; // Gain 20% health per fly
+        health = Math.min(maxHealth, health + healthBoost);
+        
+        // Bonus score for catching a fly
+        score += 50;
+        
+        // Audio or visual feedback of health boost
+        showHealthBoost(caughtFly.mesh.position, healthBoost);
+        
+        // Remove the fly after a delay (eating animation)
+        setTimeout(() => {
+            scene.remove(caughtFly.mesh);
+            const index = flies.indexOf(caughtFly);
+            if (index !== -1) {
+                flies.splice(index, 1);
+            }
+            caughtFly = null;
+            wrapCount = 0;
+            
+            // Add a new fly to keep the game going
+            createFlies(1);
+        }, 2000);
     }
+    
+    // Rotate the fly as it's being wrapped
+    const rotation = Math.PI / 4;
+    caughtFly.mesh.rotateY(rotation);
+}
     
     // Update the fly's appearance as it gets wrapped
     function updateFlyWrapping(fly) {
@@ -1103,6 +1262,57 @@ function createSpiderLeg(side, pair) {
     
     return mesh;
 }
+
+
+// Show health boost effect
+function showHealthBoost(position, amount) {
+    // Create floating text that shows health gained
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 64;
+    const context = canvas.getContext('2d');
+    
+    context.fillStyle = 'green';
+    context.font = 'bold 32px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(`+${amount}%`, canvas.width/2, canvas.height/2);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ 
+        map: texture,
+        transparent: true 
+    });
+    
+    const sprite = new THREE.Sprite(material);
+    sprite.position.copy(position);
+    sprite.position.y += SCALE * 0.5;
+    sprite.scale.set(SCALE * 2, SCALE * 1, 1);
+    scene.add(sprite);
+    
+    // Animate the sprite floating up and fading out
+    const startTime = Date.now();
+    const duration = 1500; // 1.5 seconds
+    
+    function animateSprite() {
+        const elapsed = Date.now() - startTime;
+        const progress = elapsed / duration;
+        
+        if (progress < 1) {
+            sprite.position.y += SCALE * 0.01;
+            sprite.material.opacity = 1 - progress;
+            requestAnimationFrame(animateSprite);
+        } else {
+            scene.remove(sprite);
+            sprite.material.dispose();
+            texture.dispose();
+        }
+    }
+    
+    animateSprite();
+}
+
+
     
     // Update level indicator
     function updateLevelIndicator() {
@@ -1115,25 +1325,47 @@ function createSpiderLeg(side, pair) {
         });
     }
     
-    // Update canvas text for level indicator
-    function updateCanvasText(context, width, height) {
-        context.clearRect(0, 0, width, height);
-        context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        context.fillRect(0, 0, width, height);
-        context.fillStyle = 'white';
-        context.font = '24px Arial';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText(`Level: ${level}   Flies Caught: ${fliesCaught}`, width / 2, height / 2);
-    }
+   // Update canvas text for health bar and score
+function updateCanvasText(context, width, height) {
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    context.fillRect(0, 0, width, height);
     
-    // Handle window resizing
-    function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+    // Health bar
+    const healthBarWidth = width * 0.8;
+    const healthBarHeight = 20;
+    const healthBarX = width * 0.1;
+    const healthBarY = 30;
     
+    // Health bar background
+    context.fillStyle = 'rgba(100, 0, 0, 0.5)';
+    context.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+    
+    // Health bar fill based on current health
+    const fillWidth = Math.max(0, (health / maxHealth) * healthBarWidth);
+    context.fillStyle = `rgb(${255 - health * 2.55}, ${health * 2.55}, 0)`;  // Color changes from green to red
+    context.fillRect(healthBarX, healthBarY, fillWidth, healthBarHeight);
+    
+    // Health bar border
+    context.strokeStyle = 'white';
+    context.lineWidth = 2;
+    context.strokeRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+    
+    // Health percentage
+    context.fillStyle = 'white';
+    context.font = '14px Arial';
+    context.textAlign = 'center';
+    context.fillText(`${Math.floor(health)}%`, healthBarX + healthBarWidth/2, healthBarY + healthBarHeight/2 + 5);
+    
+    // Score
+    context.font = '22px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(`Score: ${Math.floor(score)}`, width / 2, height * 0.75);
+}
+    
+
+
 function checkRandomFlyTraps(deltaTime) {
     // This function now only handles random attraction to the web
     // The actual trapping happens within updateFlies when they reach the web
@@ -1452,92 +1684,116 @@ function updateFlies(deltaTime) {
 }
 
     
-    // Update spider leg animations
-    function updateSpiderLegs(deltaTime) {
-        for (let i = 0; i < spiderLegs.length; i++) {
-            const leg = spiderLegs[i];
+    
+
+
+    // New IK system for spider legs
+function updateSpiderLegsIK(deltaTime) {
+    for (let i = 0; i < spiderLegs.length; i++) {
+        const leg = spiderLegs[i];
+        
+        // Target position - either from controller or default motion
+        let targetWorldPos = new THREE.Vector3();
+        
+        if (leg.controller) {
+            // Use controller position for front legs
+            leg.controller.getWorldPosition(targetWorldPos);
             
-            // Animate the leg if it's moving
+            // Offset to make target be below the controller
+            targetWorldPos.y -= SCALE * 0.2;
+        } else {
+            // For other legs, use walking animation or resting positions
+            // Convert resting position from local to world
+            targetWorldPos.copy(leg.restingPos);
+            camera.localToWorld(targetWorldPos);
+            
+            // Add animation
             if (leg.moving) {
-                // Move towards target
-                const legTip = leg.segments[1].localToWorld(new THREE.Vector3(0, 0, SCALE * 1.5));
-                const direction = new THREE.Vector3().subVectors(leg.targetPosition, legTip);
-                const distance = direction.length();
+                // Continue existing leg motion
+                const legTip = new THREE.Vector3();
+                leg.foot.getWorldPosition(legTip);
                 
-                if (distance < SCALE * 0.1) {
-                    // Reached target
-                    leg.moving = false;
-                } else {
-                    // Animate towards target
-                    const speed = 2 * deltaTime;
-                    const step = Math.min(speed, distance);
-                    direction.normalize().multiplyScalar(step);
+                if (leg.movingTarget) {
+                    const direction = new THREE.Vector3().subVectors(leg.movingTarget, legTip);
+                    const distance = direction.length();
                     
-                    // Update leg joint angles to reach towards target
-                    const targetWorldPos = legTip.clone().add(direction);
-                    updateLegIK(leg, targetWorldPos);
+                    if (distance < SCALE * 0.1) {
+                        // Reached target
+                        leg.moving = false;
+                        leg.movingTarget = null;
+                    } else {
+                        // Move toward target
+                        const speed = 2 * deltaTime;
+                        const step = Math.min(speed, distance);
+                        direction.normalize().multiplyScalar(step);
+                        targetWorldPos.copy(legTip.clone().add(direction));
+                    }
                 }
-            } else if (Math.random() < 0.05) {
-                // Randomly start moving the leg to a new position
-                const angle = Math.random() * Math.PI * 0.5 - Math.PI * 0.25;
-                const radius = SCALE * (1 + Math.random());
-                
-                // Calculate a new target position
-                leg.targetPosition = new THREE.Vector3(
-                    leg.side * (SCALE * 0.5 + Math.cos(angle) * radius),
-                    -SCALE * 0.2 + (Math.random() - 0.5) * SCALE * 0.3,
-                    -SCALE * (0.5 + leg.pair * 0.3) + Math.sin(angle) * radius
-                );
-                leg.targetPosition = camera.localToWorld(leg.targetPosition.clone());
-                
+            } else if (Math.random() < 0.01) {
+                // Randomly decide to move leg
                 leg.moving = true;
+                // Set a target position slightly ahead of resting
+                leg.movingTarget = targetWorldPos.clone();
+                leg.movingTarget.z += (Math.random() - 0.5) * SCALE * 0.2;
+                leg.movingTarget.x += (Math.random() - 0.5) * SCALE * 0.2;
+                leg.movingTarget.y -= Math.random() * SCALE * 0.1;
             }
         }
+        
+        // Apply spider-like IK to position the leg
+        applyLegIK(leg, targetWorldPos);
+    }
+}
+
+
+
+// Apply inverse kinematics to position a leg
+function applyLegIK(leg, targetWorldPos) {
+    // Get positions in the leg's local coordinate system
+    const hipPos = new THREE.Vector3();
+    leg.hip.getWorldPosition(hipPos);
+    
+    // Vector from hip to target
+    const toTarget = new THREE.Vector3().subVectors(targetWorldPos, hipPos);
+    const targetDistance = toTarget.length();
+    
+    // Leg segment lengths
+    const upperLegLength = SCALE * 0.3;
+    const lowerLegLength = SCALE * 0.4;
+    const maxReach = upperLegLength + lowerLegLength;
+    
+    // If target is too far, bring it closer
+    if (targetDistance > maxReach * 0.95) {
+        toTarget.normalize().multiplyScalar(maxReach * 0.95);
+        targetWorldPos.copy(hipPos).add(toTarget);
     }
     
-    // Update leg inverse kinematics to reach a target position
-    function updateLegIK(leg, targetWorldPos) {
-        // Convert target to local space
-        const targetLocal = leg.group.worldToLocal(targetWorldPos.clone());
-        
-        // Simple two-bone IK
-        const joint0 = new THREE.Vector3(0, 0, 0);
-        const joint1 = new THREE.Vector3(0, 0, SCALE * 1);
-        const joint2 = targetLocal;
-        
-        const len1 = SCALE * 1; // Length of first segment
-        const len2 = SCALE * 1.5; // Length of second segment
-        
-        // Calculate the angle for the first joint
-        const dir = new THREE.Vector3().subVectors(joint2, joint0);
-        const len = dir.length();
-        
-        // Limit the reach
-        if (len > len1 + len2 * 0.9) {
-            dir.normalize().multiplyScalar(len1 + len2 * 0.9);
-            joint2.copy(joint0).add(dir);
-        }
-        
-        // Calculate first joint angle using law of cosines
-        const a = len1;
-        const b = len2;
-        const c = joint2.distanceTo(joint0);
-        
-        const cosAngle = (a*a + c*c - b*b) / (2 * a * c);
-        const angle1 = Math.acos(Math.min(1, Math.max(-1, cosAngle)));
-        
-        // Calculate second joint angle
-        const cosAngle2 = (a*a + b*b - c*c) / (2 * a * b);
-        const angle2 = Math.PI - Math.acos(Math.min(1, Math.max(-1, cosAngle2)));
-        
-        // Set rotation for first segment
-        leg.segments[0].lookAt(joint2);
-        
-        // Set rotation for second segment
-        const midDir = new THREE.Vector3().subVectors(joint2, joint1).normalize();
-        leg.segments[1].lookAt(new THREE.Vector3().addVectors(joint1, midDir));
-        leg.segments[1].rotateX(angle2 - Math.PI/2);
+    // Convert to local space as needed for our calculations
+    const localTargetDir = toTarget.clone().normalize();
+    
+    // Calculate joint angles using the law of cosines
+    const a = upperLegLength;
+    const b = lowerLegLength;
+    const c = targetWorldPos.distanceTo(hipPos);
+    
+    // Handle case where the target is too close or too far
+    if (c < Math.abs(a - b) * 1.01 || c > (a + b) * 0.99) {
+        return; // Cannot reach, maintain current position
     }
+    
+    // Law of cosines to find joint angles
+    const cosKneeAngle = (a*a + b*b - c*c) / (2 * a * b);
+    const kneeAngle = Math.acos(Math.min(1, Math.max(-1, cosKneeAngle)));
+    
+    // Apply rotations to the upper leg to point at target
+    leg.upperLeg.lookAt(targetWorldPos);
+    
+    // Apply rotation to the knee (always bend in correct direction)
+    leg.lowerLeg.rotation.x = Math.PI - kneeAngle;
+}
+
+    
+    
     
     // Update player movement based on controller grabs
     function updatePlayerMovement(deltaTime) {
@@ -1650,11 +1906,81 @@ function updateFlies(deltaTime) {
         }
     }
     
+
+
+    // Game over function
+function gameOver() {
+    gameEnded = true;
+    
+    // Create game over overlay
+    const gameOverDiv = document.createElement('div');
+    gameOverDiv.style.position = 'absolute';
+    gameOverDiv.style.width = '100%';
+    gameOverDiv.style.height = '100%';
+    gameOverDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    gameOverDiv.style.display = 'flex';
+    gameOverDiv.style.flexDirection = 'column';
+    gameOverDiv.style.justifyContent = 'center';
+    gameOverDiv.style.alignItems = 'center';
+    gameOverDiv.style.color = 'white';
+    gameOverDiv.style.fontFamily = 'Arial, sans-serif';
+    gameOverDiv.style.zIndex = '1000';
+    
+    const gameOverText = document.createElement('h1');
+    gameOverText.textContent = 'GAME OVER';
+    gameOverText.style.color = 'red';
+    gameOverText.style.fontSize = '48px';
+    gameOverText.style.margin = '0 0 20px 0';
+    
+    const scoreText = document.createElement('p');
+    scoreText.textContent = `Final Score: ${Math.floor(score)}`;
+    scoreText.style.fontSize = '32px';
+    scoreText.style.margin = '0 0 40px 0';
+    
+    const restartButton = document.createElement('button');
+    restartButton.textContent = 'Play Again';
+    restartButton.style.padding = '15px 30px';
+    restartButton.style.fontSize = '24px';
+    restartButton.style.backgroundColor = '#4CAF50';
+    restartButton.style.border = 'none';
+    restartButton.style.borderRadius = '5px';
+    restartButton.style.cursor = 'pointer';
+    restartButton.onclick = () => {
+        location.reload();
+    };
+    
+    gameOverDiv.appendChild(gameOverText);
+    gameOverDiv.appendChild(scoreText);
+    gameOverDiv.appendChild(restartButton);
+    document.body.appendChild(gameOverDiv);
+    
+    // End VR session if active
+    if (renderer.xr.isPresenting) {
+        renderer.xr.getSession().end();
+    }
+}
+
+
     // Animation loop
     function animate() {
         const deltaTime = Math.min(0.1, clock.getDelta()); // Cap delta time to avoid huge jumps
         
         if (gameStarted && !gameEnded) {
+        // Decrease health over time
+        health -= deltaTime * 3; // Health decreases by 3% per second
+        
+        // Increase score based on time survived
+        score += deltaTime * 10; // 10 points per second
+        
+        // Check for game over
+        if (health <= 0) {
+            health = 0;
+            gameOver();
+        }
+        
+        // Update the HUD
+        updateLevelIndicator();
+
             // Update flies
             updateFlies(deltaTime);
             
@@ -1665,7 +1991,7 @@ function updateFlies(deltaTime) {
             updateWebVibrations(deltaTime);
             
             // Update spider legs
-            updateSpiderLegs(deltaTime);
+            updateSpiderLegsIK(deltaTime);
             
             // Update player movement based on grabbing
             updatePlayerMovement(deltaTime);
