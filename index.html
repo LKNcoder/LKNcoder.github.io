@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firefly Catcher VR</title>
-        <script type="importmap">
+    <title>Spider Simulator VR</title>
+    <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -15,978 +15,1130 @@
     }
     </script>
     <style>
-       body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background-color: #000;
-    }
-    #container {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-    }
-    #gameInterface {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-    }
-    #gameImage {
-        width: 300px;
-        height: 200px;
-        border-radius: 8px;
-        box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
-    }
-    #info {
-        color: white;
-        font-family: Arial, sans-serif;
-        font-size: 18px;
-        text-align: center;
-        max-width: 500px;
-        margin-bottom: 15px;
-        text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
-    }
-    #startButton {
-        padding: 12px 24px;
-        font-size: 20px;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-    #startButton:hover {
-        background-color: #45a049;
-        box-shadow: 0 0 15px rgba(76, 175, 80, 0.7);
-    }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        #gameInterface {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #gameImage {
+            width: 300px;
+            height: 200px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(128, 128, 128, 0.5);
+        }
+        #info {
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            max-width: 500px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+        }
+        #startButton {
+            padding: 12px 24px;
+            font-size: 20px;
+            background-color: #555555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #startButton:hover {
+            background-color: #777777;
+            box-shadow: 0 0 15px rgba(128, 128, 128, 0.7);
+        }
     </style>
 </head>
 <body>
   <div id="container"></div>
   <div id="gameInterface">
-    <img id="gameImage" src="https://images.unsplash.com/photo-1566151449979-b5e3f3953da6?auto=format&fit=crop&w=300&h=200" alt="Fireflies glowing in the dark">
-    <div id="info">Catch the fireflies and put them in matching color jars!</div>
+    <img id="gameImage" src="https://images.unsplash.com/photo-1508232926672-102e7bdca0f0?auto=format&fit=crop&w=300&h=200" alt="Spider web with dew drops">
+    <div id="info">Experience life as a spider! Move along your web, catch flies, and wrap them in silk.</div>
     <button id="startButton">ENTER VR</button>
   </div>
 
   <script type="module">
-        import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+    import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+    import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
-        // Game variables
-        let scene, camera, renderer, controls;
-        let controllers = [];
-        let controllerGrips = [];
-        let controllerHemispheres = [];
-        let fireflies = [];
-        let jars = [];
-        let clock = new THREE.Clock();
-        let score = 0;
-        let timeRemaining = 120; // 2 minutes
-        let gameStarted = false;
-        let gameEnded = false;
+    // Game variables
+    let scene, camera, renderer, controls;
+    let controllers = [];
+    let flies = [];
+    let web = { strands: [], joints: [], anchorPoints: [] };
+    let spiderLegs = [];
+    let grabPoints = [];
+    let clock = new THREE.Clock();
+    let score = 0;
+    let level = 1;
+    let fliesCaught = 0;
+    let gameStarted = false;
+    let gameEnded = false;
+    let caughtFly = null;
+    let wrapCount = 0;
+    let ambientLight, directionalLight;
+    
+    // Scale factor - everything relative to spider size
+    const SCALE = 0.02; // 1 unit = 2cm (spider size)
+    
+    // Fly colors
+    const flyColors = [
+        new THREE.Color(0.1, 0.1, 0.1), // Dark gray
+        new THREE.Color(0.2, 0.2, 0.2), // Medium gray
+        new THREE.Color(0.3, 0.3, 0.3)  // Light gray
+    ];
+    
+    // Initialize the game
+    function init() {
+        // Create the scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky blue background
         
-        // Firefly colors
-        const fireflyColors = [
-            new THREE.Color(0.8, 0.2, 0.8), // Purple
-            new THREE.Color(0.2, 0.8, 0.2), // Green
-            new THREE.Color(0.8, 0.8, 0.2)  // Yellow
-        ];
+        // Create the camera (spider's view)
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.001, 50);
+        camera.position.set(0, SCALE * 1.5, 0); // Just above the web
         
-        // Initialize the game
-        function init() {
-            // Create the scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000000);
-            scene.fog = new THREE.FogExp2(0x000000, 0.02);
-            
-            // Create the camera
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
-            camera.position.set(0, 1.6, 3);
-            
-            // Create the renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.outputColorSpace = THREE.SRGBColorSpace;
-            renderer.shadowMap.enabled = true;
-            renderer.xr.enabled = true;
-            document.getElementById('container').appendChild(renderer.domElement);
-            
-            // Add orbit controls for non-VR viewing
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.target.set(0, 1, 0);
-            controls.update();
-            
-            // Setup XR button
-            const button = VRButton.createButton(renderer);
-            document.getElementById('startButton').addEventListener('click', function() {
-                document.body.appendChild(button);
-                button.click();
-                gameStarted = true;
-                this.style.display = 'none';
-                document.getElementById('info').style.display = 'none';
-                setup();
+        // Create the renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.shadowMap.enabled = true;
+        renderer.xr.enabled = true;
+        document.getElementById('container').appendChild(renderer.domElement);
+        
+        // Add orbit controls for non-VR viewing
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, SCALE * 1.5, -SCALE * 5);
+        controls.minDistance = SCALE;
+        controls.maxDistance = SCALE * 50;
+        controls.update();
+        
+        // Setup XR button
+        const button = VRButton.createButton(renderer);
+        document.getElementById('startButton').addEventListener('click', function() {
+            document.body.appendChild(button);
+            button.click();
+            gameStarted = true;
+            this.style.display = 'none';
+            document.getElementById('gameInterface').style.display = 'none';
+            setup();
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize);
+        
+        // Start the animation loop
+        renderer.setAnimationLoop(animate);
+    }
+    
+    // Setup the game environment
+    function setup() {
+        // Add lights - much brighter than before
+        ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.7);
+        scene.add(ambientLight);
+        
+        directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+        
+        // Create the ground plane
+        const groundGeometry = new THREE.PlaneGeometry(SCALE * 500, SCALE * 500);
+        const groundMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x553311, // Brown
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -SCALE * 5; // Below the web
+        ground.receiveShadow = true;
+        scene.add(ground);
+        
+        // Create environment elements
+        createEnvironment();
+        
+        // Create spider web
+        createSpiderWeb();
+        
+        // Create spider legs
+        createSpiderLegs();
+        
+        // Create flies
+        createFlies(5);
+        
+        // Setup controllers for grabbing
+        setupGrabControllers();
+        
+        // Create level indicator
+        createLevelIndicator();
+    }
+    
+    // Create environment elements
+    function createEnvironment() {
+        // Create some grass blades
+        for (let i = 0; i < 500; i++) {
+            const height = SCALE * (5 + Math.random() * 10);
+            const width = SCALE * 0.1;
+            const grassGeometry = new THREE.PlaneGeometry(width, height);
+            const grassMaterial = new THREE.MeshStandardMaterial({
+                color: 0x33AA33, // Green
+                roughness: 0.8,
+                side: THREE.DoubleSide
             });
+            const grass = new THREE.Mesh(grassGeometry, grassMaterial);
             
-            // Handle window resize
-            window.addEventListener('resize', onWindowResize);
+            // Position randomly around the area
+            const angle = Math.random() * Math.PI * 2;
+            const radius = SCALE * (50 + Math.random() * 150);
+            grass.position.set(
+                Math.cos(angle) * radius,
+                -SCALE * 5 + height / 2,
+                Math.sin(angle) * radius
+            );
             
-            // Start the animation loop
-            renderer.setAnimationLoop(animate);
+            // Random rotation
+            grass.rotation.y = Math.random() * Math.PI;
+            
+            grass.castShadow = true;
+            grass.receiveShadow = true;
+            scene.add(grass);
         }
         
-        // Setup the game environment
-        function setup() {
-    // Add ambient light - bluish violet for swamp atmosphere
-    const ambientLight = new THREE.AmbientLight(0x2A1E5C, 0.2); // Inky bluish-violet, low intensity
-    scene.add(ambientLight);
-    
-    // Add directional moonlight (very dim for atmosphere)
-    const directionalLight = new THREE.DirectionalLight(0x5D4E8C, 0.3);
-    directionalLight.position.set(0, 10, 0);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
-    
-    // Create the ground plane (swampy terrain)
-    const groundGeometry = new THREE.PlaneGeometry(20, 20, 32, 32);
-    // Add some vertex displacement for uneven swampy ground
-    const vertices = groundGeometry.attributes.position.array;
-    for (let i = 0; i < vertices.length; i += 3) {
-        // Skip the edges to keep them level
-        if (Math.abs(vertices[i]) < 9 && Math.abs(vertices[i+2]) < 9) {
-            vertices[i+1] = Math.random() * 0.1 - 0.05; // Small bumps
+        // Create some rocks
+        for (let i = 0; i < 20; i++) {
+            const rockGeometry = new THREE.DodecahedronGeometry(SCALE * (1 + Math.random() * 3), 0);
+            const rockMaterial = new THREE.MeshStandardMaterial({
+                color: 0x888888,
+                roughness: 0.9
+            });
+            const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+            
+            // Position randomly
+            const angle = Math.random() * Math.PI * 2;
+            const radius = SCALE * (30 + Math.random() * 150);
+            rock.position.set(
+                Math.cos(angle) * radius,
+                -SCALE * 5 + SCALE * (Math.random() * 2),
+                Math.sin(angle) * radius
+            );
+            
+            // Random rotation
+            rock.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            scene.add(rock);
+        }
+        
+        // Add distant trees silhouette
+        const treesGeometry = new THREE.PlaneGeometry(SCALE * 1000, SCALE * 50);
+        const treesMaterial = new THREE.MeshBasicMaterial({
+            color: 0x005500,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        
+        for (let i = 0; i < 4; i++) {
+            const trees = new THREE.Mesh(treesGeometry, treesMaterial);
+            const angle = i * Math.PI / 2;
+            trees.position.set(
+                Math.cos(angle) * SCALE * 250,
+                -SCALE * 5 + SCALE * 25,
+                Math.sin(angle) * SCALE * 250
+            );
+            trees.lookAt(0, -SCALE * 5 + SCALE * 25, 0);
+            scene.add(trees);
         }
     }
     
-    const groundMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x0A3B0A, // Dark swamp green
-        roughness: 0.9,
-        metalness: 0.1
-    });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-    
-    // Create swampy elements
-    createSwampEnvironment();
-    
-    // Create glowing mushrooms
-    createMushrooms(30); // Create 30 mushrooms
-    
-    // Create fireflies
-    createFireflies(25); // 25 fireflies
-    
-    // Setup controllers with nets
-    setupNetControllers();
-    
-    // Create UI elements
-    createUI();
-}
+    // Create the spider web
+    function createSpiderWeb() {
+        const webMaterial = new THREE.MeshStandardMaterial({
+            color: 0xDDDDDD,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide,
+            emissive: 0xFFFFFF,
+            emissiveIntensity: 0.1
+        });
         
-    
+        // Create anchor points for the web (around a circle)
+        const anchorRadius = SCALE * 20;
+        const anchorCount = 8;
+        const centerPoint = new THREE.Vector3(0, SCALE * 1.5, -SCALE * 10);
         
-        // Create fireflies
-        function createFireflies(count) {
-            for (let i = 0; i < count; i++) {
-                const colorIndex = Math.floor(Math.random() * 3);
-                const color = fireflyColors[colorIndex];
+        // Create center point of web
+        const centerSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(SCALE * 0.2, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0xDDDDDD })
+        );
+        centerSphere.position.copy(centerPoint);
+        scene.add(centerSphere);
+        web.joints.push(centerSphere);
+        
+        // Create anchor points
+        for (let i = 0; i < anchorCount; i++) {
+            const angle = (i / anchorCount) * Math.PI * 2;
+            const x = centerPoint.x + Math.cos(angle) * anchorRadius;
+            const z = centerPoint.z + Math.sin(angle) * anchorRadius;
+            const y = centerPoint.y + (Math.random() * SCALE * 5 - SCALE * 2.5);
+            
+            const anchorPosition = new THREE.Vector3(x, y, z);
+            
+            // Create visual marker for anchor
+            const anchorMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(SCALE * 0.2, 8, 8),
+                new THREE.MeshStandardMaterial({ color: 0x888888 })
+            );
+            anchorMesh.position.copy(anchorPosition);
+            scene.add(anchorMesh);
+            
+            web.anchorPoints.push(anchorPosition);
+            web.joints.push(anchorMesh);
+            
+            // Create strand from center to anchor
+            createWebStrand(centerPoint, anchorPosition, webMaterial);
+        }
+        
+        // Create circular strands
+        const circleCount = 5;
+        for (let i = 1; i <= circleCount; i++) {
+            const radius = anchorRadius * (i / circleCount);
+            
+            for (let j = 0; j < anchorCount; j++) {
+                const angle1 = (j / anchorCount) * Math.PI * 2;
+                const angle2 = ((j + 1) / anchorCount) * Math.PI * 2;
                 
-                // Create firefly body
-                const bodyGeometry = new THREE.SphereGeometry(0.0075, 8, 8); 
-                const bodyMaterial = new THREE.MeshStandardMaterial({
-                    color: color,
-                    emissive: color,
-                    emissiveIntensity: 0
-                });
-                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                const x1 = centerPoint.x + Math.cos(angle1) * radius;
+                const z1 = centerPoint.z + Math.sin(angle1) * radius;
+                const y1 = centerPoint.y + (Math.sin(angle1 * 3) * SCALE);
                 
-                // Create simple wings (two small planes)
-                const wingGeometry = new THREE.PlaneGeometry(0.0125, 0.01); 
-                const wingMaterial = new THREE.MeshStandardMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0.3,
-                    side: THREE.DoubleSide
-                });
+                const x2 = centerPoint.x + Math.cos(angle2) * radius;
+                const z2 = centerPoint.z + Math.sin(angle2) * radius;
+                const y2 = centerPoint.y + (Math.sin(angle2 * 3) * SCALE);
                 
-                const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-                leftWing.position.set(-0.0075, 0, 0); 
-                leftWing.rotation.y = Math.PI / 4;
-                body.add(leftWing);
+                const point1 = new THREE.Vector3(x1, y1, z1);
+                const point2 = new THREE.Vector3(x2, y2, z2);
                 
-                const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-                rightWing.position.set(0.0075, 0, 0); 
-                rightWing.rotation.y = -Math.PI / 4;
-                body.add(rightWing);
-                
-                // Create point light for the glow effect
-                 const light = new THREE.PointLight(color, 0, 0.125); 
-                light.intensity = 0;
-                body.add(light);
-                
-                // Position randomly in the scene
-                body.position.set(
-                 (Math.random() - 0.5) * 2, 
-            0.25 + Math.random() * 0.5,
-            (Math.random() - 0.5) * 2  
+                // Create joint at point1
+                const joint = new THREE.Mesh(
+                    new THREE.SphereGeometry(SCALE * 0.1, 8, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xDDDDDD })
                 );
+                joint.position.copy(point1);
+                scene.add(joint);
+                web.joints.push(joint);
                 
-                scene.add(body);
-                
-                // Firefly properties
-                const firefly = {
-                    mesh: body,
-                    light: light,
-                    material: bodyMaterial,
-                    colorIndex: colorIndex,
-                    velocity: new THREE.Vector3(
-                       (Math.random() - 0.5) * 0.005, 
-                (Math.random() - 0.5) * 0.005, 
-                (Math.random() - 0.5) * 0.005  
-                    ),
-                    blinkTimer: Math.random() * 5,
-                    blinkDuration: 0.3,
-                    isBlinking: false,
-                    isCaught: false,
-                    isInJar: false,
-                    wings: {
-                        left: leftWing,
-                        right: rightWing,
-                        angle: 0,
-                        speed: 0.2 + Math.random() * 0.3
-                    }
-                };
-                
-                fireflies.push(firefly);
+                // Create strand between these points
+                createWebStrand(point1, point2, webMaterial);
             }
         }
-
-
-
-// Create elements for swamp environment
-function createSwampEnvironment() {
-    // Create some reeds/cattails
-    for (let i = 0; i < 50; i++) {
-        const height = 0.3 + Math.random() * 0.6;
-        const reedGeometry = new THREE.CylinderGeometry(0.005, 0.01, height, 5);
-        const reedMaterial = new THREE.MeshStandardMaterial({
-            color: 0x6B8E23, // Olive green
+        
+        // Create some random additional strands for a more natural look
+        for (let i = 0; i < 20; i++) {
+            const joint1 = web.joints[Math.floor(Math.random() * web.joints.length)];
+            const joint2 = web.joints[Math.floor(Math.random() * web.joints.length)];
+            
+            if (joint1 !== joint2) {
+                createWebStrand(joint1.position, joint2.position, webMaterial);
+            }
+        }
+    }
+    
+    // Create a strand of web between two points
+    function createWebStrand(point1, point2, material) {
+        const direction = new THREE.Vector3().subVectors(point2, point1);
+        const length = direction.length();
+        
+        // Create a thin cylinder for the strand
+        const geometry = new THREE.CylinderGeometry(SCALE * 0.03, SCALE * 0.03, length, 8, 1);
+        const strand = new THREE.Mesh(geometry, material);
+        
+        // Position and orient the strand
+        strand.position.copy(point1);
+        strand.position.add(direction.multiplyScalar(0.5));
+        strand.lookAt(point2);
+        strand.rotateX(Math.PI / 2);
+        
+        scene.add(strand);
+        web.strands.push({
+            mesh: strand,
+            start: point1.clone(),
+            end: point2.clone(),
+            isVibrating: false,
+            vibrationTime: 0,
+            vibrationIntensity: 0
+        });
+        
+        // Create grab points along the strand
+        const grabPointCount = Math.max(2, Math.floor(length / (SCALE * 2)));
+        for (let i = 1; i < grabPointCount; i++) {
+            const t = i / grabPointCount;
+            const position = new THREE.Vector3().lerpVectors(point1, point2, t);
+            
+            // Create invisible grab point
+            const grabPoint = {
+                position: position,
+                strand: strand,
+                isGrabbed: false
+            };
+            
+            grabPoints.push(grabPoint);
+        }
+        
+        return strand;
+    }
+    
+    // Create spider legs attached to the camera (player's view)
+    function createSpiderLegs() {
+        const legMaterial = new THREE.MeshStandardMaterial({
+            color: 0x332211,
             roughness: 0.9
         });
-        const reed = new THREE.Mesh(reedGeometry, reedMaterial);
         
-        // Position randomly around the scene, but avoid the center
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 1.5 + Math.random() * 8;
-        reed.position.set(
-            Math.cos(angle) * radius,
-            height / 2,
-            Math.sin(angle) * radius
-        );
-        
-        // Random slight tilt
-        reed.rotation.x = (Math.random() - 0.5) * 0.2;
-        reed.rotation.z = (Math.random() - 0.5) * 0.2;
-        
-        reed.castShadow = true;
-        reed.receiveShadow = true;
-        scene.add(reed);
-    }
-    
-    // Create some tree stumps
-    for (let i = 0; i < 8; i++) {
-        const stumpGeometry = new THREE.CylinderGeometry(0.2, 0.25, 0.3, 8);
-        const stumpMaterial = new THREE.MeshStandardMaterial({
-            color: 0x3D2817, // Dark brown
-            roughness: 1.0
-        });
-        const stump = new THREE.Mesh(stumpGeometry, stumpMaterial);
-        
-        // Position randomly around the scene
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 2 + Math.random() * 7;
-        stump.position.set(
-            Math.cos(angle) * radius,
-            0.15,
-            Math.sin(angle) * radius
-        );
-        
-        stump.castShadow = true;
-        stump.receiveShadow = true;
-        scene.add(stump);
-    }
-    
-    // Create some rocks
-    for (let i = 0; i < 15; i++) {
-        const rockGeometry = new THREE.DodecahedronGeometry(0.1 + Math.random() * 0.15, 0);
-        const rockMaterial = new THREE.MeshStandardMaterial({
-            color: 0x555555,
-            roughness: 0.8
-        });
-        const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-        
-        // Position randomly
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * 9;
-        rock.position.set(
-            Math.cos(angle) * radius,
-            0.05,
-            Math.sin(angle) * radius
-        );
-        
-        // Random rotation
-        rock.rotation.set(
-            Math.random() * Math.PI,
-            Math.random() * Math.PI,
-            Math.random() * Math.PI
-        );
-        
-        rock.castShadow = true;
-        rock.receiveShadow = true;
-        scene.add(rock);
-    }
-    
-    // Add some fog for atmosphere
-    scene.fog = new THREE.FogExp2(0x0A1A2A, 0.05);
-}
-
-// Create glowing mushrooms
-let mushrooms = [];
-function createMushrooms(count) {
-    for (let i = 0; i < count; i++) {
-        // Create stem
-        const stemHeight = 0.05 + Math.random() * 0.1;
-        const stemRadius = 0.01 + Math.random() * 0.015;
-        const stemGeometry = new THREE.CylinderGeometry(stemRadius, stemRadius * 1.2, stemHeight, 8);
-        const stemMaterial = new THREE.MeshStandardMaterial({
-            color: 0xDDBBDD, // Light purplish
-            roughness: 0.7
-        });
-        const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-        
-        // Create cap
-        const capRadius = stemRadius * 3;
-        const capHeight = stemRadius * 2;
-        const capGeometry = new THREE.ConeGeometry(capRadius, capHeight, 8, 1, true);
-        
-        // Random mushroom colors with low initial emissive intensity
-        const capColor = new THREE.Color(
-            0.3 + Math.random() * 0.7,
-            0.2 + Math.random() * 0.3,
-            0.5 + Math.random() * 0.5
-        );
-        
-        const capMaterial = new THREE.MeshStandardMaterial({
-            color: capColor,
-            emissive: capColor,
-            emissiveIntensity: 0.05, // Start with low glow
-            roughness: 0.7
-        });
-        const cap = new THREE.Mesh(capGeometry, capMaterial);
-        cap.position.y = stemHeight / 2;
-        cap.rotation.x = Math.PI; // Flip the cone upside down
-        
-        // Create mushroom group
-        const mushroom = new THREE.Group();
-        mushroom.add(stem);
-        mushroom.add(cap);
-        
-        // Position randomly
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 0.5 + Math.random() * 9;
-        mushroom.position.set(
-            Math.cos(angle) * radius,
-            0,
-            Math.sin(angle) * radius
-        );
-        
-        // Random slight tilt
-        mushroom.rotation.x = (Math.random() - 0.5) * 0.2;
-        mushroom.rotation.z = (Math.random() - 0.5) * 0.2;
-        
-        mushroom.userData = {
-            cap: cap,
-            originalIntensity: 0.05,
-            maxIntensity: 0.3 + Math.random() * 0.7 // Different max intensity for variation
-        };
-        
-        scene.add(mushroom);
-        mushrooms.push(mushroom);
-    }
-}
-
-// Setup VR controllers with nets
-function setupNetControllers() {
-    const controllerModelFactory = new XRControllerModelFactory();
-    
-    // Create controller objects and add them to the scene
-    for (let i = 0; i < 2; i++) {
-        // Controller
-        const controller = renderer.xr.getController(i);
-        controller.addEventListener('connected', (event) => {
-            controller.userData.gamepad = event.data.gamepad;
-        });
-        controller.addEventListener('disconnected', () => {
-            controller.remove(controller.children[0]);
-            controller.userData.gamepad = null;
-        });
-        scene.add(controller);
-        controllers.push(controller);
-        
-        // Create the net model (handle + cylinder)
-        const handleGeometry = new THREE.BoxGeometry(0.01, 0.01, 0.2);
-        const handleMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8B4513, // Wood color
-            roughness: 0.8
-        });
-        const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-        handle.position.z = -0.1; // Position handle behind the net
-        
-        // Create the net cylinder
-        const netGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16, 1, true);
-        const netMaterial = new THREE.MeshStandardMaterial({
-            color: 0xCCCCCC,
-            transparent: true,
-            opacity: 0.3,
-            side: THREE.DoubleSide,
-            wireframe: true
-        });
-        const net = new THREE.Mesh(netGeometry, netMaterial);
-        net.rotation.x = Math.PI / 2; // Rotate to make circular opening face forward
-        net.position.z = -0.02; // Position at the end of the handle
-        
-        // Create a group for the net and handle
-        const netTool = new THREE.Group();
-        netTool.add(handle);
-        netTool.add(net);
-        
-        // Add to controller
-        controller.add(netTool);
-        
-        // Store the net part for collision detection
-        controller.userData.net = net;
-        controller.userData.netFlashing = false;
-        
-        controllers.push(controller);
-    }
-}
-
-
-
-// Catch a firefly
-function catchFirefly(firefly, controllerIndex) {
-    firefly.isCaught = true;
-    
-    // Flash the net
-    flashNet(controllers[controllerIndex]);
-    
-    // Trigger haptic feedback
-    triggerHapticFeedback(controllerIndex, 0.8, 100);
-    
-    // Remove the firefly after a brief flash
-    setTimeout(() => {
-        scene.remove(firefly.mesh);
-        
-        // Remove from array by setting it to null
-        // We'll filter these out later if needed
-        const index = fireflies.indexOf(firefly);
-        if (index !== -1) {
-            fireflies[index] = null;
-        }
-        
-        // Increase the brightness of mushrooms
-        increaseMushromBrightness();
-        
-        // Add points
-        score += 10;
-    }, 300);
-}
-
-// Flash the net when catching a firefly
-function flashNet(controller) {
-    if (!controller.userData.net || controller.userData.netFlashing) return;
-    
-    controller.userData.netFlashing = true;
-    
-    // Store original material
-    const originalMaterial = controller.userData.net.material;
-    
-    // Create a glowing material
-    const flashMaterial = new THREE.MeshBasicMaterial({
-        color: 0xFFFFFF, 
-        transparent: true,
-        opacity: 0.7
-    });
-    
-    // Apply flash material
-    controller.userData.net.material = flashMaterial;
-    
-    // Reset after flash
-    setTimeout(() => {
-        controller.userData.net.material = originalMaterial;
-        controller.userData.netFlashing = false;
-    }, 300);
-}
-
-// Increase mushroom brightness when a firefly is caught
-function increaseMushromBrightness() {
-    // Count remaining fireflies
-    const remainingFireflies = fireflies.filter(f => f !== null).length;
-    
-    // Calculate global intensity factor based on how many fireflies have been caught
-    const intensityFactor = 1 - (remainingFireflies / 25); // Assuming 25 was the initial count
-    
-    // Apply the new intensity to each mushroom
-    for (let i = 0; i < mushrooms.length; i++) {
-        const mushroom = mushrooms[i];
-        const capMaterial = mushroom.userData.cap.material;
-        
-        // Calculate new intensity between original and max, based on how many fireflies are caught
-        const newIntensity = mushroom.userData.originalIntensity + 
-            (mushroom.userData.maxIntensity - mushroom.userData.originalIntensity) * intensityFactor;
-        
-        capMaterial.emissiveIntensity = newIntensity;
-    }
-    
-    // Also increase the ambient light slightly
-    ambientLight.intensity = 0.2 + (0.3 * intensityFactor);
-}
-
-
-
-
-
-
-        
-      
-        
-        // Create UI elements
-      function createUI() {
-    // Score and timer display
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
-    const context = canvas.getContext('2d');
-    
-    // Fill with initial content
-    context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = 'white';
-    context.font = '32px Arial';
-    context.textAlign = 'center';
-    context.fillText(`Score: ${score}   Time: ${Math.ceil(timeRemaining)}s`, 256, 64);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        side: THREE.DoubleSide
-    });
-    
-    const geometry = new THREE.PlaneGeometry(0.25, 0.0625); 
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(0, 0.125, -0.5);
-    
-    scene.add(mesh);
+        // Create 8 legs (4 pairs)
+        for (let i = 0; i < 8; i++) {
+            const legGroup = new THREE.Group();
             
-            // Quit button
-            const quitGeometry = new THREE.PlaneGeometry(0.1, 0.0375); 
-            const quitMaterial = new THREE.MeshStandardMaterial({
-    color: 0x400000, // Much darker red
-    emissive: 0xff0000, // Red glow
-    emissiveIntensity: 0.2, // Very subtle intensity
-    transparent: true,
-    opacity: 0.6, // Partially transparent
-    side: THREE.DoubleSide
-});
-
-           const quitButton = new THREE.Mesh(quitGeometry, quitMaterial);
-            quitButton.position.set(0, 0.025, -0.5);
-            scene.add(quitButton);
+            // Which side (left/right)
+            const side = i % 2 === 0 ? -1 : 1;
+            // Which pair (front to back)
+            const pair = Math.floor(i / 2);
             
-            // Quit text
-            const quitCanvas = document.createElement('canvas');
-            quitCanvas.width = 256;
-            quitCanvas.height = 128;
-            const quitContext = quitCanvas.getContext('2d');
-            quitContext.fillStyle = 'white';
-            quitContext.font = '48px Arial';
-            quitContext.textAlign = 'center';
-            quitContext.textBaseline = 'middle';
-            quitContext.fillText('QUIT', 128, 64);
+            // Create segments for each leg
+            const segment1 = new THREE.Mesh(
+                new THREE.CylinderGeometry(SCALE * 0.05, SCALE * 0.08, SCALE * 1, 8),
+                legMaterial
+            );
+            segment1.position.set(0, 0, SCALE * 0.5);
+            segment1.rotation.x = Math.PI / 2;
             
-            const quitTexture = new THREE.CanvasTexture(quitCanvas);
-            const quitTextMaterial = new THREE.MeshBasicMaterial({
-                map: quitTexture,
-                transparent: true,
-                side: THREE.DoubleSide
+            const joint1 = new THREE.Mesh(
+                new THREE.SphereGeometry(SCALE * 0.08, 8, 8),
+                legMaterial
+            );
+            joint1.position.set(0, 0, SCALE * 1);
+            
+            const segment2 = new THREE.Mesh(
+                new THREE.CylinderGeometry(SCALE * 0.08, SCALE * 0.04, SCALE * 1.5, 8),
+                legMaterial
+            );
+            segment2.position.set(0, 0, SCALE * 1.75);
+            segment2.rotation.x = Math.PI / 2;
+            
+            // Add segments to the leg group
+            legGroup.add(segment1);
+            legGroup.add(joint1);
+            legGroup.add(segment2);
+            
+            // Position the leg relative to camera
+            legGroup.position.set(
+                side * SCALE * (0.5 + pair * 0.2),
+                -SCALE * 0.2,
+                -SCALE * (0.5 + pair * 0.3)
+            );
+            
+            // Angle the leg outward
+            legGroup.rotation.y = side * (Math.PI / 4 + pair * 0.2);
+            
+            // Add to camera
+            camera.add(legGroup);
+            
+            // Store reference
+            spiderLegs.push({
+                group: legGroup,
+                segments: [segment1, segment2],
+                joints: [joint1],
+                baseRotation: legGroup.rotation.clone(),
+                targetPosition: new THREE.Vector3(),
+                moving: false,
+                side: side,
+                pair: pair
             });
-            
-            const quitTextGeometry = new THREE.PlaneGeometry(0.0875, 0.03); 
-            const quitTextMesh = new THREE.Mesh(quitTextGeometry, quitTextMaterial);
-            quitTextMesh.position.set(0, 0.025, -0.49);
-            scene.add(quitTextMesh);
-            
-            // Update UI function
-            function updateUI() {
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                context.fillStyle = 'white';
-                context.font = '32px Arial';
-                context.textAlign = 'center';
-                context.fillText(`Score: ${score}   Time: ${Math.ceil(timeRemaining)}s`, 256, 64);
-                texture.needsUpdate = true;
-            }
-            
-            // Store UI elements for updates
-            return {
-                update: updateUI,
-                quit: {
-                    button: quitButton,
-                    text: quitTextMesh
-                }
-            };
-        }
-        
-        // Handle window resizing
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        // Update firefly positions and behaviors
-        function updateFireflies(deltaTime) {
-            for (let i = 0; i < fireflies.length; i++) {
-                const firefly = fireflies[i];
-                
-                // Skip updating if the firefly is in a jar
-                if (firefly.isInJar) continue;
-                
-                const mesh = firefly.mesh;
-                
-                // Update wing animation
-                firefly.wings.angle += firefly.wings.speed * deltaTime;
-                firefly.wings.left.rotation.z = Math.sin(firefly.wings.angle) * 0.5;
-                firefly.wings.right.rotation.z = -Math.sin(firefly.wings.angle) * 0.5;
-                
-                // Update position if not caught
-                if (!firefly.isCaught) {
-                    // Add random movement changes
-                    if (Math.random() < 0.05) {
-                       firefly.velocity.x += (Math.random() - 0.5) * 0.0025; 
-                       firefly.velocity.y += (Math.random() - 0.5) * 0.0025; 
-                       firefly.velocity.z += (Math.random() - 0.5) * 0.0025; 
-                        
-                        // Limit velocity
-                        const speed = firefly.velocity.length();
-                         if (speed > 0.0125) { // Reduced from 0.05
-                     firefly.velocity.multiplyScalar(0.0125 / speed);
-                        }
-                    }
-                    
-                    // Apply velocity
-                    mesh.position.add(firefly.velocity);
-                    
-                    // Boundary checking - keep fireflies within a certain volume
-                 if (mesh.position.x < -2.5 || mesh.position.x > 2.5) firefly.velocity.x *= -1; 
-                 if (mesh.position.y < 0.125 || mesh.position.y > 1) firefly.velocity.y *= -1;
-                   if (mesh.position.z < -2.5 || mesh.position.z > 2.5) firefly.velocity.z *= -1; 
-                
-              // Ensure they stay above the ground
-               if (mesh.position.y < 0.125) mesh.position.y = 0.125; 
-                }
-                
-                // Handle blinking
-                if (!firefly.isBlinking) {
-                    firefly.blinkTimer -= deltaTime;
-                    if (firefly.blinkTimer <= 0) {
-                        // Start blinking
-                        firefly.isBlinking = true;
-                        firefly.material.emissiveIntensity = 1;
-                        firefly.light.intensity = 1;
-                        firefly.blinkTimer = firefly.blinkDuration;
-                    }
-                } else {
-                    firefly.blinkTimer -= deltaTime;
-                    if (firefly.blinkTimer <= 0) {
-                        // Stop blinking
-                        firefly.isBlinking = false;
-                        firefly.material.emissiveIntensity = 0;
-                        firefly.light.intensity = 0;
-                        firefly.blinkTimer = 3 + Math.random() * 5; // Random time until next blink
-                    }
-                }
-            }
-        }
-
-        
-    
-// Check for controller collisions with fireflies
-function checkCollisions() {
-    // Individual controller net collision detection
-    for (let c = 0; c < controllers.length; c++) {
-        const controller = controllers[c];
-        if (!controller.userData.net) continue;
-        
-        // Get the net's world position
-        const netWorldPosition = new THREE.Vector3();
-        controller.userData.net.getWorldPosition(netWorldPosition);
-        
-        // Check each firefly
-        for (let i = 0; i < fireflies.length; i++) {
-            const firefly = fireflies[i];
-            
-            // Skip if already caught
-            if (firefly.isCaught || firefly === null) continue;
-            
-            // Get firefly position
-            const fireflyPos = new THREE.Vector3();
-            firefly.mesh.getWorldPosition(fireflyPos);
-            
-            // Calculate distance to the net
-            const distanceToNet = fireflyPos.distanceTo(netWorldPosition);
-            
-            // If the firefly is close enough to the net, catch it
-            if (distanceToNet < 0.07) {
-                catchFirefly(firefly, c);
-                break; // Only catch one firefly at a time
-            }
         }
     }
     
-    // Check for clapping motion to catch fireflies (if we have at least 2 controllers)
-    if (controllers.length >= 2) {
-        const controller1Pos = new THREE.Vector3();
-        const controller2Pos = new THREE.Vector3();
-        controllers[0].getWorldPosition(controller1Pos);
-        controllers[1].getWorldPosition(controller2Pos);
-        
-        const controllerDistance = controller1Pos.distanceTo(controller2Pos);
-        const clapThreshold = 0.0625;
-        
-        if (controllerDistance < clapThreshold) {
-            // Calculate midpoint between controllers
-            const midpoint = new THREE.Vector3().addVectors(controller1Pos, controller2Pos).multiplyScalar(0.5);
+    // Create flies
+    function createFlies(count) {
+        for (let i = 0; i < count; i++) {
+            const colorIndex = Math.floor(Math.random() * 3);
+            const color = flyColors[colorIndex];
             
-            // Check each firefly
-            for (let i = 0; i < fireflies.length; i++) {
-                const firefly = fireflies[i];
-                
-                // Skip if already caught or null
-                if (!firefly || firefly.isCaught) continue;
-                
-                const fireflyPos = new THREE.Vector3();
-                firefly.mesh.getWorldPosition(fireflyPos);
-                
-                // Calculate distance to midpoint
-                const distanceToMidpoint = fireflyPos.distanceTo(midpoint);
-                
-                // If the firefly is close enough to the midpoint, catch it
-                if (distanceToMidpoint < clapThreshold) {
-                    catchFirefly(firefly, 0);
-                    
-                    // Implement haptic feedback if it exists
-                    if (typeof triggerHapticFeedback === 'function') {
-                        triggerHapticFeedback(0, 0.8, 100);
-                        triggerHapticFeedback(1, 0.8, 100);
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Add the missing triggerHapticFeedback function
-function triggerHapticFeedback(controllerIndex, intensity, duration) {
-    // Only proceed if we have controllers with gamepads that support haptics
-    if (controllers[controllerIndex] && 
-        controllers[controllerIndex].userData.gamepad && 
-        controllers[controllerIndex].userData.gamepad.hapticActuators && 
-        controllers[controllerIndex].userData.gamepad.hapticActuators.length > 0) {
-        controllers[controllerIndex].userData.gamepad.hapticActuators[0].pulse(intensity, duration);
-    }
-}
-
-
-
-
-
-
-
-
-        
-        // Victory celebration
-        function celebrateVictory() {
-            // Create a burst of particles from each jar
-            for (let i = 0; i < jars.length; i++) {
-                createParticleBurst(jars[i].position, fireflyColors[i]);
-            }
-            
-            // Create text showing "You Win!"
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 256;
-            const context = canvas.getContext('2d');
-            context.fillStyle = 'white';
-            context.font = 'bold 72px Arial';
-            context.textAlign = 'center';
-            context.textBaseline = 'middle';
-            context.fillText('YOU WIN!', 256, 128);
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.MeshBasicMaterial({
-                map: texture,
-                transparent: true,
-                side: THREE.DoubleSide
-            });
-            
-            const geometry = new THREE.PlaneGeometry(2, 1);
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(0, 2, -2);
-            scene.add(mesh);
-            
-            // Victory animation
-            const startTime = Date.now();
-            function victoryAnimation() {
-                const elapsed = (Date.now() - startTime) / 1000;
-                mesh.position.y = 2 + Math.sin(elapsed * 2) * 0.1;
-                mesh.rotation.z = Math.sin(elapsed) * 0.1;
-                
-                if (elapsed < 10) { // Run for 10 seconds
-                    requestAnimationFrame(victoryAnimation);
-                }
-            }
-            
-            victoryAnimation();
-            
-            // Trigger haptic pulses on both controllers
-            function celebrationHaptics() {
-                const elapsed = (Date.now() - startTime) / 1000;
-                const intensity = (Math.sin(elapsed * 10) + 1) / 2;
-                
-                triggerHapticFeedback(0, intensity, 50);
-                triggerHapticFeedback(1, intensity, 50);
-                
-                if (elapsed < 5) { // Haptics for 5 seconds
-                    setTimeout(celebrationHaptics, 100);
-                }
-            }
-            
-            celebrationHaptics();
-        }
-        
-        // Create particle burst effect
-        function createParticleBurst(position, color) {
-            const particleCount = 100;
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-            const velocities = [];
-            
-            // Initial positions at the center
-            for (let i = 0; i < particleCount; i++) {
-                const i3 = i * 3;
-                positions[i3] = position.x;
-                positions[i3 + 1] = position.y;
-                positions[i3 + 2] = position.z;
-                
-                // Random velocity for each particle
-                velocities.push(
-                    (Math.random() - 0.5) * 0.1,
-                    Math.random() * 0.1,
-                    (Math.random() - 0.5) * 0.1
-                );
-            }
-            
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            
-            const material = new THREE.PointsMaterial({
+            // Create fly body - larger in scale to match spider perspective
+            const bodyGeometry = new THREE.SphereGeometry(SCALE * 0.5, 12, 12);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
                 color: color,
-                size: 0.05,
-                transparent: true,
-                blending: THREE.AdditiveBlending
+                roughness: 0.7
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            
+            // Create eyes
+            const eyeGeometry = new THREE.SphereGeometry(SCALE * 0.15, 8, 8);
+            const eyeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFF0000,
+                emissive: 0xFF0000,
+                emissiveIntensity: 0.5
             });
             
-            const particles = new THREE.Points(geometry, material);
-            scene.add(particles);
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(SCALE * 0.25, SCALE * 0.1, SCALE * 0.25);
+            body.add(leftEye);
             
-            // Animation for particles
-            const startTime = Date.now();
-            function animateParticles() {
-                const positions = particles.geometry.attributes.position.array;
-                
-                for (let i = 0; i < particleCount; i++) {
-                    const i3 = i * 3;
-                    
-                    // Update positions based on velocities
-                    positions[i3] += velocities[i * 3];
-                    positions[i3 + 1] += velocities[i * 3 + 1];
-                    positions[i3 + 2] += velocities[i * 3 + 2];
-                    
-                    // Add gravity effect
-                    velocities[i * 3 + 1] -= 0.0005;
-                }
-                
-                particles.geometry.attributes.position.needsUpdate = true;
-                
-                // Fade out particles
-                const elapsed = (Date.now() - startTime) / 1000;
-                material.opacity = Math.max(0, 1 - elapsed / 3);
-                
-                if (elapsed < 3) { // Run for 3 seconds
-                    requestAnimationFrame(animateParticles);
-                } else {
-                    scene.remove(particles);
-                    particles.geometry.dispose();
-                    material.dispose();
-                }
-            }
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(SCALE * 0.25, SCALE * 0.1, -SCALE * 0.25);
+            body.add(rightEye);
             
-            animateParticles();
+            // Create wings
+            const wingGeometry = new THREE.PlaneGeometry(SCALE * 0.7, SCALE * 0.5);
+            const wingMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            
+            const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            leftWing.position.set(0, SCALE * 0.2, SCALE * 0.25);
+            leftWing.rotation.y = Math.PI / 4;
+            body.add(leftWing);
+            
+            const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rightWing.position.set(0, SCALE * 0.2, -SCALE * 0.25);
+            rightWing.rotation.y = -Math.PI / 4;
+            body.add(rightWing);
+            
+            // Position randomly in the scene
+            body.position.set(
+                (Math.random() - 0.5) * SCALE * 40,
+                SCALE * (1 + Math.random() * 3),
+                (Math.random() - 0.5) * SCALE * 40
+            );
+            
+            scene.add(body);
+            
+            // Fly properties
+            const fly = {
+                mesh: body,
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * SCALE * 0.1,
+                    (Math.random() - 0.5) * SCALE * 0.1,
+                    (Math.random() - 0.5) * SCALE * 0.1
+                ),
+                wings: {
+                    left: leftWing,
+                    right: rightWing,
+                    angle: 0,
+                    speed: 10 + Math.random() * 20
+                },
+                isTrapped: false,
+                isWrapped: false,
+                escapeTimer: 0,
+                wrapProgress: 0,
+                webStrand: null,
+                escapeChance: 0.2 + (level * 0.1) // Harder to catch at higher levels
+            };
+            
+            flies.push(fly);
         }
-        
-        // Animation loop
-       function animate() {
-    const deltaTime = clock.getDelta();
-    
-    if (gameStarted && !gameEnded) {
-        // Update game timer
-        timeRemaining -= deltaTime;
-        if (timeRemaining <= 0) {
-            timeRemaining = 0;
-            // Game over logic could go here
-        }
-        
-        // Update fireflies
-        updateFireflies(deltaTime);
-        
-        // Check for collisions with the nets
-        checkCollisions();
-        
-        // Update UI
-        if (ui) ui.update();
     }
     
-    // Render the scene
-    renderer.render(scene, camera);
-}
+    // Setup VR controllers for grabbing the web
+    function setupGrabControllers() {
+        // Create controller objects and add them to the scene
+        for (let i = 0; i < 2; i++) {
+            // Controller
+            const controller = renderer.xr.getController(i);
+            controller.addEventListener('selectstart', onSelectStart);
+            controller.addEventListener('selectend', onSelectEnd);
+            controller.addEventListener('connected', (event) => {
+                controller.userData.gamepad = event.data.gamepad;
+            });
+            controller.addEventListener('disconnected', () => {
+                controller.userData.gamepad = null;
+            });
+            scene.add(controller);
+            
+            // Add a visual indicator
+            const grabberGeometry = new THREE.SphereGeometry(SCALE * 0.1, 8, 8);
+            const grabberMaterial = new THREE.MeshStandardMaterial({
+                color: 0x888888,
+                transparent: true,
+                opacity: 0.7
+            });
+            const grabber = new THREE.Mesh(grabberGeometry, grabberMaterial);
+            
+            controller.add(grabber);
+            controller.userData.grabber = grabber;
+            controller.userData.isGrabbing = false;
+            controller.userData.grabPoint = null;
+            
+            controllers.push(controller);
+        }
+    }
+    
+    // Controller select start - grab web
+    function onSelectStart(event) {
+        const controller = event.target;
+        const controllerPosition = new THREE.Vector3();
+        controller.getWorldPosition(controllerPosition);
         
-        // Initialize UI
-        let ui = null;
+        // Check if there's a fly to wrap
+        if (caughtFly) {
+            wrapFly(controller);
+            return;
+        }
         
-        // Initialize the game
-        init();
-    </script>
+        // Check if near any grab points
+        for (let i = 0; i < grabPoints.length; i++) {
+            const grabPoint = grabPoints[i];
+            const distance = controllerPosition.distanceTo(grabPoint.position);
+            
+            if (distance < SCALE * 1) {
+                controller.userData.isGrabbing = true;
+                controller.userData.grabPoint = grabPoint;
+                grabPoint.isGrabbed = true;
+                
+                // Change visual indicator
+                controller.userData.grabber.scale.set(1.5, 1.5, 1.5);
+                controller.userData.grabber.material.color.set(0x00FF00);
+                
+                // Trigger haptic feedback
+                triggerHapticFeedback(controllers.indexOf(controller), 0.5, 50);
+                
+                return;
+            }
+        }
+    }
+    
+    // Controller select end - release web
+    function onSelectEnd(event) {
+        const controller = event.target;
+        
+        if (controller.userData.isGrabbing && controller.userData.grabPoint) {
+            controller.userData.grabPoint.isGrabbed = false;
+            controller.userData.isGrabbing = false;
+            controller.userData.grabPoint = null;
+            
+            // Reset visual indicator
+            controller.userData.grabber.scale.set(1, 1, 1);
+            controller.userData.grabber.material.color.set(0x888888);
+        }
+    }
+    
+    // Wrap a caught fly in web
+    function wrapFly(controller) {
+        if (!caughtFly || caughtFly.isWrapped) return;
+        
+        // Increase wrap progress
+        wrapCount++;
+        caughtFly.wrapProgress = wrapCount / 8; // Need 8 wraps to fully wrap
+        
+        // Update the fly's appearance based on wrap progress
+        updateFlyWrapping(caughtFly);
+        
+        // Trigger haptic feedback
+        triggerHapticFeedback(controllers.indexOf(controller), 0.3, 30);
+        
+        // Check if fully wrapped
+        if (wrapCount >= 8) {
+            caughtFly.isWrapped = true;
+            fliesCaught++;
+            
+            // Check for level completion
+            if (fliesCaught >= 3 * level) {
+                level++;
+                // Add more flies for the next level
+                createFlies(2 + level);
+                updateLevelIndicator();
+            }
+            
+            // Reset for next fly
+            setTimeout(() => {
+                scene.remove(caughtFly.mesh);
+                const index = flies.indexOf(caughtFly);
+                if (index !== -1) {
+                    flies.splice(index, 1);
+                }
+                caughtFly = null;
+                wrapCount = 0;
+            }, 2000);
+        }
+        
+        // Rotate the fly as it's being wrapped
+        const rotation = Math.PI / 4;
+        caughtFly.mesh.rotateY(rotation);
+    }
+    
+    // Update the fly's appearance as it gets wrapped
+    function updateFlyWrapping(fly) {
+        const progress = fly.wrapProgress;
+        
+        // Create web wrapping if it doesn't exist
+        if (!fly.webWrapping) {
+            fly.webWrapping = new THREE.Group();
+            fly.mesh.add(fly.webWrapping);
+        }
+        
+        // Add a new strand of web
+        const wrapGeometry = new THREE.TorusGeometry(SCALE * 0.6, SCALE * 0.03, 8, 16, Math.PI * progress);
+        const wrapMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            transparent: true,
+            opacity: 0.8
+        });
+        const wrap = new THREE.Mesh(wrapGeometry, wrapMaterial);
+        
+        // Random rotation for wrapping
+        wrap.rotation.set(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
+        
+        fly.webWrapping.add(wrap);
+    }
+    
+    // Create level indicator
+    function createLevelIndicator() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 128;
+        const context = canvas.getContext('2d');
+        
+        updateCanvasText(context, canvas.width, canvas.height);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+        
+        const geometry = new THREE.PlaneGeometry(SCALE * 10, SCALE * 5);
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(0, SCALE * 8, -SCALE * 10);
+        mesh.userData = { context, texture };
+        
+        scene.add(mesh);
+    }
+    
+    // Update level indicator
+    function updateLevelIndicator() {
+        // Find the indicator mesh
+        scene.traverse(object => {
+            if (object.userData && object.userData.context) {
+                updateCanvasText(object.userData.context, 256, 128);
+                object.userData.texture.needsUpdate = true;
+            }
+        });
+    }
+    
+    // Update canvas text for level indicator
+    function updateCanvasText(context, width, height) {
+        context.clearRect(0, 0, width, height);
+        context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        context.fillRect(0, 0, width, height);
+        context.fillStyle = 'white';
+        context.font = '24px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(`Level: ${level}   Flies Caught: ${fliesCaught}`, width / 2, height / 2);
+    }
+    
+    // Handle window resizing
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    // Randomly have flies get caught in the web
+    function checkRandomFlyTraps(deltaTime) {
+        for (let i = 0; i < flies.length; i++) {
+            const fly = flies[i];
+            
+            // Skip if already trapped or wrapped
+            if (fly.isTrapped || fly.isWrapped) continue;
+            
+            // Random chance for a fly to get caught
+            if (Math.random() < 0.02 * deltaTime) {
+                // Find a random strand to get caught on
+                const strandIndex = Math.floor(Math.random() * web.strands.length);
+                const strand = web.strands[strandIndex];
+                
+                // Position the fly on the strand
+                const t = Math.random();
+                const position = new THREE.Vector3().lerpVectors(
+                    strand.start, strand.end, t
+                );
+                
+                fly.mesh.position.copy(position);
+                fly.isTrapped = true;
+                fly.webStrand = strand;
+                fly.escapeTimer = 5 + Math.random() * 5; // 5-10 seconds to escape
+                
+                // Trigger web vibration
+                vibrateWeb(strand, 3);
+                
+                // Trigger haptic feedback on both controllers
+                triggerHapticFeedback(0, 0.7, 100);
+                triggerHapticFeedback(1, 0.7, 100);
+                
+                // If there's no currently caught fly, set this as the target
+                if (!caughtFly) {
+                    caughtFly = fly;
+                    wrapCount = 0;
+                }
+            }
+        }
+    }
+    
+    // Make the web vibrate when a fly is caught
+    function vibrateWeb(strand, duration) {
+        strand.isVibrating = true;
+        strand.vibrationTime = duration;
+        strand.vibrationIntensity = 1.0;
+        
+        // Also vibrate adjacent strands with less intensity
+        for (let i = 0; i < web.strands.length; i++) {
+            const otherStrand = web.strands[i];
+            if (otherStrand !== strand && !otherStrand.isVibrating) {
+                // Check if strands share an endpoint
+                if (otherStrand.start.distanceTo(strand.start) < SCALE * 0.1 || 
+                    otherStrand.start.distanceTo(strand.end) < SCALE * 0.1 || 
+                    otherStrand.end.distanceTo(strand.start) < SCALE * 0.1 || 
+                    otherStrand.end.distanceTo(strand.end) < SCALE * 0.1) {
+                    
+                    otherStrand.isVibrating = true;
+                    otherStrand.vibrationTime = duration * 0.7; // Less duration
+                    otherStrand.vibrationIntensity = 0.5; // Less intensity
+                }
+            }
+        }
+    }
+    
+    // Update web vibrations
+    function updateWebVibrations(deltaTime) {
+        for (let i = 0; i < web.strands.length; i++) {
+            const strand = web.strands[i];
+            
+            if (strand.isVibrating) {
+                strand.vibrationTime -= deltaTime;
+                
+                if (strand.vibrationTime <= 0) {
+                    // Stop vibration
+                    strand.isVibrating = false;
+                    // Reset strand position
+                    strand.mesh.position.copy(new THREE.Vector3().addVectors(strand.start, strand.end).multiplyScalar(0.5));
+                    strand.mesh.lookAt(strand.end);
+                    strand.mesh.rotateX(Math.PI / 2);
+                } else {
+                    // Calculate vibration based on sine wave
+                    const frequency = 10;
+                    const amplitude = SCALE * 0.1 * strand.vibrationIntensity * (strand.vibrationTime / 3);
+                    const vibration = Math.sin(Date.now() / 100 * frequency) * amplitude;
+                    
+                    // Apply vibration perpendicular to strand direction
+                    const direction = new THREE.Vector3().subVectors(strand.end, strand.start).normalize();
+                    const perpendicular = new THREE.Vector3(direction.z, 0, -direction.x).normalize();
+                    
+                    const midpoint = new THREE.Vector3().addVectors(strand.start, strand.end).multiplyScalar(0.5);
+                    const offset = perpendicular.multiplyScalar(vibration);
+                    strand.mesh.position.copy(midpoint.add(offset));
+                }
+            }
+        }
+    }
+    
+    // Update flies
+    function updateFlies(deltaTime) {
+        for (let i = 0; i < flies.length; i++) {
+            const fly = flies[i];
+            const mesh = fly.mesh;
+            
+            // Update wing animation
+            fly.wings.angle += fly.wings.speed * deltaTime;
+            fly.wings.left.rotation.z = Math.sin(fly.wings.angle) * 0.5;
+            fly.wings.right.rotation.z = -Math.sin(fly.wings.angle) * 0.5;
+            
+            if (fly.isTrapped) {
+                // Trapped fly tries to escape
+                if (!fly.isWrapped) {
+                    fly.escapeTimer -= deltaTime;
+                    
+                    // Struggle animation
+                    mesh.rotation.x = Math.sin(Date.now() / 200) * 0.2;
+                    mesh.rotation.z = Math.cos(Date.now() / 300) * 0.2;
+                    
+                    // Check if escaped
+                    if (fly.escapeTimer <= 0 && Math.random() < fly.escapeChance) {
+                        fly.isTrapped = false;
+                        
+                        // Create a hole in the web
+                        if (fly.webStrand) {
+                            // Make the strand partially transparent to simulate a hole
+                            fly.webStrand.mesh.material.opacity = 0.2;
+                        }
+                        
+                        // If this was the currently targeted fly, clear it
+                        if (fly === caughtFly) {
+                            caughtFly = null;
+                            wrapCount = 0;
+                        }
+                        
+                        // Fly moves quickly away
+                        fly.velocity = new THREE.Vector3(
+                            (Math.random() - 0.5) * SCALE * 0.2,
+                            SCALE * 0.15, // Up
+                            (Math.random() - 0.5) * SCALE * 0.2
+                        );
+                    }
+                }
+            } else {
+                // Free fly movement
+                if (Math.random() < 0.05) {
+                    fly.velocity.x += (Math.random() - 0.5) * SCALE * 0.05;
+                    fly.velocity.y += (Math.random() - 0.5) * SCALE * 0.05;
+                    fly.velocity.z += (Math.random() - 0.5) * SCALE * 0.05;
+                    
+                    // Limit velocity
+                    const speed = fly.velocity.length();
+                    const maxSpeed = SCALE * (0.1 + level * 0.02); // Faster at higher levels
+                    if (speed > maxSpeed) {
+                        fly.velocity.multiplyScalar(maxSpeed / speed);
+                    }
+                }
+                
+                // Apply velocity
+                mesh.position.add(fly.velocity);
+                
+                // Rotate to face direction
+                if (fly.velocity.length() > SCALE * 0.01) {
+                    mesh.lookAt(mesh.position.clone().add(fly.velocity));
+                }
+                
+                // Boundary checking - keep flies within the playing area
+                const bounds = SCALE * 50;
+                if (mesh.position.x < -bounds || mesh.position.x > bounds) fly.velocity.x *= -1;
+                if (mesh.position.y < SCALE || mesh.position.y > SCALE * 10) fly.velocity.y *= -1;
+                if (mesh.position.z < -bounds || mesh.position.z > bounds) fly.velocity.z *= -1;
+                
+                // Ensure they stay above the ground
+                if (mesh.position.y < SCALE) mesh.position.y = SCALE;
+            }
+        }
+    }
+    
+    // Update spider leg animations
+    function updateSpiderLegs(deltaTime) {
+        for (let i = 0; i < spiderLegs.length; i++) {
+            const leg = spiderLegs[i];
+            
+            // Animate the leg if it's moving
+            if (leg.moving) {
+                // Move towards target
+                const legTip = leg.segments[1].localToWorld(new THREE.Vector3(0, 0, SCALE * 1.5));
+                const direction = new THREE.Vector3().subVectors(leg.targetPosition, legTip);
+                const distance = direction.length();
+                
+                if (distance < SCALE * 0.1) {
+                    // Reached target
+                    leg.moving = false;
+                } else {
+                    // Animate towards target
+                    const speed = 2 * deltaTime;
+                    const step = Math.min(speed, distance);
+                    direction.normalize().multiplyScalar(step);
+                    
+                    // Update leg joint angles to reach towards target
+                    const targetWorldPos = legTip.clone().add(direction);
+                    updateLegIK(leg, targetWorldPos);
+                }
+            } else if (Math.random() < 0.05) {
+                // Randomly start moving the leg to a new position
+                const angle = Math.random() * Math.PI * 0.5 - Math.PI * 0.25;
+                const radius = SCALE * (1 + Math.random());
+                
+                // Calculate a new target position
+                leg.targetPosition = new THREE.Vector3(
+                    leg.side * (SCALE * 0.5 + Math.cos(angle) * radius),
+                    -SCALE * 0.2 + (Math.random() - 0.5) * SCALE * 0.3,
+                    -SCALE * (0.5 + leg.pair * 0.3) + Math.sin(angle) * radius
+                );
+                leg.targetPosition = camera.localToWorld(leg.targetPosition.clone());
+                
+                leg.moving = true;
+            }
+        }
+    }
+    
+    // Update leg inverse kinematics to reach a target position
+    function updateLegIK(leg, targetWorldPos) {
+        // Convert target to local space
+        const targetLocal = leg.group.worldToLocal(targetWorldPos.clone());
+        
+        // Simple two-bone IK
+        const joint0 = new THREE.Vector3(0, 0, 0);
+        const joint1 = new THREE.Vector3(0, 0, SCALE * 1);
+        const joint2 = targetLocal;
+        
+        const len1 = SCALE * 1; // Length of first segment
+        const len2 = SCALE * 1.5; // Length of second segment
+        
+        // Calculate the angle for the first joint
+        const dir = new THREE.Vector3().subVectors(joint2, joint0);
+        const len = dir.length();
+        
+        // Limit the reach
+        if (len > len1 + len2 * 0.9) {
+            dir.normalize().multiplyScalar(len1 + len2 * 0.9);
+            joint2.copy(joint0).add(dir);
+        }
+        
+        // Calculate first joint angle using law of cosines
+        const a = len1;
+        const b = len2;
+        const c = joint2.distanceTo(joint0);
+        
+        const cosAngle = (a*a + c*c - b*b) / (2 * a * c);
+        const angle1 = Math.acos(Math.min(1, Math.max(-1, cosAngle)));
+        
+        // Calculate second joint angle
+        const cosAngle2 = (a*a + b*b - c*c) / (2 * a * b);
+        const angle2 = Math.PI - Math.acos(Math.min(1, Math.max(-1, cosAngle2)));
+        
+        // Set rotation for first segment
+        leg.segments[0].lookAt(joint2);
+        
+        // Set rotation for second segment
+        const midDir = new THREE.Vector3().subVectors(joint2, joint1).normalize();
+        leg.segments[1].lookAt(new THREE.Vector3().addVectors(joint1, midDir));
+        leg.segments[1].rotateX(angle2 - Math.PI/2);
+    }
+    
+    // Update player movement based on controller grabs
+    function updatePlayerMovement(deltaTime) {
+        for (let i = 0; i < controllers.length; i++) {
+            const controller = controllers[i];
+            
+            if (controller.userData.isGrabbing && controller.userData.grabPoint) {
+                const grabPoint = controller.userData.grabPoint;
+                
+                // Create a pulling force towards the grab point
+                const controllerWorldPos = new THREE.Vector3();
+                controller.getWorldPosition(controllerWorldPos);
+                
+                const forceDirection = new THREE.Vector3().subVectors(grabPoint.position, controllerWorldPos);
+                const distance = forceDirection.length();
+                
+                if (distance > SCALE * 0.1) {
+                    forceDirection.normalize();
+                    const speed = SCALE * 0.5 * deltaTime;
+                    
+                    // Move the camera (player) towards the grab point
+                    const cameraWorldPos = new THREE.Vector3();
+                    camera.getWorldPosition(cameraWorldPos);
+                    
+                    const movement = forceDirection.multiplyScalar(speed);
+                    camera.position.add(movement);
+                    
+                    // Trigger haptic feedback based on pull strength
+                    const feedbackIntensity = Math.min(0.3, distance * 50);
+                    triggerHapticFeedback(i, feedbackIntensity, 20);
+                }
+            }
+        }
+        
+        // Check if player is close enough to a caught fly to wrap it
+        if (caughtFly && !caughtFly.isWrapped) {
+            const cameraWorldPos = new THREE.Vector3();
+            camera.getWorldPosition(cameraWorldPos);
+            
+            const distance = cameraWorldPos.distanceTo(caughtFly.mesh.position);
+            
+            // If player is close enough, pulsate controller grabbers to indicate wrapping is possible
+            if (distance < SCALE * 5) {
+                const pulse = (Math.sin(Date.now() / 200) + 1) / 2;
+                
+                for (let i = 0; i < controllers.length; i++) {
+                    if (!controllers[i].userData.isGrabbing) {
+                        controllers[i].userData.grabber.material.emissive.setRGB(0.5 * pulse, 0, 0);
+                    }
+                }
+            } else {
+                for (let i = 0; i < controllers.length; i++) {
+                    controllers[i].userData.grabber.material.emissive.setRGB(0, 0, 0);
+                }
+            }
+        }
+    }
+    
+    // Trigger haptic feedback on controllers
+    function triggerHapticFeedback(controllerIndex, intensity, duration) {
+        if (controllers[controllerIndex] && 
+            controllers[controllerIndex].userData.gamepad && 
+            controllers[controllerIndex].userData.gamepad.hapticActuators && 
+            controllers[controllerIndex].userData.gamepad.hapticActuators.length > 0) {
+            controllers[controllerIndex].userData.gamepad.hapticActuators[0].pulse(intensity, duration);
+        }
+    }
+    
+    // Animation loop
+    function animate() {
+        const deltaTime = Math.min(0.1, clock.getDelta()); // Cap delta time to avoid huge jumps
+        
+        if (gameStarted && !gameEnded) {
+            // Update flies
+            updateFlies(deltaTime);
+            
+            // Check for flies getting caught in the web
+            checkRandomFlyTraps(deltaTime);
+            
+            // Update web vibrations
+            updateWebVibrations(deltaTime);
+            
+            // Update spider legs
+            updateSpiderLegs(deltaTime);
+            
+            // Update player movement based on grabbing
+            updatePlayerMovement(deltaTime);
+        }
+        
+        // Render the scene
+        renderer.render(scene, camera);
+    }
+    
+    // Initialize the game
+    init();
+  </script>
 </body>
 </html>
