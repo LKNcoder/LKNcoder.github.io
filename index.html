@@ -161,6 +161,16 @@
         // Start the animation loop
         renderer.setAnimationLoop(animate);
     }
+
+    // Handle window resize
+function onWindowResize() {
+    // Update camera aspect ratio
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    
+    // Update renderer size
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
     
     // Setup the game environment
     function setup() {
