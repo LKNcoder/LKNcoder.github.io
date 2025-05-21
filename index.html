@@ -203,9 +203,12 @@ function onWindowResize() {
         
         // Create spider web
         createSpiderWeb();
+
+         // Create spider body first
+        const spiderBody = createSpiderBody();
         
         // Create spider legs
-        createSpiderLegs();
+        createSpiderLegs(spiderBody);
         
         // Create flies
         createFlies(5);
