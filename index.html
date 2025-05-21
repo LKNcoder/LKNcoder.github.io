@@ -897,7 +897,7 @@ legGroup.baseRotation = side * Math.PI / 4;  // Store original rotation angle
 
 
     // Setup VR controllers for grabbing the web
-  function setupGrabControllers() {
+function setupGrabControllers() {
     // Create controller objects and add them to the scene
     for (let i = 0; i < 2; i++) {
         // Controller
@@ -908,14 +908,14 @@ legGroup.baseRotation = side * Math.PI / 4;  // Store original rotation angle
         controller.addEventListener('disconnected', onControllerDisconnected);
         
         // Add button press listeners
-        controller.addEventListener('squeezestart', onJumpPressed); // B/Y buttons
+        controller.addEventListener('squeezestart', onJumpPressed); // Keep existing squeeze event for jumping
         scene.add(controller);
         
         controllers.push(controller);
     }
 }
 
-// Add controller connected event to get button mapping
+// Add controller connected event to get button mapping and check buttons
 function onControllerConnected(event) {
     const controller = event.target;
     controller.userData.gamepad = event.data.gamepad;
@@ -927,13 +927,37 @@ function onControllerConnected(event) {
         const mesh = new THREE.Mesh(geometry, material);
         controller.add(mesh);
     }
+    
+    // Add controller leg for visual feedback
+    const side = controllers.indexOf(controller) === 0 ? 1 : -1; // Right leg for 0, left leg for 1
+    const controllerLeg = createSpiderLeg(side, 0);
+    controller.add(controllerLeg);
+    controller.userData.leg = controllerLeg;
 }
+
 
 // Add controller disconnected event
 function onControllerDisconnected() {
     this.userData.gamepad = null;
     this.children = [];
 }
+
+
+function checkButtonPresses() {
+    for (let i = 0; i < controllers.length; i++) {
+        const controller = controllers[i];
+        if (controller.userData.gamepad) {
+            const gamepad = controller.userData.gamepad;
+            
+            // Check A button (right controller) or X button (left controller)
+            // Usually button 0 on Oculus Touch controllers for A/X
+            if (gamepad.buttons[0] && gamepad.buttons[0].pressed && canJump) {
+                onJumpPressed({target: controller});
+            }
+        }
+    }
+}
+
 
 
 // Create a single spider leg for controllers
@@ -1788,6 +1812,44 @@ function applyLegIK(leg, targetWorldPos) {
     
     for (let i = 0; i < controllers.length; i++) {
         const controller = controllers[i];
+
+
+           // Check for joystick input if gamepad is available
+        if (controller.userData.gamepad) {
+            const gamepad = controller.userData.gamepad;
+            
+            // Get thumbstick values (typically axes 2 and 3 for right stick, 0 and 1 for left stick)
+            // Left stick horizontal (x-axis)
+            const horizontalAxis = gamepad.axes[0];
+            // Left stick vertical (z-axis in 3D space)
+            const verticalAxis = gamepad.axes[1];
+            
+            // Only process if the joystick is being moved (with a small deadzone)
+            if (Math.abs(horizontalAxis) > 0.1 || Math.abs(verticalAxis) > 0.1) {
+                // Get camera's forward and right vectors for movement relative to view
+                const cameraDirection = new THREE.Vector3();
+                camera.getWorldDirection(cameraDirection);
+                const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                
+                // Calculate movement in the horizontal plane (no vertical movement from joystick)
+                const forward = cameraDirection.clone().multiplyScalar(-verticalAxis);
+                const right = cameraRight.clone().multiplyScalar(horizontalAxis);
+                
+                // Set y component to 0 to keep movement in the horizontal plane
+                forward.y = 0;
+                right.y = 0;
+                
+                // Normalize direction vectors
+                forward.normalize();
+                right.normalize();
+                
+                // Add to joystick movement
+                joystickMovement.add(forward.multiplyScalar(SCALE * 0.1 * deltaTime * 60));
+                joystickMovement.add(right.multiplyScalar(SCALE * 0.1 * deltaTime * 60));
+            }
+        }
+
+
         
         if (controller.userData.isGrabbing && controller.userData.grabPoint) {
             grabbingControllers++;
@@ -1844,13 +1906,18 @@ function applyLegIK(leg, targetWorldPos) {
         
         // Apply movement to camera
         camera.position.add(averageMovement);
-        
-        // Keep player at web level
-        if (camera.position.y < SCALE * 0.3) {
-            camera.position.y = SCALE * 0.3;
-        }
+               
     }
     
+     // Apply joystick movement
+    camera.position.add(joystickMovement);
+    
+    // Keep player at web level when not jumping
+    if (!jumping && camera.position.y < SCALE * 0.3) {
+        camera.position.y = SCALE * 0.3;
+    }
+
+
     // Handle jumping physics
     if (jumping) {
         // Apply gravity
@@ -1990,6 +2057,9 @@ function gameOver() {
         
         // Update the HUD
         updateLevelIndicator();
+
+            // Check for A/X button presses
+            checkButtonPresses();
 
             // Update flies
             updateFlies(deltaTime);
