@@ -1054,35 +1054,7 @@ function onJumpPressed(event) {
     }
 }
 
-// Add jump physics to updatePlayerMovement
-function updatePlayerMovement(deltaTime) {
-    // Existing controller grabbing code...
-    
-    // Handle jumping
-    if (jumping) {
-        // Apply gravity
-        jumpVelocity -= SCALE * 0.5 * deltaTime; // Gravity
-        
-        // Move the camera up/down
-        camera.position.y += jumpVelocity * deltaTime;
-        
-        // Check if landed
-        if (camera.position.y <= SCALE * 0.25 && jumpVelocity < 0) {
-            camera.position.y = SCALE * 0.25;
-            jumping = false;
-            canJump = true;
-            
-            // Vibrate web on landing
-            const centerStrand = web.strands[0]; // Usually a central strand
-            if (centerStrand) {
-                vibrateWeb(centerStrand, 1.0);
-            }
-        }
-        
-        // Check for collision with flies while jumping
-        checkJumpFlyCollision();
-    }
-}
+
 
 // Check for collision between jumping spider and flies
 function checkJumpFlyCollision() {
@@ -1864,6 +1836,31 @@ function applyLegIK(leg, targetWorldPos) {
         if (camera.position.y < SCALE * 0.3) {
             camera.position.y = SCALE * 0.3;
         }
+    }
+    
+    // Handle jumping physics
+    if (jumping) {
+        // Apply gravity
+        jumpVelocity -= SCALE * 0.5 * deltaTime; // Gravity
+        
+        // Move the camera up/down
+        camera.position.y += jumpVelocity * deltaTime;
+        
+        // Check if landed
+        if (camera.position.y <= SCALE * 0.25 && jumpVelocity < 0) {
+            camera.position.y = SCALE * 0.25;
+            jumping = false;
+            canJump = true;
+            
+            // Vibrate web on landing
+            const centerStrand = web.strands[0]; // Usually a central strand
+            if (centerStrand) {
+                vibrateWeb(centerStrand, 1.0);
+            }
+        }
+        
+        // Check for collision with flies while jumping
+        checkJumpFlyCollision();
     }
     
     // Check if player is close enough to a caught fly to wrap it
