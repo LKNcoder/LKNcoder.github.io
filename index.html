@@ -105,6 +105,7 @@
     let canJump = true;
     let jumpVelocity = 0;
     const DEBUG_VISUALS = false;
+    let joystickMovement = new THREE.Vector3();
 
 
     
@@ -164,6 +165,9 @@
 
     // Handle window resize
 function onWindowResize() {
+    // Skip resizing if in VR mode
+    if (renderer.xr.isPresenting) return;
+    
     // Update camera aspect ratio
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -1806,6 +1810,10 @@ function applyLegIK(leg, targetWorldPos) {
     
     // Update player movement based on controller grabs
     function updatePlayerMovement(deltaTime) {
+
+         // Reset joystick movement for this frame
+    joystickMovement.set(0, 0, 0);
+
     // Count active grabbing controllers
     let grabbingControllers = 0;
     let averageMovement = new THREE.Vector3();
