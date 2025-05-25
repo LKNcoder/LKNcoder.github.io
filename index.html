@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Umbrella Cat VR</title>
+    <title>Mushroom Cat VR</title>
     <style>
         body {
             margin: 0;
@@ -61,7 +61,7 @@
 <body>
     <div id="ui">
         <div id="menu">
-            <h1>🌧️ Umbrella Cat VR ☂️</h1>
+            <h1>🐱 Mushroom Cat VR 🍄</h1>
             <p>Protect the sleeping cat from the rain!</p>
             <button id="enterVR">Enter VR</button>
         </div>
@@ -78,7 +78,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         let scene, camera, renderer, vrButton;
-        let umbrella, cat, raindrops = [];
+        let mushroom, cat, raindrops = [];
         let gameStarted = false, gameOver = false;
         let startTime, gameTime = 0;
         let controller1, controller2;
@@ -96,22 +96,17 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB); // Sky blue
             
-            // Camera
+            // Camera positioned at standing height
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.6, 3);
+            camera.position.set(0, 1.6, 3); // 1.6m = ~5.25 feet eye level
             
             // Renderer with VR support
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
-            renderer.xr.setReferenceSpaceType('local');
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
-
-            if (renderer.xr) {
-    renderer.xr.setReferenceSpaceType('local');
-    }
             
             // Lighting
             const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -124,11 +119,12 @@
             directionalLight.shadow.mapSize.height = 2048;
             scene.add(directionalLight);
             
-            // Ground
+            // Ground at y=0
             const groundGeometry = new THREE.PlaneGeometry(20, 20);
             const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 });
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
+            ground.position.y = 0; // Explicitly set ground at y=0
             ground.receiveShadow = true;
             scene.add(ground);
             
@@ -146,8 +142,8 @@
             controller2.addEventListener('selectend', onSelectEnd);
             scene.add(controller2);
             
-            // Create umbrella and attach to controller
-            createUmbrella();
+            // Create mushroom and position it in the scene (not attached to controller)
+            createMushroom();
             
             // Event listeners
             document.getElementById('enterVR').addEventListener('click', enterVR);
@@ -165,7 +161,7 @@
             bodyGeometry.scale(1, 0.8, 1.5);
             const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.position.y = 0.6;
+            body.position.y = 0.6; // Sitting on ground
             body.castShadow = true;
             catGroup.add(body);
             
@@ -214,71 +210,95 @@
             tail.castShadow = true;
             catGroup.add(tail);
             
-            catGroup.position.set(0, 0, -2);
+            catGroup.position.set(0, 0, -2); // Cat in front of player
             scene.add(catGroup);
             cat = catGroup;
         }
         
-        function createUmbrella() {
-            const umbrellaGroup = new THREE.Group();
+        function createMushroom() {
+            const mushroomGroup = new THREE.Group();
             
-            // Umbrella canopy
-            const canopyGeometry = new THREE.ConeGeometry(0.8, 0.3, 12);
-            const canopyMaterial = new THREE.MeshLambertMaterial({ 
-                color: 0x8B4513,
+            // Mushroom cap (red hemisphere with white spots)
+            const capGeometry = new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            const capMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0xFF0000, // Red cap
                 side: THREE.DoubleSide 
             });
-            const canopy = new THREE.Mesh(canopyGeometry, canopyMaterial);
-            canopy.position.y = 0.15;
-            umbrellaGroup.add(canopy);
+            const cap = new THREE.Mesh(capGeometry, capMaterial);
+            cap.position.y = 0.4;
+            mushroomGroup.add(cap);
             
-            // Umbrella handle
-            const handleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.8, 8);
-            const handleMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
-            const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-            handle.position.y = -0.4;
-            umbrellaGroup.add(handle);
+            // White spots on mushroom cap
+            for (let i = 0; i < 8; i++) {
+                const spotGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+                const spotMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+                const spot = new THREE.Mesh(spotGeometry, spotMaterial);
+                
+                const angle = (i / 8) * Math.PI * 2;
+                const radius = 0.4 + Math.random() * 0.3;
+                spot.position.set(
+                    Math.cos(angle) * radius,
+                    0.4 + Math.random() * 0.2,
+                    Math.sin(angle) * radius
+                );
+                mushroomGroup.add(spot);
+            }
             
-            umbrella = umbrellaGroup;
-            controller1.add(umbrella);
+            // Mushroom stem (thicker white cylinder)
+            const stemGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.8, 8);
+            const stemMaterial = new THREE.MeshLambertMaterial({ color: 0xFFF8DC }); // Off-white
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.y = 0;
+            mushroomGroup.add(stem);
+            
+            // Position mushroom floating above and slightly in front of cat, within arm's reach
+            mushroomGroup.position.set(0.5, 2.5, -1); // X=0.5m right, Y=2.5m high, Z=-1m forward
+            scene.add(mushroomGroup);
+            mushroom = mushroomGroup;
         }
         
         function enterVR() {
-          document.getElementById('ui').style.display = 'none';
-    document.getElementById('timer').style.display = 'block';
-    startGame();
-    
-    // Start VR session with proper reference space handling
-    if (navigator.xr) {
-        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            if (supported) {
-                navigator.xr.requestSession('immersive-vr', {
-                    requiredFeatures: ['local'],
-                    optionalFeatures: ['local-floor', 'bounded-floor']
-                }).then(session => {
-                    renderer.xr.setSession(session);
-                    
-                    // Set reference space explicitly
-                    session.requestReferenceSpace('local').then(refSpace => {
-                        renderer.xr.setReferenceSpace(refSpace);
-                    }).catch(err => {
-                        console.log('Local reference space not supported, using viewer');
-                        session.requestReferenceSpace('viewer').then(refSpace => {
-                            renderer.xr.setReferenceSpace(refSpace);
+            document.getElementById('ui').style.display = 'none';
+            document.getElementById('timer').style.display = 'block';
+            startGame();
+            
+            // Start VR session with proper reference space handling
+            if (navigator.xr) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (supported) {
+                        navigator.xr.requestSession('immersive-vr', {
+                            optionalFeatures: ['local-floor', 'bounded-floor']
+                        }).then(session => {
+                            renderer.xr.setSession(session);
+                            
+                            // Try to get local-floor reference space first (best for standing)
+                            session.requestReferenceSpace('local-floor').then(refSpace => {
+                                renderer.xr.setReferenceSpace(refSpace);
+                                console.log('Using local-floor reference space');
+                            }).catch(err => {
+                                console.log('Local-floor not supported, trying local');
+                                session.requestReferenceSpace('local').then(refSpace => {
+                                    renderer.xr.setReferenceSpace(refSpace);
+                                    console.log('Using local reference space');
+                                }).catch(err => {
+                                    console.log('Local not supported, using viewer');
+                                    session.requestReferenceSpace('viewer').then(refSpace => {
+                                        renderer.xr.setReferenceSpace(refSpace);
+                                    });
+                                });
+                            });
+                        }).catch(err => {
+                            console.log('VR session request failed:', err);
+                            console.log('Using desktop mode');
                         });
-                    });
-                }).catch(err => {
-                    console.log('VR session request failed:', err);
-                    console.log('Using desktop mode');
+                    } else {
+                        console.log('VR not supported, using desktop mode');
+                    }
                 });
             } else {
-                console.log('VR not supported, using desktop mode');
+                console.log('WebXR not available, using desktop mode');
             }
-        });
-    } else {
-        console.log('WebXR not available, using desktop mode');
-    }
-}
+        }
         
         function startGame() {
             gameStarted = true;
@@ -347,16 +367,16 @@
         }
         
         function checkCollisions() {
-            // Check umbrella vs raindrops
-            const umbrellaPosition = new THREE.Vector3();
-            umbrella.getWorldPosition(umbrellaPosition);
+            // Check mushroom vs raindrops
+            const mushroomPosition = new THREE.Vector3();
+            mushroom.getWorldPosition(mushroomPosition);
             
             for (let i = raindrops.length - 1; i >= 0; i--) {
                 const drop = raindrops[i];
-                const distance = drop.position.distanceTo(umbrellaPosition);
+                const distance = drop.position.distanceTo(mushroomPosition);
                 
-                if (distance < 1.0 && drop.position.y > umbrellaPosition.y - 0.5) {
-                    // Hit umbrella - create particle burst
+                if (distance < 1.0 && drop.position.y > mushroomPosition.y - 0.5) {
+                    // Hit mushroom - create particle burst
                     createParticleBurst(drop.position);
                     
                     // Haptic feedback
