@@ -104,9 +104,14 @@
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
+            renderer.xr.setReferenceSpaceType('local');
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
+
+            if (renderer.xr) {
+    renderer.xr.setReferenceSpaceType('local');
+    }
             
             // Lighting
             const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -239,17 +244,41 @@
         }
         
         function enterVR() {
-            document.getElementById('ui').style.display = 'none';
-            document.getElementById('timer').style.display = 'block';
-            startGame();
-            
-            // Start VR session
-            navigator.xr.requestSession('immersive-vr').then(session => {
-                renderer.xr.setSession(session);
-            }).catch(err => {
-                console.log('VR not available, using desktop mode');
-            });
-        }
+          document.getElementById('ui').style.display = 'none';
+    document.getElementById('timer').style.display = 'block';
+    startGame();
+    
+    // Start VR session with proper reference space handling
+    if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+            if (supported) {
+                navigator.xr.requestSession('immersive-vr', {
+                    requiredFeatures: ['local'],
+                    optionalFeatures: ['local-floor', 'bounded-floor']
+                }).then(session => {
+                    renderer.xr.setSession(session);
+                    
+                    // Set reference space explicitly
+                    session.requestReferenceSpace('local').then(refSpace => {
+                        renderer.xr.setReferenceSpace(refSpace);
+                    }).catch(err => {
+                        console.log('Local reference space not supported, using viewer');
+                        session.requestReferenceSpace('viewer').then(refSpace => {
+                            renderer.xr.setReferenceSpace(refSpace);
+                        });
+                    });
+                }).catch(err => {
+                    console.log('VR session request failed:', err);
+                    console.log('Using desktop mode');
+                });
+            } else {
+                console.log('VR not supported, using desktop mode');
+            }
+        });
+    } else {
+        console.log('WebXR not available, using desktop mode');
+    }
+}
         
         function startGame() {
             gameStarted = true;
