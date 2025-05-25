@@ -186,25 +186,35 @@
         function loadAudio() {
             const audioLoader = new THREE.AudioLoader();
             
-            // Load background music
+            // Load background music with better error handling
             audioLoader.load('music.mp3', (buffer) => {
-                backgroundMusic = new THREE.Audio(audioListener);
-                backgroundMusic.setBuffer(buffer);
-                backgroundMusic.setLoop(true);
-                backgroundMusic.setVolume(0.3);
-                console.log('Background music loaded');
+                try {
+                    backgroundMusic = new THREE.Audio(audioListener);
+                    backgroundMusic.setBuffer(buffer);
+                    backgroundMusic.setLoop(true);
+                    backgroundMusic.setVolume(0.3);
+                    console.log('Background music loaded');
+                } catch (error) {
+                    console.log('Error creating background music:', error);
+                }
             }, undefined, (error) => {
                 console.log('Error loading music.mp3:', error);
+                backgroundMusic = null;
             });
             
-            // Load howl sound
+            // Load howl sound with better error handling
             audioLoader.load('howl.mp3', (buffer) => {
-                howlSound = new THREE.Audio(audioListener);
-                howlSound.setBuffer(buffer);
-                howlSound.setVolume(0.8);
-                console.log('Howl sound loaded');
+                try {
+                    howlSound = new THREE.Audio(audioListener);
+                    howlSound.setBuffer(buffer);
+                    howlSound.setVolume(0.8);
+                    console.log('Howl sound loaded');
+                } catch (error) {
+                    console.log('Error creating howl sound:', error);
+                }
             }, undefined, (error) => {
                 console.log('Error loading howl.mp3:', error);
+                howlSound = null;
             });
         }
         
@@ -246,6 +256,9 @@
                 cat.position.set(pos.x, 0, pos.z);
                 cat.rotation.y = Math.random() * Math.PI * 2;
                 
+                // Scale cats down to 15% of current size (was 0.5, now 0.075)
+                cat.scale.set(0.075, 0.075, 0.075);
+                
                 // Enable shadows for all meshes
                 cat.traverse((child) => {
                     if (child.isMesh) {
@@ -274,24 +287,24 @@
             catPositions.forEach((pos, index) => {
                 const catGroup = new THREE.Group();
                 
-                // Simple sphere for cat body
-                const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 12);
+                // Simple sphere for cat body - scaled down
+                const bodyGeometry = new THREE.SphereGeometry(0.075, 16, 12); // Was 0.5, now 0.075
                 const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
                 const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-                body.position.y = 0.3;
+                body.position.y = 0.045; // Adjusted for smaller size
                 body.castShadow = true;
                 catGroup.add(body);
                 
-                // Simple ears
-                const earGeometry = new THREE.ConeGeometry(0.1, 0.2, 8);
+                // Simple ears - scaled down
+                const earGeometry = new THREE.ConeGeometry(0.015, 0.03, 8); // Was 0.1, 0.2
                 const earMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
                 
                 const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-                leftEar.position.set(-0.2, 0.6, 0.2);
+                leftEar.position.set(-0.03, 0.09, 0.03); // Adjusted positions
                 catGroup.add(leftEar);
                 
                 const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-                rightEar.position.set(0.2, 0.6, 0.2);
+                rightEar.position.set(0.03, 0.09, 0.03);
                 catGroup.add(rightEar);
                 
                 catGroup.position.set(pos.x, 0, pos.z);
@@ -307,21 +320,37 @@
         
         function createCatPurrSound(cat, index) {
             const audioLoader = new THREE.AudioLoader();
+            
+            // Initialize the array slot first
+            catPurrSounds[index] = null;
+            
             audioLoader.load('purr.mp3', (buffer) => {
-                const positionalAudio = new THREE.PositionalAudio(audioListener);
-                positionalAudio.setBuffer(buffer);
-                positionalAudio.setRefDistance(2);
-                positionalAudio.setRolloffFactor(2);
-                positionalAudio.setDistanceModel('exponential');
-                positionalAudio.setLoop(true);
-                positionalAudio.setVolume(0.4);
-                
-                cat.add(positionalAudio);
-                catPurrSounds.push(positionalAudio);
-                
-                console.log(`Purr sound loaded for cat ${index}`);
-            }, undefined, (error) => {
+                try {
+                    const positionalAudio = new THREE.PositionalAudio(audioListener);
+                    positionalAudio.setBuffer(buffer);
+                    positionalAudio.setRefDistance(2);
+                    positionalAudio.setRolloffFactor(2);
+                    positionalAudio.setDistanceModel('exponential');
+                    positionalAudio.setLoop(true);
+                    positionalAudio.setVolume(0.4);
+                    
+                    cat.add(positionalAudio);
+                    catPurrSounds[index] = positionalAudio;
+                    
+                    console.log(`Purr sound loaded for cat ${index}`);
+                } catch (error) {
+                    console.log(`Error creating positional audio for cat ${index}:`, error);
+                    catPurrSounds[index] = null;
+                }
+            }, 
+            // Progress callback
+            (progress) => {
+                console.log(`Loading purr sound for cat ${index}: ${(progress.loaded / progress.total * 100)}%`);
+            },
+            // Error callback
+            (error) => {
                 console.log(`Error loading purr.mp3 for cat ${index}:`, error);
+                catPurrSounds[index] = null;
             });
         }
         
@@ -350,10 +379,11 @@
         }
         
         function createTeleportSystem() {
-            // Create wand (simple cylinder)
+            // Create wand (simple cylinder) - rotated 90 degrees to face forward
             const wandGeometry = new THREE.CylinderGeometry(0.01, 0.01, 0.3, 8);
             const wandMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
             wand = new THREE.Mesh(wandGeometry, wandMaterial);
+            wand.rotation.x = Math.PI / 2; // Rotate 90 degrees to face forward
             controller2.add(wand);
             wand.position.set(0, 0, -0.15);
             
@@ -444,6 +474,15 @@
         }
         
         function enterVR() {
+            // Resume audio context (required for modern browsers)
+            if (audioListener && audioListener.context.state === 'suspended') {
+                audioListener.context.resume().then(() => {
+                    console.log('Audio context resumed');
+                }).catch(error => {
+                    console.log('Failed to resume audio context:', error);
+                });
+            }
+            
             document.getElementById('ui').style.display = 'none';
             document.getElementById('timer').style.display = 'block';
             document.getElementById('catsAlive').style.display = 'block';
@@ -492,15 +531,30 @@
             catsAlive = 5;
             updateCatsDisplay();
             
-            // Start background music
-            if (backgroundMusic && !backgroundMusic.isPlaying) {
-                backgroundMusic.play();
+            // Start background music safely
+            try {
+                if (backgroundMusic && !backgroundMusic.isPlaying) {
+                    backgroundMusic.play().catch(error => {
+                        console.log('Failed to play background music:', error);
+                    });
+                }
+            } catch (error) {
+                console.log('Error with background music:', error);
             }
             
-            // Start all cat purr sounds
-            catPurrSounds.forEach(purrSound => {
+            // Start all cat purr sounds safely with delay
+            catPurrSounds.forEach((purrSound, index) => {
                 if (purrSound && !purrSound.isPlaying) {
-                    purrSound.play();
+                    // Add small delay between starting each sound to prevent conflicts
+                    setTimeout(() => {
+                        try {
+                            purrSound.play().catch(error => {
+                                console.log(`Failed to play purr sound ${index}:`, error);
+                            });
+                        } catch (error) {
+                            console.log(`Error with purr sound ${index}:`, error);
+                        }
+                    }, index * 100); // 100ms delay between each cat
                 }
             });
         }
@@ -536,8 +590,12 @@
             updateCatsDisplay();
             
             // Stop howl sound if playing
-            if (howlSound && howlSound.isPlaying) {
-                howlSound.stop();
+            try {
+                if (howlSound && howlSound.isPlaying) {
+                    howlSound.stop();
+                }
+            } catch (error) {
+                console.log('Error stopping howl sound:', error);
             }
         }
         
@@ -548,17 +606,17 @@
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
             
-            // Main cube body
-            const dropGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+            // Main cube body - doubled in size
+            const dropGeometry = new THREE.BoxGeometry(0.16, 0.16, 0.16); // Was 0.08
             const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const dropCube = new THREE.Mesh(dropGeometry, dropMaterial);
             dropGroup.add(dropCube);
             
-            // Add pyramid tip
-            const tipGeometry = new THREE.ConeGeometry(0.04, 0.06, 6);
+            // Add pyramid tip - doubled in size
+            const tipGeometry = new THREE.ConeGeometry(0.08, 0.12, 6); // Was 0.04, 0.06
             const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.07;
+            tip.position.y = 0.14; // Adjusted for larger cube
             dropGroup.add(tip);
             
             // Random position above the scene
@@ -622,7 +680,7 @@
                     continue;
                 }
                 
-                // Check if raindrop hits any cat
+                // Check if raindrop hits any cat - adjusted for smaller cats
                 for (let j = 0; j < cats.length; j++) {
                     const cat = cats[j];
                     if (!cat.visible) continue;
@@ -631,15 +689,19 @@
                     cat.getWorldPosition(catPosition);
                     const catDistance = drop.position.distanceTo(catPosition);
                     
-                    if (catDistance < 1.0 && drop.position.y < catPosition.y + 1.0) {
+                    if (catDistance < 0.3 && drop.position.y < catPosition.y + 0.3) { // Reduced from 1.0 to 0.3
                         // Cat got wet - remove cat and continue
                         cat.visible = false;
                         catsAlive--;
                         updateCatsDisplay();
                         
-                        // Stop purr sound for this cat
-                        if (catPurrSounds[j] && catPurrSounds[j].isPlaying) {
-                            catPurrSounds[j].stop();
+                        // Stop purr sound for this cat safely
+                        try {
+                            if (catPurrSounds[j] && catPurrSounds[j].isPlaying) {
+                                catPurrSounds[j].stop();
+                            }
+                        } catch (error) {
+                            console.log(`Error stopping purr sound for cat ${j}:`, error);
                         }
                         
                         scene.remove(drop);
@@ -666,21 +728,35 @@
             gameOver = true;
             gameStarted = false;
             
-            // Stop background music
-            if (backgroundMusic && backgroundMusic.isPlaying) {
-                backgroundMusic.stop();
+            // Stop background music safely
+            try {
+                if (backgroundMusic && backgroundMusic.isPlaying) {
+                    backgroundMusic.stop();
+                }
+            } catch (error) {
+                console.log('Error stopping background music:', error);
             }
             
-            // Stop all cat purr sounds
-            catPurrSounds.forEach(purrSound => {
-                if (purrSound && purrSound.isPlaying) {
-                    purrSound.stop();
+            // Stop all cat purr sounds safely
+            catPurrSounds.forEach((purrSound, index) => {
+                try {
+                    if (purrSound && purrSound.isPlaying) {
+                        purrSound.stop();
+                    }
+                } catch (error) {
+                    console.log(`Error stopping purr sound ${index}:`, error);
                 }
             });
             
-            // Play howl sound
-            if (howlSound && !howlSound.isPlaying) {
-                howlSound.play();
+            // Play howl sound safely
+            try {
+                if (howlSound && !howlSound.isPlaying) {
+                    howlSound.play().catch(error => {
+                        console.log('Failed to play howl sound:', error);
+                    });
+                }
+            } catch (error) {
+                console.log('Error with howl sound:', error);
             }
             
             // Show game over screen
