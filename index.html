@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mushroom Cat VR</title>
+    <title>Shroom Cats</title>
     <style>
         body {
             margin: 0;
@@ -69,7 +69,7 @@
 <body>
     <div id="ui">
         <div id="menu">
-            <h1>🐱 Mushroom Cat VR 🍄</h1>
+            <h1>🐱 Shroom Cats 🍄</h1>
             <p>Protect the sleeping cats from the rain! Use your wand to teleport around.</p>
             <button id="enterVR">Enter VR</button>
         </div>
@@ -77,13 +77,13 @@
             <h2>Game Over!</h2>
             <p>A cat got wet! 😿</p>
             <p id="finalTime">Time survived: 0 seconds</p>
-            <p id="finalCats">Cats saved: 0/5</p>
+            <p id="finalCats">Cats saved: 0/3</p>
             <button id="playAgain">Play Again</button>
         </div>
     </div>
     
     <div id="timer" style="display: none;">Time: 0s</div>
-    <div id="catsAlive" style="display: none;">Cats: 5/5</div>
+    <div id="catsAlive" style="display: none;">Cats: 3/3</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -95,10 +95,10 @@
         let controller1, controller2;
         let particles = [];
         let wand, teleportRay, teleportMarker;
-        let catsAlive = 5;
+        let catsAlive = 3;
         
         // Audio variables
-        let audioListener, backgroundMusic, howlSound;
+        let audioListener, backgroundRain, howlSound;
         let catPurrSounds = [];
         
         // Game settings
@@ -186,20 +186,20 @@
         function loadAudio() {
             const audioLoader = new THREE.AudioLoader();
             
-            // Load background music with better error handling
-            audioLoader.load('music.mp3', (buffer) => {
+            // Load rain sound with better error handling
+            audioLoader.load('rain.mp3', (buffer) => {
                 try {
-                    backgroundMusic = new THREE.Audio(audioListener);
-                    backgroundMusic.setBuffer(buffer);
-                    backgroundMusic.setLoop(true);
-                    backgroundMusic.setVolume(0.3);
-                    console.log('Background music loaded');
+                    backgroundRain = new THREE.Audio(audioListener);
+                    backgroundRain.setBuffer(buffer);
+                    backgroundRain.setLoop(true);
+                    backgroundRain.setVolume(0.3);
+                    console.log('Rain sound loaded');
                 } catch (error) {
-                    console.log('Error creating background music:', error);
+                    console.log('Error creating rain sound:', error);
                 }
             }, undefined, (error) => {
-                console.log('Error loading music.mp3:', error);
-                backgroundMusic = null;
+                console.log('Error loading rain.mp3:', error);
+                backgroundRain = null;
             });
             
             // Load howl sound with better error handling
@@ -245,10 +245,8 @@
         function createCats(catModel) {
             const catPositions = [
                 { x: 0, z: 0 },
-                { x: -8, z: -5 },
-                { x: 8, z: 3 },
-                { x: -3, z: 8 },
-                { x: 5, z: -8 }
+                { x: -6, z: -4 },
+                { x: 6, z: 4 }
             ];
             
             catPositions.forEach((pos, index) => {
@@ -278,10 +276,8 @@
         function createFallbackCats() {
             const catPositions = [
                 { x: 0, z: 0 },
-                { x: -8, z: -5 },
-                { x: 8, z: 3 },
-                { x: -3, z: 8 },
-                { x: 5, z: -8 }
+                { x: -6, z: -4 },
+                { x: 6, z: 4 }
             ];
             
             catPositions.forEach((pos, index) => {
@@ -497,13 +493,17 @@
                         }).then(session => {
                             renderer.xr.setSession(session);
                             
+                            // Fixed VR reference space setup
                             session.requestReferenceSpace('local').then(refSpace => {
-                                renderer.xr.setReferenceSpace(refSpace);
                                 console.log('Using local reference space');
+                                // Don't call setReferenceSpace - it doesn't exist in Three.js r128
                             }).catch(err => {
-                                console.log('Local reference space not supported, using viewer');
+                                console.log('Local reference space not supported, trying viewer');
                                 session.requestReferenceSpace('viewer').then(refSpace => {
-                                    renderer.xr.setReferenceSpace(refSpace);
+                                    console.log('Using viewer reference space');
+                                    // Don't call setReferenceSpace - it doesn't exist in Three.js r128
+                                }).catch(err2 => {
+                                    console.log('Viewer reference space also failed:', err2);
                                 });
                             });
                         }).catch(err => {
@@ -528,18 +528,18 @@
             particles = [];
             currentSpawnRate = DROP_SPAWN_RATE;
             lastDropTime = 0;
-            catsAlive = 5;
+            catsAlive = 3;
             updateCatsDisplay();
             
-            // Start background music safely
+            // Start rain sound safely
             try {
-                if (backgroundMusic && !backgroundMusic.isPlaying) {
-                    backgroundMusic.play().catch(error => {
-                        console.log('Failed to play background music:', error);
+                if (backgroundRain && !backgroundRain.isPlaying) {
+                    backgroundRain.play().catch(error => {
+                        console.log('Failed to play rain sound:', error);
                     });
                 }
             } catch (error) {
-                console.log('Error with background music:', error);
+                console.log('Error with rain sound:', error);
             }
             
             // Start all cat purr sounds safely with delay
@@ -586,7 +586,7 @@
                 }
             });
             
-            catsAlive = 5;
+            catsAlive = 3;
             updateCatsDisplay();
             
             // Stop howl sound if playing
@@ -600,7 +600,7 @@
         }
         
         function updateCatsDisplay() {
-            document.getElementById('catsAlive').textContent = `Cats: ${catsAlive}/5`;
+            document.getElementById('catsAlive').textContent = `Cats: ${catsAlive}/3`;
         }
         
         function spawnRaindrop() {
@@ -728,13 +728,13 @@
             gameOver = true;
             gameStarted = false;
             
-            // Stop background music safely
+            // Stop rain sound safely
             try {
-                if (backgroundMusic && backgroundMusic.isPlaying) {
-                    backgroundMusic.stop();
+                if (backgroundRain && backgroundRain.isPlaying) {
+                    backgroundRain.stop();
                 }
             } catch (error) {
-                console.log('Error stopping background music:', error);
+                console.log('Error stopping rain sound:', error);
             }
             
             // Stop all cat purr sounds safely
@@ -766,7 +766,7 @@
             document.getElementById('menu').style.display = 'none';
             document.getElementById('gameOver').style.display = 'block';
             document.getElementById('finalTime').textContent = `Time survived: ${Math.floor(gameTime / 1000)} seconds`;
-            document.getElementById('finalCats').textContent = `Cats saved: ${catsAlive}/5`;
+            document.getElementById('finalCats').textContent = `Cats saved: ${catsAlive}/3`;
         }
         
         function animate() {
@@ -774,13 +774,13 @@
                 gameTime = Date.now() - startTime;
                 document.getElementById('timer').textContent = `Time: ${Math.floor(gameTime / 1000)}s`;
                 
-                // Spawn raindrops
-                if (Date.now() - lastDropTime > currentSpawnRate) {
+                // Spawn raindrops - 5x more frequently
+                if (Date.now() - lastDropTime > currentSpawnRate / 5) { // Divided by 5 for 5x more drops
                     spawnRaindrop();
                     lastDropTime = Date.now();
                     
                     // Increase difficulty over time
-                    currentSpawnRate = Math.max(100, DROP_SPAWN_RATE - (gameTime / 100));
+                    currentSpawnRate = Math.max(20, DROP_SPAWN_RATE - (gameTime / 100)); // Min reduced to 20ms
                 }
                 
                 // Update raindrops
