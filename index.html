@@ -606,25 +606,50 @@
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
             
-            // Main cube body - doubled in size
-            const dropGeometry = new THREE.BoxGeometry(0.16, 0.16, 0.16); // Was 0.08
+            // Main cube body - halved in size (was 0.16, now 0.08)
+            const dropGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.08);
             const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const dropCube = new THREE.Mesh(dropGeometry, dropMaterial);
             dropGroup.add(dropCube);
             
-            // Add pyramid tip - doubled in size
-            const tipGeometry = new THREE.ConeGeometry(0.08, 0.12, 6); // Was 0.04, 0.06
+            // Add pyramid tip - halved in size (was 0.08/0.12, now 0.04/0.06)
+            const tipGeometry = new THREE.ConeGeometry(0.04, 0.06, 6);
             const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.14; // Adjusted for larger cube
+            tip.position.y = 0.07; // Adjusted for smaller cube
             dropGroup.add(tip);
             
-            // Random position above the scene
-            dropGroup.position.set(
-                (Math.random() - 0.5) * 40,
-                8 + Math.random() * 2,
-                (Math.random() - 0.5) * 40
-            );
+            // 60% chance to spawn near cats, 40% chance for random spawn
+            if (Math.random() < 0.6 && cats.length > 0) {
+                // Target a visible cat
+                const visibleCats = cats.filter(cat => cat.visible);
+                if (visibleCats.length > 0) {
+                    const targetCat = visibleCats[Math.floor(Math.random() * visibleCats.length)];
+                    const catPosition = new THREE.Vector3();
+                    targetCat.getWorldPosition(catPosition);
+                    
+                    // Spawn much higher above the cat with some random offset (within 2 units)
+                    dropGroup.position.set(
+                        catPosition.x + (Math.random() - 0.5) * 4, // ±2 units from cat
+                        15 + Math.random() * 5, // Much higher: 15-20 units high (was 8-10)
+                        catPosition.z + (Math.random() - 0.5) * 4  // ±2 units from cat
+                    );
+                } else {
+                    // No visible cats, fall back to random spawn
+                    dropGroup.position.set(
+                        (Math.random() - 0.5) * 40,
+                        15 + Math.random() * 5, // Much higher: 15-20 units high (was 8-10)
+                        (Math.random() - 0.5) * 40
+                    );
+                }
+            } else {
+                // Random spawn across the field
+                dropGroup.position.set(
+                    (Math.random() - 0.5) * 40,
+                    15 + Math.random() * 5, // Much higher: 15-20 units high (was 8-10)
+                    (Math.random() - 0.5) * 40
+                );
+            }
             
             dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
             dropCube.castShadow = true;
@@ -723,62 +748,6 @@
                 }
             }
         }
-
-        function spawnRaindrop() {
-    const dropGroup = new THREE.Group();
-    
-    // Main cube body - doubled in size
-    const dropGeometry = new THREE.BoxGeometry(0.16, 0.16, 0.16);
-    const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
-    const dropCube = new THREE.Mesh(dropGeometry, dropMaterial);
-    dropGroup.add(dropCube);
-    
-    // Add pyramid tip - doubled in size
-    const tipGeometry = new THREE.ConeGeometry(0.08, 0.12, 6);
-    const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
-    const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-    tip.position.y = 0.14;
-    dropGroup.add(tip);
-    
-    // 60% chance to spawn near cats, 40% chance for random spawn
-    if (Math.random() < 0.6 && cats.length > 0) {
-        // Target a visible cat
-        const visibleCats = cats.filter(cat => cat.visible);
-        if (visibleCats.length > 0) {
-            const targetCat = visibleCats[Math.floor(Math.random() * visibleCats.length)];
-            const catPosition = new THREE.Vector3();
-            targetCat.getWorldPosition(catPosition);
-            
-            // Spawn above the cat with some random offset (within 2 units)
-            dropGroup.position.set(
-                catPosition.x + (Math.random() - 0.5) * 4, // ±2 units from cat
-                8 + Math.random() * 2,
-                catPosition.z + (Math.random() - 0.5) * 4  // ±2 units from cat
-            );
-        } else {
-            // No visible cats, fall back to random spawn
-            dropGroup.position.set(
-                (Math.random() - 0.5) * 40,
-                8 + Math.random() * 2,
-                (Math.random() - 0.5) * 40
-            );
-        }
-    } else {
-        // Random spawn across the field
-        dropGroup.position.set(
-            (Math.random() - 0.5) * 40,
-            8 + Math.random() * 2,
-            (Math.random() - 0.5) * 40
-        );
-    }
-    
-    dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
-    dropCube.castShadow = true;
-    tip.castShadow = true;
-    
-    scene.add(dropGroup);
-    raindrops.push(dropGroup);
-}
         
         function endGame() {
             gameOver = true;
