@@ -142,6 +142,9 @@
             controller2.addEventListener('selectend', onSelectEnd);
             scene.add(controller2);
             
+            // Create hands
+            createHands();
+            
             // Create mushroom and position it in the scene (not attached to controller)
             createMushroom();
             
@@ -210,6 +213,8 @@
             tail.castShadow = true;
             catGroup.add(tail);
             
+            // Scale cat down to 20% of current size
+            catGroup.scale.set(0.2, 0.2, 0.2);
             catGroup.position.set(0, 0, -2); // Cat in front of player
             scene.add(catGroup);
             cat = catGroup;
@@ -244,17 +249,49 @@
                 mushroomGroup.add(spot);
             }
             
-            // Mushroom stem (thicker white cylinder)
-            const stemGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.8, 8);
+            // Mushroom stem (thinner white cylinder - 30% of previous diameter)
+            const stemGeometry = new THREE.CylinderGeometry(0.045, 0.045, 0.8, 8);
             const stemMaterial = new THREE.MeshLambertMaterial({ color: 0xFFF8DC }); // Off-white
             const stem = new THREE.Mesh(stemGeometry, stemMaterial);
             stem.position.y = 0;
             mushroomGroup.add(stem);
             
-            // Position mushroom floating above and slightly in front of cat, within arm's reach
-            mushroomGroup.position.set(0.5, 2.5, -1); // X=0.5m right, Y=2.5m high, Z=-1m forward
+            // Position mushroom floating lower and within arm's reach
+            mushroomGroup.position.set(0.5, 1.8, -1); // Lowered from 2.5 to 1.8
             scene.add(mushroomGroup);
             mushroom = mushroomGroup;
+        }
+        
+        function createHands() {
+            // Create simple hand representations for both controllers
+            const handGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+            const handMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDBB5 }); // Skin tone
+            
+            // Hand for controller 1
+            const hand1 = new THREE.Mesh(handGeometry, handMaterial);
+            controller1.add(hand1);
+            
+            // Hand for controller 2
+            const hand2 = new THREE.Mesh(handGeometry, handMaterial);
+            controller2.add(hand2);
+            
+            // Add simple fingers (tiny cylinders)
+            for (let i = 0; i < 5; i++) {
+                const fingerGeometry = new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6);
+                const fingerMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDBB5 });
+                
+                // Fingers for hand 1
+                const finger1 = new THREE.Mesh(fingerGeometry, fingerMaterial);
+                finger1.position.set((i - 2) * 0.015, 0.04, 0);
+                finger1.rotation.x = Math.PI / 2;
+                controller1.add(finger1);
+                
+                // Fingers for hand 2
+                const finger2 = new THREE.Mesh(fingerGeometry, fingerMaterial);
+                finger2.position.set((i - 2) * 0.015, 0.04, 0);
+                finger2.rotation.x = Math.PI / 2;
+                controller2.add(finger2);
+            }
         }
         
         function enterVR() {
@@ -267,24 +304,19 @@
                 navigator.xr.isSessionSupported('immersive-vr').then(supported => {
                     if (supported) {
                         navigator.xr.requestSession('immersive-vr', {
+                            requiredFeatures: ['local'],
                             optionalFeatures: ['local-floor', 'bounded-floor']
                         }).then(session => {
                             renderer.xr.setSession(session);
                             
-                            // Try to get local-floor reference space first (best for standing)
-                            session.requestReferenceSpace('local-floor').then(refSpace => {
+                            // Set reference space explicitly
+                            session.requestReferenceSpace('local').then(refSpace => {
                                 renderer.xr.setReferenceSpace(refSpace);
-                                console.log('Using local-floor reference space');
+                                console.log('Using local reference space');
                             }).catch(err => {
-                                console.log('Local-floor not supported, trying local');
-                                session.requestReferenceSpace('local').then(refSpace => {
+                                console.log('Local reference space not supported, using viewer');
+                                session.requestReferenceSpace('viewer').then(refSpace => {
                                     renderer.xr.setReferenceSpace(refSpace);
-                                    console.log('Using local reference space');
-                                }).catch(err => {
-                                    console.log('Local not supported, using viewer');
-                                    session.requestReferenceSpace('viewer').then(refSpace => {
-                                        renderer.xr.setReferenceSpace(refSpace);
-                                    });
                                 });
                             });
                         }).catch(err => {
@@ -327,22 +359,34 @@
         }
         
         function spawnRaindrop() {
-            const dropGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+            const dropGroup = new THREE.Group();
+            
+            // Main cube body
+            const dropGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.08);
             const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
-            const drop = new THREE.Mesh(dropGeometry, dropMaterial);
+            const dropCube = new THREE.Mesh(dropGeometry, dropMaterial);
+            dropGroup.add(dropCube);
+            
+            // Add pyramid tip to make it look more like a raindrop
+            const tipGeometry = new THREE.ConeGeometry(0.04, 0.06, 6);
+            const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
+            const tip = new THREE.Mesh(tipGeometry, tipMaterial);
+            tip.position.y = 0.07; // Position on top of cube
+            dropGroup.add(tip);
             
             // Random position above the scene
-            drop.position.set(
+            dropGroup.position.set(
                 (Math.random() - 0.5) * 8,
                 8 + Math.random() * 2,
                 (Math.random() - 0.5) * 8
             );
             
-            drop.velocity = 0.02 + (gameTime / 120000) * 0.08; // Speed increases over time
-            drop.castShadow = true;
+            dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08; // Speed increases over time
+            dropCube.castShadow = true;
+            tip.castShadow = true;
             
-            scene.add(drop);
-            raindrops.push(drop);
+            scene.add(dropGroup);
+            raindrops.push(dropGroup);
         }
         
         function createParticleBurst(position) {
@@ -389,12 +433,12 @@
                     continue;
                 }
                 
-                // Check if raindrop hits cat
+                // Check if raindrop hits cat (adjusted for smaller cat size)
                 const catPosition = new THREE.Vector3();
                 cat.getWorldPosition(catPosition);
                 const catDistance = drop.position.distanceTo(catPosition);
                 
-                if (catDistance < 2.0 && drop.position.y < catPosition.y + 1.5) {
+                if (catDistance < 0.4 && drop.position.y < catPosition.y + 0.3) { // Adjusted for smaller cat
                     // Cat got wet - game over
                     endGame();
                     return;
