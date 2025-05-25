@@ -86,7 +86,7 @@
     <div id="catsAlive" style="display: none;">Cats: 5/5</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         let scene, camera, renderer, dolly;
         let mushroom, cats = [], raindrops = [];
@@ -96,6 +96,10 @@
         let particles = [];
         let wand, teleportRay, teleportMarker;
         let catsAlive = 5;
+        
+        // Audio variables
+        let audioListener, backgroundMusic, howlSound;
+        let catPurrSounds = [];
         
         // Game settings
         const DROP_SPAWN_RATE = 800; // ms between drops initially
@@ -120,6 +124,10 @@
             dolly.position.set(0, 0, 5);
             dolly.add(camera);
             scene.add(dolly);
+            
+            // Audio setup
+            audioListener = new THREE.AudioListener();
+            camera.add(audioListener);
             
             // Renderer with VR support
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -163,7 +171,8 @@
             // Create teleport system
             createTeleportSystem();
             
-            // Load models and create game objects
+            // Load audio and models
+            loadAudio();
             loadModels();
             
             // Event listeners
@@ -172,6 +181,31 @@
             
             // Start render loop
             renderer.setAnimationLoop(animate);
+        }
+        
+        function loadAudio() {
+            const audioLoader = new THREE.AudioLoader();
+            
+            // Load background music
+            audioLoader.load('music.mp3', (buffer) => {
+                backgroundMusic = new THREE.Audio(audioListener);
+                backgroundMusic.setBuffer(buffer);
+                backgroundMusic.setLoop(true);
+                backgroundMusic.setVolume(0.3);
+                console.log('Background music loaded');
+            }, undefined, (error) => {
+                console.log('Error loading music.mp3:', error);
+            });
+            
+            // Load howl sound
+            audioLoader.load('howl.mp3', (buffer) => {
+                howlSound = new THREE.Audio(audioListener);
+                howlSound.setBuffer(buffer);
+                howlSound.setVolume(0.8);
+                console.log('Howl sound loaded');
+            }, undefined, (error) => {
+                console.log('Error loading howl.mp3:', error);
+            });
         }
         
         function loadModels() {
@@ -220,6 +254,9 @@
                     }
                 });
                 
+                // Add spatialized purr sound to each cat
+                createCatPurrSound(cat, index);
+                
                 scene.add(cat);
                 cats.push(cat);
             });
@@ -259,8 +296,32 @@
                 
                 catGroup.position.set(pos.x, 0, pos.z);
                 catGroup.rotation.y = Math.random() * Math.PI * 2;
+                
+                // Add spatialized purr sound to each cat
+                createCatPurrSound(catGroup, index);
+                
                 scene.add(catGroup);
                 cats.push(catGroup);
+            });
+        }
+        
+        function createCatPurrSound(cat, index) {
+            const audioLoader = new THREE.AudioLoader();
+            audioLoader.load('purr.mp3', (buffer) => {
+                const positionalAudio = new THREE.PositionalAudio(audioListener);
+                positionalAudio.setBuffer(buffer);
+                positionalAudio.setRefDistance(2);
+                positionalAudio.setRolloffFactor(2);
+                positionalAudio.setDistanceModel('exponential');
+                positionalAudio.setLoop(true);
+                positionalAudio.setVolume(0.4);
+                
+                cat.add(positionalAudio);
+                catPurrSounds.push(positionalAudio);
+                
+                console.log(`Purr sound loaded for cat ${index}`);
+            }, undefined, (error) => {
+                console.log(`Error loading purr.mp3 for cat ${index}:`, error);
             });
         }
         
@@ -430,6 +491,18 @@
             lastDropTime = 0;
             catsAlive = 5;
             updateCatsDisplay();
+            
+            // Start background music
+            if (backgroundMusic && !backgroundMusic.isPlaying) {
+                backgroundMusic.play();
+            }
+            
+            // Start all cat purr sounds
+            catPurrSounds.forEach(purrSound => {
+                if (purrSound && !purrSound.isPlaying) {
+                    purrSound.play();
+                }
+            });
         }
         
         function resetGame() {
@@ -461,6 +534,11 @@
             
             catsAlive = 5;
             updateCatsDisplay();
+            
+            // Stop howl sound if playing
+            if (howlSound && howlSound.isPlaying) {
+                howlSound.stop();
+            }
         }
         
         function updateCatsDisplay() {
@@ -559,6 +637,11 @@
                         catsAlive--;
                         updateCatsDisplay();
                         
+                        // Stop purr sound for this cat
+                        if (catPurrSounds[j] && catPurrSounds[j].isPlaying) {
+                            catPurrSounds[j].stop();
+                        }
+                        
                         scene.remove(drop);
                         raindrops.splice(i, 1);
                         
@@ -582,6 +665,23 @@
         function endGame() {
             gameOver = true;
             gameStarted = false;
+            
+            // Stop background music
+            if (backgroundMusic && backgroundMusic.isPlaying) {
+                backgroundMusic.stop();
+            }
+            
+            // Stop all cat purr sounds
+            catPurrSounds.forEach(purrSound => {
+                if (purrSound && purrSound.isPlaying) {
+                    purrSound.stop();
+                }
+            });
+            
+            // Play howl sound
+            if (howlSound && !howlSound.isPlaying) {
+                howlSound.play();
+            }
             
             // Show game over screen
             document.getElementById('timer').style.display = 'none';
