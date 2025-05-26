@@ -82,7 +82,7 @@
         <div id="menu">
             <h1>🐱 Shroom Cat 🍄</h1>
             <p>Protect the sleeping cat from the rain! Use your mushroom umbrellas to shield it.</p>
-            <button id="enterVR">Enter VR</button>
+            <button id="enterVR">Start Game</button>
         </div>
         <div id="gameOver">
             <h2>Game Over!</h2>
@@ -121,7 +121,7 @@
         let finalScore = 0;
         
         // Audio variables
-        let audioListener, backgroundRain, howlSound, catPurrSound;
+        let audioListener, backgroundRain, howlSound, catPurrSound, thunderSound;
         
         // Game settings
         const DROP_SPAWN_RATE = 800; // ms between drops initially
@@ -147,31 +147,26 @@
             dolly.add(camera);
             scene.add(dolly);
             
+            // Position camera to look down at cat for menu view
+            camera.position.set(0, 3, 2);
+            camera.lookAt(0, 0, 0);
+            
             // Audio setup
             audioListener = new THREE.AudioListener();
             camera.add(audioListener);
             
-            // Renderer with VR support
+            // Renderer with VR support - no shadows
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
             
-            // Lighting - moved sun directly overhead
+            // Lighting - no shadows
             const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
             scene.add(ambientLight);
             
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 15, 0); // Directly overhead (was 5, 10, 5)
-            directionalLight.castShadow = true;
-            directionalLight.shadow.mapSize.width = 2048;
-            directionalLight.shadow.mapSize.height = 2048;
-            directionalLight.shadow.camera.left = -10;
-            directionalLight.shadow.camera.right = 10;
-            directionalLight.shadow.camera.top = 10;
-            directionalLight.shadow.camera.bottom = -10;
+            directionalLight.position.set(0, 15, 0); // Directly overhead
             scene.add(directionalLight);
             
             // Ground - scaled down relative to player
@@ -180,7 +175,6 @@
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
             ground.position.y = 0;
-            ground.receiveShadow = true;
             scene.add(ground);
             
             // VR Controllers
@@ -198,7 +192,7 @@
             loadModels();
             
             // Event listeners
-            document.getElementById('enterVR').addEventListener('click', enterVR);
+            document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
             document.getElementById('playAgain').addEventListener('click', resetGame);
             
             // Start render loop
@@ -426,6 +420,21 @@
                 howlSound = null;
             });
             
+            // Load thunder sound
+            audioLoader.load('thunder.mp3', (buffer) => {
+                try {
+                    thunderSound = new THREE.Audio(audioListener);
+                    thunderSound.setBuffer(buffer);
+                    thunderSound.setVolume(0.6);
+                    console.log('Thunder sound loaded');
+                } catch (error) {
+                    console.log('Error creating thunder sound:', error);
+                }
+            }, undefined, (error) => {
+                console.log('Error loading thunder.mp3:', error);
+                thunderSound = null;
+            });
+            
             // Load purr sound for the single cat
             audioLoader.load('purr.mp3', (buffer) => {
                 try {
@@ -483,11 +492,10 @@
             cat.position.set(0, 0, 0); // Fixed position at origin
             cat.rotation.y = 0; // Face the player (removed randomization)
             
-            // Enable shadows for all meshes
+            // No shadows needed
             cat.traverse((child) => {
                 if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
+                    // Removed castShadow and receiveShadow
                 }
             });
             
@@ -507,7 +515,6 @@
             const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
             body.position.y = 0.135; // Adjusted for bigger size
-            body.castShadow = true;
             catGroup.add(body);
             
             // Simple ears - 3x bigger
@@ -564,7 +571,7 @@
             rightMushroom.position.set(0, 0, -0.05);
         }
         
-        function enterVR() {
+        function startGameAndTryVR() {
             // Resume audio context
             if (audioListener && audioListener.context.state === 'suspended') {
                 audioListener.context.resume().then(() => {
@@ -574,11 +581,18 @@
                 });
             }
             
+            // Start the game first
             document.getElementById('ui').style.display = 'none';
             document.getElementById('timer').style.display = 'block';
             document.getElementById('stats').style.display = 'block';
+            
+            // Reset camera position for VR/game mode
+            camera.position.set(0, 0, 0);
+            camera.lookAt(0, 0, -1);
+            
             startGame();
             
+            // Try to enter VR
             if (navigator.xr) {
                 navigator.xr.isSessionSupported('immersive-vr').then(supported => {
                     if (supported) {
@@ -634,16 +648,29 @@
                 cat.visible = true;
             }
             
-            // Start rain sound
+            // Play thunder sound first
             try {
-                if (backgroundRain && !backgroundRain.isPlaying) {
-                    backgroundRain.play().catch(error => {
-                        console.log('Failed to play rain sound:', error);
+                if (thunderSound && !thunderSound.isPlaying) {
+                    thunderSound.play().catch(error => {
+                        console.log('Failed to play thunder sound:', error);
                     });
                 }
             } catch (error) {
-                console.log('Error with rain sound:', error);
+                console.log('Error with thunder sound:', error);
             }
+            
+            // Start rain sound after a short delay
+            setTimeout(() => {
+                try {
+                    if (backgroundRain && !backgroundRain.isPlaying) {
+                        backgroundRain.play().catch(error => {
+                            console.log('Failed to play rain sound:', error);
+                        });
+                    }
+                } catch (error) {
+                    console.log('Error with rain sound:', error);
+                }
+            }, 1000); // 1 second delay after thunder
             
             // Start cat purr sound
             try {
@@ -689,6 +716,10 @@
             gameStarted = false;
             gameOver = false;
             
+            // Reset camera to look down at cat for menu
+            camera.position.set(0, 3, 2);
+            camera.lookAt(0, 0, 0);
+            
             // Hide VR UI
             vrUI.visible = false;
             
@@ -709,13 +740,19 @@
             raindropsBlocked = 0;
             finalScore = 0;
             
-            // Stop howl sound if playing
+            // Stop all sounds
             try {
                 if (howlSound && howlSound.isPlaying) {
                     howlSound.stop();
                 }
+                if (backgroundRain && backgroundRain.isPlaying) {
+                    backgroundRain.stop();
+                }
+                if (thunderSound && thunderSound.isPlaying) {
+                    thunderSound.stop();
+                }
             } catch (error) {
-                console.log('Error stopping howl sound:', error);
+                console.log('Error stopping sounds:', error);
             }
         }
         
@@ -756,8 +793,7 @@
             }
             
             dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
-            dropSphere.castShadow = true;
-            tip.castShadow = true;
+            // No shadows needed
             
             scene.add(dropGroup);
             raindrops.push(dropGroup);
