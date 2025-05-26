@@ -210,8 +210,8 @@
             vrUI = new THREE.Group();
             vrUI.visible = false;
             
-            // Create background panel
-            const panelGeometry = new THREE.PlaneGeometry(3, 2);
+            // Create background panel - smaller size
+            const panelGeometry = new THREE.PlaneGeometry(1.2, 0.8); // Was 3, 2
             const panelMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0x000000, 
                 transparent: true, 
@@ -263,7 +263,7 @@
                 transparent: true 
             });
             const textMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(2.5, 2.5), 
+                new THREE.PlaneGeometry(1.0, 1.0), // Smaller text panel
                 textMaterial
             );
             textMesh.position.z = 0.01;
@@ -273,20 +273,20 @@
             vrUI.updateText = updateVRUIText;
             vrUI.textTexture = texture;
             
-            // Create Play Again button
-            const buttonGeometry = new THREE.BoxGeometry(1.2, 0.3, 0.1);
+            // Create Play Again button - smaller size
+            const buttonGeometry = new THREE.BoxGeometry(0.4, 0.12, 0.04); // Much smaller
             const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
             vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
-            vrPlayAgainButton.position.set(-0.8, -0.6, 0.1);
+            vrPlayAgainButton.position.set(-0.3, -0.25, 0.03); // Closer to center and forward
             vrUI.add(vrPlayAgainButton);
             
-            // Play Again button text
+            // Play Again button text - placed in front of button
             const playCanvas = document.createElement('canvas');
             playCanvas.width = 256;
             playCanvas.height = 64;
             const playCtx = playCanvas.getContext('2d');
             playCtx.fillStyle = 'white';
-            playCtx.font = 'bold 32px Arial';
+            playCtx.font = 'bold 24px Arial'; // Smaller font
             playCtx.textAlign = 'center';
             playCtx.fillText('Play Again', 128, 40);
             
@@ -296,25 +296,25 @@
                 transparent: true 
             });
             const playTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.1, 0.25), 
+                new THREE.PlaneGeometry(0.35, 0.1), // Smaller text size
                 playTextMaterial
             );
-            playTextMesh.position.set(-0.8, -0.6, 0.11);
+            playTextMesh.position.set(-0.3, -0.25, 0.05); // In front of button
             vrUI.add(playTextMesh);
             
-            // Create Quit button
+            // Create Quit button - smaller size
             const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
             vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
-            vrQuitButton.position.set(0.8, -0.6, 0.1);
+            vrQuitButton.position.set(0.3, -0.25, 0.03); // Closer to center and forward
             vrUI.add(vrQuitButton);
             
-            // Quit button text
+            // Quit button text - placed in front of button
             const quitCanvas = document.createElement('canvas');
             quitCanvas.width = 256;
             quitCanvas.height = 64;
             const quitCtx = quitCanvas.getContext('2d');
             quitCtx.fillStyle = 'white';
-            quitCtx.font = 'bold 32px Arial';
+            quitCtx.font = 'bold 24px Arial'; // Smaller font
             quitCtx.textAlign = 'center';
             quitCtx.fillText('Quit', 128, 40);
             
@@ -324,14 +324,14 @@
                 transparent: true 
             });
             const quitTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.1, 0.25), 
+                new THREE.PlaneGeometry(0.35, 0.1), // Smaller text size
                 quitTextMaterial
             );
-            quitTextMesh.position.set(0.8, -0.6, 0.11);
+            quitTextMesh.position.set(0.3, -0.25, 0.05); // In front of button
             vrUI.add(quitTextMesh);
             
-            // Position VR UI in front of player
-            vrUI.position.set(0, 1.6, -2);
+            // Position VR UI closer to player and at arm's reach
+            vrUI.position.set(0, 1.4, -0.8); // Much closer (was -2) and slightly lower
             dolly.add(vrUI);
         }
         
@@ -344,10 +344,10 @@
                 const mushroomPos = new THREE.Vector3();
                 mushroom.getWorldPosition(mushroomPos);
                 
-                // Check Play Again button
+                // Check Play Again button - smaller interaction distance
                 const playAgainPos = new THREE.Vector3();
                 vrPlayAgainButton.getWorldPosition(playAgainPos);
-                if (mushroomPos.distanceTo(playAgainPos) < 0.3) {
+                if (mushroomPos.distanceTo(playAgainPos) < 0.15) { // Smaller distance for smaller buttons
                     if (hoveredButton !== 'playAgain') {
                         vrPlayAgainButton.material.color.setHex(0x66bb6a);
                         hoveredButton = 'playAgain';
@@ -365,10 +365,10 @@
                     hoveredButton = null;
                 }
                 
-                // Check Quit button
+                // Check Quit button - smaller interaction distance
                 const quitPos = new THREE.Vector3();
                 vrQuitButton.getWorldPosition(quitPos);
-                if (mushroomPos.distanceTo(quitPos) < 0.3) {
+                if (mushroomPos.distanceTo(quitPos) < 0.15) { // Smaller distance for smaller buttons
                     if (hoveredButton !== 'quit') {
                         vrQuitButton.material.color.setHex(0xef5350);
                         hoveredButton = 'quit';
@@ -480,8 +480,8 @@
         
         function createCat(catModel) {
             cat = catModel.clone();
-            cat.position.set(0, 0, 0); // Centered in front of player
-            cat.rotation.y = Math.random() * Math.PI * 2;
+            cat.position.set(0, 0, 0); // Fixed position at origin
+            cat.rotation.y = 0; // Face the player (removed randomization)
             
             // Enable shadows for all meshes
             cat.traverse((child) => {
@@ -522,8 +522,8 @@
             rightEar.position.set(0.09, 0.27, 0.09);
             catGroup.add(rightEar);
             
-            catGroup.position.set(0, 0, 0);
-            catGroup.rotation.y = Math.random() * Math.PI * 2;
+            catGroup.position.set(0, 0, 0); // Fixed position at origin
+            catGroup.rotation.y = 0; // Face the player (removed randomization)
             
             // Add purr sound to cat
             if (catPurrSound) {
@@ -722,17 +722,17 @@
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
             
-            // Main sphere body (replaced cube)
-            const dropGeometry = new THREE.SphereGeometry(0.03, 8, 8); // Sphere instead of cube
+            // Main sphere body
+            const dropGeometry = new THREE.SphereGeometry(0.03, 8, 8);
             const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const dropSphere = new THREE.Mesh(dropGeometry, dropMaterial);
             dropGroup.add(dropSphere);
             
-            // Add teardrop shape with smaller cone on top
-            const tipGeometry = new THREE.ConeGeometry(0.02, 0.04, 6);
+            // Add teardrop cone that starts from sphere's equator
+            const tipGeometry = new THREE.ConeGeometry(0.03, 0.06, 6); // Base radius matches sphere radius
             const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.05; // Position above sphere
+            tip.position.y = 0.03; // Position so base of cone is at sphere's top
             dropGroup.add(tip);
             
             // Always target the cat area since there's only one
@@ -764,10 +764,22 @@
         }
         
         function createParticleBurst(position) {
+            // Water blue color palette
+            const waterColors = [
+                0x0077be, // Deep blue
+                0x1e90ff, // Dodger blue
+                0x4169e1, // Royal blue
+                0x6495ed, // Cornflower blue
+                0x87ceeb, // Sky blue
+                0xa2cdf0, // Light blue
+                0xb0e0e6, // Powder blue
+                0xadd8e6  // Light blue
+            ];
+            
             for (let i = 0; i < 20; i++) {
-                const particleGeometry = new THREE.SphereGeometry(0.01, 4, 4); // Smaller particles
+                const particleGeometry = new THREE.SphereGeometry(0.01, 4, 4);
                 const particleMaterial = new THREE.MeshBasicMaterial({ 
-                    color: Math.random() * 0xffffff 
+                    color: waterColors[Math.floor(Math.random() * waterColors.length)]
                 });
                 const particle = new THREE.Mesh(particleGeometry, particleMaterial);
                 
