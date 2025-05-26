@@ -53,8 +53,27 @@
             z-index: 50;
         }
         
+        #stats {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 18px;
+            z-index: 50;
+        }
+        
         canvas {
             display: block;
+        }
+        
+        .score-display {
+            margin: 10px 0;
+            padding: 5px 0;
+        }
+        
+        .final-score {
+            font-size: 28px;
+            color: #FFD700;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -68,12 +87,19 @@
         <div id="gameOver">
             <h2>Game Over!</h2>
             <p>The cat got wet! 😿</p>
-            <p id="finalTime">Time survived: 0 seconds</p>
+            <div class="score-display">
+                <p id="finalTime">Time survived: 0 seconds</p>
+                <p id="finalDrops">Raindrops blocked: 0</p>
+                <p id="finalScore" class="final-score">Score: 0</p>
+            </div>
             <button id="playAgain">Play Again</button>
         </div>
     </div>
     
     <div id="timer" style="display: none;">Time: 0s</div>
+    <div id="stats" style="display: none;">
+        <div>Drops blocked: <span id="dropsBlocked">0</span></div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -85,6 +111,14 @@
         let startTime, gameTime = 0;
         let controller1, controller2;
         let particles = [];
+        
+        // VR UI variables
+        let vrUI, vrPlayAgainButton, vrQuitButton;
+        let hoveredButton = null;
+        
+        // Scoring variables
+        let raindropsBlocked = 0;
+        let finalScore = 0;
         
         // Audio variables
         let audioListener, backgroundRain, howlSound, catPurrSound;
@@ -109,7 +143,7 @@
             
             // Create dolly - no teleportation needed now
             dolly = new THREE.Group();
-            dolly.position.set(0, 0, 3); // Closer to the cat since we're bigger
+            dolly.position.set(0, 0, 1.5); // Moved closer to cat (was 3)
             dolly.add(camera);
             scene.add(dolly);
             
@@ -125,15 +159,19 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
             
-            // Lighting
+            // Lighting - moved sun directly overhead
             const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
             scene.add(ambientLight);
             
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 10, 5);
+            directionalLight.position.set(0, 15, 0); // Directly overhead (was 5, 10, 5)
             directionalLight.castShadow = true;
             directionalLight.shadow.mapSize.width = 2048;
             directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.left = -10;
+            directionalLight.shadow.camera.right = 10;
+            directionalLight.shadow.camera.top = 10;
+            directionalLight.shadow.camera.bottom = -10;
             scene.add(directionalLight);
             
             // Ground - scaled down relative to player
@@ -152,6 +190,9 @@
             controller2 = renderer.xr.getController(1);
             dolly.add(controller2);
             
+            // Create VR UI
+            createVRUI();
+            
             // Load audio and models
             loadAudio();
             loadModels();
@@ -162,6 +203,193 @@
             
             // Start render loop
             renderer.setAnimationLoop(animate);
+        }
+        
+        function createVRUI() {
+            // Create VR UI group
+            vrUI = new THREE.Group();
+            vrUI.visible = false;
+            
+            // Create background panel
+            const panelGeometry = new THREE.PlaneGeometry(3, 2);
+            const panelMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x000000, 
+                transparent: true, 
+                opacity: 0.8 
+            });
+            const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+            vrUI.add(panel);
+            
+            // Create text using canvas texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            function updateVRUIText() {
+                // Clear canvas
+                ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+                ctx.fillRect(0, 0, 512, 512);
+                
+                // Text styling
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                
+                // Game Over text
+                ctx.fillText('Game Over!', 256, 80);
+                
+                // Cat emoji
+                ctx.font = '60px Arial';
+                ctx.fillText('😿', 256, 150);
+                
+                // Score info
+                ctx.font = '24px Arial';
+                ctx.fillText('The cat got wet!', 256, 200);
+                
+                const timeInSeconds = Math.floor(gameTime / 1000);
+                ctx.fillText(`Time: ${timeInSeconds}s`, 256, 240);
+                ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 270);
+                
+                // Final score
+                ctx.fillStyle = '#FFD700';
+                ctx.font = 'bold 32px Arial';
+                ctx.fillText(`Score: ${finalScore}`, 256, 320);
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const textMaterial = new THREE.MeshBasicMaterial({ 
+                map: texture, 
+                transparent: true 
+            });
+            const textMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.5, 2.5), 
+                textMaterial
+            );
+            textMesh.position.z = 0.01;
+            vrUI.add(textMesh);
+            
+            // Store reference to update function
+            vrUI.updateText = updateVRUIText;
+            vrUI.textTexture = texture;
+            
+            // Create Play Again button
+            const buttonGeometry = new THREE.BoxGeometry(1.2, 0.3, 0.1);
+            const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
+            vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
+            vrPlayAgainButton.position.set(-0.8, -0.6, 0.1);
+            vrUI.add(vrPlayAgainButton);
+            
+            // Play Again button text
+            const playCanvas = document.createElement('canvas');
+            playCanvas.width = 256;
+            playCanvas.height = 64;
+            const playCtx = playCanvas.getContext('2d');
+            playCtx.fillStyle = 'white';
+            playCtx.font = 'bold 32px Arial';
+            playCtx.textAlign = 'center';
+            playCtx.fillText('Play Again', 128, 40);
+            
+            const playTexture = new THREE.CanvasTexture(playCanvas);
+            const playTextMaterial = new THREE.MeshBasicMaterial({ 
+                map: playTexture, 
+                transparent: true 
+            });
+            const playTextMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.1, 0.25), 
+                playTextMaterial
+            );
+            playTextMesh.position.set(-0.8, -0.6, 0.11);
+            vrUI.add(playTextMesh);
+            
+            // Create Quit button
+            const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
+            vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
+            vrQuitButton.position.set(0.8, -0.6, 0.1);
+            vrUI.add(vrQuitButton);
+            
+            // Quit button text
+            const quitCanvas = document.createElement('canvas');
+            quitCanvas.width = 256;
+            quitCanvas.height = 64;
+            const quitCtx = quitCanvas.getContext('2d');
+            quitCtx.fillStyle = 'white';
+            quitCtx.font = 'bold 32px Arial';
+            quitCtx.textAlign = 'center';
+            quitCtx.fillText('Quit', 128, 40);
+            
+            const quitTexture = new THREE.CanvasTexture(quitCanvas);
+            const quitTextMaterial = new THREE.MeshBasicMaterial({ 
+                map: quitTexture, 
+                transparent: true 
+            });
+            const quitTextMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.1, 0.25), 
+                quitTextMaterial
+            );
+            quitTextMesh.position.set(0.8, -0.6, 0.11);
+            vrUI.add(quitTextMesh);
+            
+            // Position VR UI in front of player
+            vrUI.position.set(0, 1.6, -2);
+            dolly.add(vrUI);
+        }
+        
+        function checkVRUIInteraction() {
+            if (!vrUI.visible) return;
+            
+            const mushrooms = [leftMushroom, rightMushroom].filter(m => m);
+            
+            mushrooms.forEach(mushroom => {
+                const mushroomPos = new THREE.Vector3();
+                mushroom.getWorldPosition(mushroomPos);
+                
+                // Check Play Again button
+                const playAgainPos = new THREE.Vector3();
+                vrPlayAgainButton.getWorldPosition(playAgainPos);
+                if (mushroomPos.distanceTo(playAgainPos) < 0.3) {
+                    if (hoveredButton !== 'playAgain') {
+                        vrPlayAgainButton.material.color.setHex(0x66bb6a);
+                        hoveredButton = 'playAgain';
+                    }
+                    
+                    // Check for trigger press (simplified - using gamepad if available)
+                    const controllers = [controller1, controller2];
+                    controllers.forEach(controller => {
+                        if (controller.gamepad && controller.gamepad.buttons[0] && controller.gamepad.buttons[0].pressed) {
+                            resetGame();
+                        }
+                    });
+                } else if (hoveredButton === 'playAgain') {
+                    vrPlayAgainButton.material.color.setHex(0x4CAF50);
+                    hoveredButton = null;
+                }
+                
+                // Check Quit button
+                const quitPos = new THREE.Vector3();
+                vrQuitButton.getWorldPosition(quitPos);
+                if (mushroomPos.distanceTo(quitPos) < 0.3) {
+                    if (hoveredButton !== 'quit') {
+                        vrQuitButton.material.color.setHex(0xef5350);
+                        hoveredButton = 'quit';
+                    }
+                    
+                    // Check for trigger press
+                    const controllers = [controller1, controller2];
+                    controllers.forEach(controller => {
+                        if (controller.gamepad && controller.gamepad.buttons[0] && controller.gamepad.buttons[0].pressed) {
+                            // Exit VR and return to menu
+                            if (renderer.xr.getSession()) {
+                                renderer.xr.getSession().end();
+                            }
+                            resetGame();
+                        }
+                    });
+                } else if (hoveredButton === 'quit') {
+                    vrQuitButton.material.color.setHex(0xf44336);
+                    hoveredButton = null;
+                }
+            });
         }
         
         function loadAudio() {
@@ -348,6 +576,7 @@
             
             document.getElementById('ui').style.display = 'none';
             document.getElementById('timer').style.display = 'block';
+            document.getElementById('stats').style.display = 'block';
             startGame();
             
             if (navigator.xr) {
@@ -392,6 +621,14 @@
             currentSpawnRate = DROP_SPAWN_RATE;
             lastDropTime = 0;
             
+            // Reset scoring
+            raindropsBlocked = 0;
+            finalScore = 0;
+            updateStatsDisplay();
+            
+            // Hide VR UI
+            vrUI.visible = false;
+            
             // Make cat visible
             if (cat) {
                 cat.visible = true;
@@ -420,11 +657,40 @@
             }
         }
         
+        function updateStatsDisplay() {
+            document.getElementById('dropsBlocked').textContent = raindropsBlocked;
+        }
+        
+        function calculateScore(timeInSeconds, dropsBlocked) {
+            // Scoring algorithm:
+            // Base points: 10 points per second survived
+            // Bonus points: 50 points per raindrop blocked
+            // Multiplier for longer survival: bonus multiplier increases with time
+            
+            const baseTimePoints = timeInSeconds * 10;
+            const dropPoints = dropsBlocked * 50;
+            
+            // Survival bonus: extra points for lasting longer
+            let survivalBonus = 0;
+            if (timeInSeconds >= 60) survivalBonus += 1000; // 1 minute bonus
+            if (timeInSeconds >= 120) survivalBonus += 2000; // 2 minute bonus
+            if (timeInSeconds >= 180) survivalBonus += 3000; // 3 minute bonus
+            
+            // Efficiency bonus: reward for blocking many drops relative to time
+            const dropsPerSecond = dropsBlocked / Math.max(timeInSeconds, 1);
+            const efficiencyBonus = Math.floor(dropsPerSecond * 100);
+            
+            return baseTimePoints + dropPoints + survivalBonus + efficiencyBonus;
+        }
+        
         function resetGame() {
             document.getElementById('gameOver').style.display = 'none';
             document.getElementById('menu').style.display = 'block';
             gameStarted = false;
             gameOver = false;
+            
+            // Hide VR UI
+            vrUI.visible = false;
             
             // Remove all raindrops
             raindrops.forEach(drop => scene.remove(drop));
@@ -439,6 +705,10 @@
                 cat.visible = true;
             }
             
+            // Reset scoring
+            raindropsBlocked = 0;
+            finalScore = 0;
+            
             // Stop howl sound if playing
             try {
                 if (howlSound && howlSound.isPlaying) {
@@ -452,17 +722,17 @@
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
             
-            // Main cube body - smaller since player is bigger
-            const dropGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.04); // Halved from 0.08
+            // Main sphere body (replaced cube)
+            const dropGeometry = new THREE.SphereGeometry(0.03, 8, 8); // Sphere instead of cube
             const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
-            const dropCube = new THREE.Mesh(dropGeometry, dropMaterial);
-            dropGroup.add(dropCube);
+            const dropSphere = new THREE.Mesh(dropGeometry, dropMaterial);
+            dropGroup.add(dropSphere);
             
-            // Add pyramid tip - smaller
-            const tipGeometry = new THREE.ConeGeometry(0.02, 0.03, 6); // Halved from 0.04, 0.06
+            // Add teardrop shape with smaller cone on top
+            const tipGeometry = new THREE.ConeGeometry(0.02, 0.04, 6);
             const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.035; // Adjusted for smaller cube
+            tip.position.y = 0.05; // Position above sphere
             dropGroup.add(tip);
             
             // Always target the cat area since there's only one
@@ -486,7 +756,7 @@
             }
             
             dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
-            dropCube.castShadow = true;
+            dropSphere.castShadow = true;
             tip.castShadow = true;
             
             scene.add(dropGroup);
@@ -539,8 +809,12 @@
                     const distance = drop.position.distanceTo(mushroomPos);
                     
                     if (distance < 0.4 && drop.position.y > mushroomPos.y - 0.2) { // Adjusted for smaller umbrellas
-                        // Hit mushroom - create particle burst
+                        // Hit mushroom - create particle burst and increment score
                         createParticleBurst(drop.position);
+                        
+                        // Increment raindrops blocked counter
+                        raindropsBlocked++;
+                        updateStatsDisplay();
                         
                         // Haptic feedback on both controllers
                         if (controller1.gamepad && controller1.gamepad.hapticActuators) {
@@ -584,6 +858,10 @@
             gameOver = true;
             gameStarted = false;
             
+            // Calculate final score
+            const timeInSeconds = Math.floor(gameTime / 1000);
+            finalScore = calculateScore(timeInSeconds, raindropsBlocked);
+            
             // Hide cat
             if (cat) {
                 cat.visible = false;
@@ -618,12 +896,23 @@
                 console.log('Error with howl sound:', error);
             }
             
-            // Show game over screen
-            document.getElementById('timer').style.display = 'none';
-            document.getElementById('ui').style.display = 'block';
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('gameOver').style.display = 'block';
-            document.getElementById('finalTime').textContent = `Time survived: ${Math.floor(gameTime / 1000)} seconds`;
+            // Show VR UI or regular UI depending on mode
+            if (renderer.xr.isPresenting) {
+                // Update VR UI text and show it
+                vrUI.updateText();
+                vrUI.textTexture.needsUpdate = true;
+                vrUI.visible = true;
+            } else {
+                // Show regular game over screen
+                document.getElementById('timer').style.display = 'none';
+                document.getElementById('stats').style.display = 'none';
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('menu').style.display = 'none';
+                document.getElementById('gameOver').style.display = 'block';
+                document.getElementById('finalTime').textContent = `Time survived: ${timeInSeconds} seconds`;
+                document.getElementById('finalDrops').textContent = `Raindrops blocked: ${raindropsBlocked}`;
+                document.getElementById('finalScore').textContent = `Score: ${finalScore}`;
+            }
         }
         
         function animate() {
@@ -647,6 +936,11 @@
                 
                 // Check collisions
                 checkCollisions();
+            }
+            
+            // Check VR UI interactions when game is over
+            if (gameOver && renderer.xr.isPresenting) {
+                checkVRUIInteraction();
             }
             
             // Update particles
