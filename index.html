@@ -117,6 +117,10 @@
         let initialHeadPosition = new THREE.Vector3();
         let headTrackingEnabled = false;
 
+        // Reticle positions (persistent)
+        let leftReticlePos = { x: 0, y: 0 };
+        let rightReticlePos = { x: 0, y: 0 };
+
         // Controller state
         const controllerState = {
             left: {
@@ -311,7 +315,7 @@
                 createTurret(-100 - i * 60);
             }
             
-            // Create enemy ships throughout the tunnel
+            // Create enemy ships throughout the tunnel (all ahead of player)
             for (let i = 0; i < 20; i++) {
                 createEnemy(-100 - i * 80);
             }
@@ -418,10 +422,10 @@
         }
         
         function createReticles() {
-            // Create left reticle (red)
+            // Create left reticle (green)
             const leftReticleGeometry = new THREE.RingGeometry(0.015, 0.025, 16);
             const leftReticleMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff0000, 
+                color: 0x00ff00, 
                 side: THREE.DoubleSide,
                 transparent: true,
                 opacity: 0.8
@@ -461,7 +465,7 @@
             const wings = new THREE.Mesh(wingGeometry, wingMaterial);
             enemyGroup.add(wings);
             
-            // Position the enemy
+            // Position the enemy ahead of the player
             const angle = Math.random() * Math.PI * 2;
             const radius = Math.random() * (tunnelRadius - 5);
             enemyGroup.position.x = Math.sin(angle) * radius;
@@ -472,13 +476,9 @@
             enemyGroup.userData = {
                 isEnemy: true,
                 health: 2,
-                speed: 0.1 + Math.random() * 0.2,
-                direction: new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.05,
-                    (Math.random() - 0.5) * 0.05,
-                    0
-                ),
-                timeSinceShot: 0
+                speed: 0.05 + Math.random() * 0.1, // Slower approach speed
+                direction: new THREE.Vector3(0, 0, 1), // Move towards player
+                timeSinceShot: Math.random() * 2 // Random initial delay
             };
             
             scene.add(enemyGroup);
@@ -524,7 +524,7 @@
         function fireLaser(position, direction, isFromPlayer, controller = 'left') {
             const laserGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4, 8);
             const laserMaterial = new THREE.MeshBasicMaterial({ 
-                color: isFromPlayer ? (controller === 'left' ? 0xff0000 : 0x00ff00) : 0xff4444,
+                color: isFromPlayer ? 0x00ff00 : 0xff4444,
                 transparent: true,
                 opacity: 0.8
             });
@@ -532,11 +532,10 @@
             const laser = new THREE.Mesh(laserGeometry, laserMaterial);
             laser.position.copy(position);
             
-            if (direction.z > 0) {
-                laser.rotation.x = Math.PI / 2;
-            } else {
-                laser.rotation.x = -Math.PI / 2;
-            }
+            // Properly orient the laser beam to point in the direction of travel
+            const up = new THREE.Vector3(0, 1, 0);
+            laser.lookAt(position.clone().add(direction));
+            laser.rotateX(Math.PI / 2); // Cylinder's default orientation
             
             laser.userData = {
                 isLaser: true,
@@ -617,6 +616,10 @@
             gameOver = false;
             targetDestroyed = false;
             
+            // Reset reticle positions
+            leftReticlePos = { x: 0, y: 0 };
+            rightReticlePos = { x: 0, y: 0 };
+            
             // Reset player position
             camera.position.set(0, 0, 0);
             camera.rotation.set(0, Math.PI, 0);
@@ -684,28 +687,45 @@
                 }
             }
             
-            // Left controller aiming (improved sensitivity)
-            const leftAimX = controllerState.left.joystick.x * 0.02;
-            const leftAimY = -controllerState.left.joystick.y * 0.02;
+            // Left controller aiming (higher fidelity, no snap-back)
+            const leftAimX = controllerState.left.joystick.x * 0.008; // Much finer control
+            const leftAimY = -controllerState.left.joystick.y * 0.008;
             
-            // Move left reticle
-            leftReticle.position.x = camera.position.x + leftAimX * 50;
-            leftReticle.position.y = camera.position.y + leftAimY * 50;
+            // Accumulate reticle position changes
+            leftReticlePos.x += leftAimX;
+            leftReticlePos.y += leftAimY;
+            
+            // Limit reticle range
+            const maxReticleRange = 15;
+            leftReticlePos.x = Math.max(-maxReticleRange, Math.min(maxReticleRange, leftReticlePos.x));
+            leftReticlePos.y = Math.max(-maxReticleRange, Math.min(maxReticleRange, leftReticlePos.y));
+            
+            // Update left reticle position
+            leftReticle.position.x = camera.position.x + leftReticlePos.x;
+            leftReticle.position.y = camera.position.y + leftReticlePos.y;
             leftReticle.position.z = camera.position.z - 5;
             
-            // Right controller aiming (improved sensitivity)
-            const rightAimX = controllerState.right.joystick.x * 0.02;
-            const rightAimY = -controllerState.right.joystick.y * 0.02;
+            // Right controller aiming (higher fidelity, no snap-back)
+            const rightAimX = controllerState.right.joystick.x * 0.008; // Much finer control
+            const rightAimY = -controllerState.right.joystick.y * 0.008;
             
-            // Move right reticle
-            rightReticle.position.x = camera.position.x + rightAimX * 50;
-            rightReticle.position.y = camera.position.y + rightAimY * 50;
+            // Accumulate reticle position changes
+            rightReticlePos.x += rightAimX;
+            rightReticlePos.y += rightAimY;
+            
+            // Limit reticle range
+            rightReticlePos.x = Math.max(-maxReticleRange, Math.min(maxReticleRange, rightReticlePos.x));
+            rightReticlePos.y = Math.max(-maxReticleRange, Math.min(maxReticleRange, rightReticlePos.y));
+            
+            // Update right reticle position
+            rightReticle.position.x = camera.position.x + rightReticlePos.x;
+            rightReticle.position.y = camera.position.y + rightReticlePos.y;
             rightReticle.position.z = camera.position.z - 5;
             
             // Fire lasers with triggers
             if (controllerState.left.trigger) {
                 // Fire left laser
-                const cooldown = 0.15; // Slightly faster
+                const cooldown = 0.15;
                 if (!camera.userData.lastLeftShotTime || clock.getElapsedTime() - camera.userData.lastLeftShotTime > cooldown) {
                     const laserPosition = new THREE.Vector3(
                         camera.position.x - 0.3, 
@@ -726,7 +746,7 @@
             
             if (controllerState.right.trigger) {
                 // Fire right laser
-                const cooldown = 0.15; // Slightly faster
+                const cooldown = 0.15;
                 if (!camera.userData.lastRightShotTime || clock.getElapsedTime() - camera.userData.lastRightShotTime > cooldown) {
                     const laserPosition = new THREE.Vector3(
                         camera.position.x + 0.3, 
@@ -863,9 +883,16 @@
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
                 
-                // Move the enemy
-                enemy.position.x += enemy.userData.direction.x;
-                enemy.position.y += enemy.userData.direction.y;
+                // Move enemy towards player gradually
+                enemy.position.z += enemy.userData.speed;
+                
+                // Make enemy gradually approach player's position
+                const approachSpeed = 0.02;
+                const targetX = playerHitbox.position.x;
+                const targetY = playerHitbox.position.y;
+                
+                enemy.position.x += (targetX - enemy.position.x) * approachSpeed;
+                enemy.position.y += (targetY - enemy.position.y) * approachSpeed;
                 
                 if (enemy.position.z < camera.position.z + 100) {
                     // Make enemy face player
@@ -873,7 +900,7 @@
                     
                     // Occasionally shoot at player
                     enemy.userData.timeSinceShot += delta;
-                    if (enemy.userData.timeSinceShot > 2) {
+                    if (enemy.userData.timeSinceShot > 3) {
                         enemy.userData.timeSinceShot = 0;
                         
                         const laserDirection = new THREE.Vector3(
@@ -896,7 +923,7 @@
                     }, 3000);
                 }
                 
-                // Remove enemies that are far behind
+                // Remove enemies that have passed the player
                 if (enemy.position.z > camera.position.z + 50) {
                     scene.remove(enemy);
                     enemies.splice(i, 1);
