@@ -3,1022 +3,674 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StarBlast VR</title>
- 
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.js",
-        "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.159.0/examples/jsm/"
-      }
-    }
-    </script>
-
+    <title>Shroom Cat</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            background: #000;
+            background: #222;
+            color: white;
             font-family: Arial, sans-serif;
+            overflow: hidden;
         }
-        #container {
+        
+        #ui {
             position: absolute;
-            width: 100%;
-            height: 100%;
-        }
-        #vrButton {
-            position: absolute;
-            bottom: 20px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            padding: 16px 32px;
-            background: #0066cc;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+        }
+        
+        #enterVR {
+            background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 20px;
+            padding: 20px 40px;
+            font-size: 24px;
+            border-radius: 10px;
             cursor: pointer;
-            z-index: 100;
-            transition: all 0.3s ease;
+            margin: 10px;
         }
-        #vrButton:hover {
-            background: #0055aa;
-            transform: translateX(-50%) scale(1.05);
+        
+        #enterVR:hover {
+            background: #45a049;
         }
-        #loadingScreen {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
+        
+        #gameOver {
+            display: none;
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 15px;
         }
-        #loadingBar {
-            width: 300px;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
-            margin-top: 20px;
-        }
-        #loadingBarFill {
-            width: 0%;
-            height: 100%;
-            background: #0066cc;
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-        #score {
+        
+        #timer {
             position: absolute;
             top: 20px;
-            right: 20px;
-            color: white;
+            left: 20px;
             font-size: 24px;
-            z-index: 100;
+            z-index: 50;
+        }
+        
+        canvas {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div id="container"></div>
-    <div id="score">SCORE: 0</div>
-    <button id="vrButton">ENTER VR</button>
-    <div id="loadingScreen">
-        <h1>LOADING STARBLAST VR</h1>
-        <div id="loadingBar">
-            <div id="loadingBarFill"></div>
+    <div id="ui">
+        <div id="menu">
+            <h1>🐱 Shroom Cat 🍄</h1>
+            <p>Protect the sleeping cat from the rain! Use your mushroom umbrellas to shield it.</p>
+            <button id="enterVR">Enter VR</button>
+        </div>
+        <div id="gameOver">
+            <h2>Game Over!</h2>
+            <p>The cat got wet! 😿</p>
+            <p id="finalTime">Time survived: 0 seconds</p>
+            <button id="playAgain">Play Again</button>
         </div>
     </div>
+    
+    <div id="timer" style="display: none;">Time: 0s</div>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-        import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
-
-        // Game variables
-        let scene, camera, renderer, clock;
-        let controllers = [];
-        let tunnel, player, enemies = [], turrets = [], lasers = [], explosions = [];
-        let speedParticles = [];
-        let tunnelLength = 2000;
-        let tunnelRadius = 20;
-        let playerSpeed = 0.8;
-        let score = 0;
-        let gameOver = false;
-        let gameStarted = false;
-        let leftReticle, rightReticle;
-        let cockpit;
-        let targetDestroyed = false;
-        let showingVRButton = true;
-        let playerHitbox;
-        let initialHeadPosition = new THREE.Vector3();
-        let headTrackingEnabled = false;
-
-        // Reticle positions (persistent)
-        let leftReticlePos = { x: 0, y: 0 };
-        let rightReticlePos = { x: 0, y: 0 };
-
-        // Controller state
-        const controllerState = {
-            left: {
-                joystick: { x: 0, y: 0 },
-                trigger: false,
-                squeeze: false
-            },
-            right: {
-                joystick: { x: 0, y: 0 },
-                trigger: false,
-                squeeze: false
-            }
-        };
-
-        // Initialize the game
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        let scene, camera, renderer, dolly;
+        let leftMushroom, rightMushroom, cat;
+        let raindrops = [];
+        let gameStarted = false, gameOver = false;
+        let startTime, gameTime = 0;
+        let controller1, controller2;
+        let particles = [];
+        
+        // Audio variables
+        let audioListener, backgroundRain, howlSound, catPurrSound;
+        
+        // Game settings
+        const DROP_SPAWN_RATE = 800; // ms between drops initially
+        let currentSpawnRate = DROP_SPAWN_RATE;
+        let lastDropTime = 0;
+        
+        // GLB Loader
+        const loader = new THREE.GLTFLoader();
+        
+        init();
+        
         function init() {
-            // Create scene
+            // Scene setup
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000011);
-            scene.fog = new THREE.FogExp2(0x000011, 0.003);
-
-            // Create camera
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-            camera.position.z = 0;
-            camera.rotation.y = Math.PI;
-
-            // Create renderer
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+            
+            // Camera positioned at standing height - 5x bigger player means scale everything else down
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            // Create dolly - no teleportation needed now
+            dolly = new THREE.Group();
+            dolly.position.set(0, 0, 3); // Closer to the cat since we're bigger
+            dolly.add(camera);
+            scene.add(dolly);
+            
+            // Audio setup
+            audioListener = new THREE.AudioListener();
+            camera.add(audioListener);
+            
+            // Renderer with VR support
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
             renderer.xr.enabled = true;
-            document.getElementById('container').appendChild(renderer.domElement);
-
-            // VR button
-            const vrButton = document.getElementById('vrButton');
-            vrButton.addEventListener('click', () => {
-                showingVRButton = false;
-                vrButton.style.display = 'none';
-                document.body.appendChild(VRButton.createButton(renderer));
-                renderer.xr.addEventListener('sessionstart', () => {
-                    gameStarted = true;
-                    headTrackingEnabled = true;
-                    // Store initial head position after a short delay
-                    setTimeout(() => {
-                        initialHeadPosition.copy(camera.position);
-                    }, 1000);
-                    resetGame();
-                });
-            });
-
-            // Create clock
-            clock = new THREE.Clock();
-
-            // Create lights (increased ambient lighting)
-            const ambientLight = new THREE.AmbientLight(0x666666, 0.6);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
             scene.add(ambientLight);
-
+            
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 10, 10);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
             scene.add(directionalLight);
-
-            // Create tunnel
-            createTunnel();
             
-            // Create the final target
-            createFinalTarget();
+            // Ground - scaled down relative to player
+            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = 0;
+            ground.receiveShadow = true;
+            scene.add(ground);
             
-            // Create cockpit
-            createCockpit();
+            // VR Controllers
+            controller1 = renderer.xr.getController(0);
+            dolly.add(controller1);
             
-            // Setup controllers
-            setupControllers();
+            controller2 = renderer.xr.getController(1);
+            dolly.add(controller2);
             
-            // Create reticles
-            createReticles();
+            // Load audio and models
+            loadAudio();
+            loadModels();
             
-            // Create speed particles
-            createSpeedParticles();
+            // Event listeners
+            document.getElementById('enterVR').addEventListener('click', enterVR);
+            document.getElementById('playAgain').addEventListener('click', resetGame);
             
-            // Create player hitbox
-            createPlayerHitbox();
-            
-            // Handle window resize
-            window.addEventListener('resize', onWindowResize);
-            
-            // Simulate loading
-            simulateLoading();
-            
-            // Start animation loop
+            // Start render loop
             renderer.setAnimationLoop(animate);
         }
-
-        function simulateLoading() {
-            const loadingBarFill = document.getElementById('loadingBarFill');
-            let progress = 0;
-            const loadingInterval = setInterval(() => {
-                progress += 5;
-                loadingBarFill.style.width = progress + '%';
-                if (progress >= 100) {
-                    clearInterval(loadingInterval);
-                    document.getElementById('loadingScreen').style.display = 'none';
+        
+        function loadAudio() {
+            const audioLoader = new THREE.AudioLoader();
+            
+            // Load rain sound
+            audioLoader.load('rain.mp3', (buffer) => {
+                try {
+                    backgroundRain = new THREE.Audio(audioListener);
+                    backgroundRain.setBuffer(buffer);
+                    backgroundRain.setLoop(true);
+                    backgroundRain.setVolume(0.3);
+                    console.log('Rain sound loaded');
+                } catch (error) {
+                    console.log('Error creating rain sound:', error);
                 }
-            }, 100);
-        }
-
-        function createPlayerHitbox() {
-            // Invisible sphere representing player hitbox
-            const hitboxGeometry = new THREE.SphereGeometry(0.8, 8, 8);
-            const hitboxMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff0000, 
-                transparent: true, 
-                opacity: 0.0 // Invisible
-            });
-            playerHitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-            scene.add(playerHitbox);
-        }
-
-        function createSpeedParticles() {
-            const particleCount = 500;
-            const particleGeometry = new THREE.SphereGeometry(0.02, 4, 4);
-            const particleMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.6
-            });
-
-            for (let i = 0; i < particleCount; i++) {
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-                
-                // Random position in tunnel
-                const angle = Math.random() * Math.PI * 2;
-                const radius = Math.random() * (tunnelRadius - 1);
-                particle.position.x = Math.sin(angle) * radius;
-                particle.position.y = Math.cos(angle) * radius;
-                particle.position.z = Math.random() * tunnelLength - tunnelLength/2;
-                
-                particle.userData = {
-                    isSpeedParticle: true,
-                    speed: 2 + Math.random() * 3
-                };
-                
-                scene.add(particle);
-                speedParticles.push(particle);
-            }
-        }
-
-        function createTunnel() {
-            // Create tunnel geometry
-            const tunnelGeometry = new THREE.CylinderGeometry(tunnelRadius, tunnelRadius, tunnelLength, 24, 20, true);
-            
-            // Rotate and position the tunnel
-            tunnelGeometry.rotateX(Math.PI / 2);
-            
-            // Create tunnel material with internal texture
-            const tunnelMaterial = new THREE.MeshStandardMaterial({
-                color: 0x444444,
-                side: THREE.BackSide,
-                roughness: 0.8,
-                metalness: 0.2,
+            }, undefined, (error) => {
+                console.log('Error loading rain.mp3:', error);
+                backgroundRain = null;
             });
             
-            // Add details to the tunnel
-            const tunnelDetailGeometry = new THREE.BoxGeometry(1, 1, 1);
-            const tunnelDetailMaterial = new THREE.MeshStandardMaterial({
-                color: 0x777777,
-                roughness: 0.7,
-                metalness: 0.3
+            // Load howl sound
+            audioLoader.load('howl.mp3', (buffer) => {
+                try {
+                    howlSound = new THREE.Audio(audioListener);
+                    howlSound.setBuffer(buffer);
+                    howlSound.setVolume(0.8);
+                    console.log('Howl sound loaded');
+                } catch (error) {
+                    console.log('Error creating howl sound:', error);
+                }
+            }, undefined, (error) => {
+                console.log('Error loading howl.mp3:', error);
+                howlSound = null;
             });
             
-            // Create tunnel mesh
-            tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-            tunnel.position.z = -tunnelLength / 2;
-            scene.add(tunnel);
-            
-            // Add tunnel details (pipes, panels, etc.)
-            for (let i = 0; i < 200; i++) {
-                const detail = new THREE.Mesh(tunnelDetailGeometry, tunnelDetailMaterial);
-                const angle = Math.random() * Math.PI * 2;
-                const z = -Math.random() * (tunnelLength - 50) - 10;
-                const size = 0.5 + Math.random() * 1.5;
-                
-                detail.position.x = Math.sin(angle) * (tunnelRadius - 1);
-                detail.position.y = Math.cos(angle) * (tunnelRadius - 1);
-                detail.position.z = z;
-                detail.scale.set(size, size, 1 + Math.random() * 5);
-                detail.rotation.z = angle;
-                tunnel.add(detail);
-            }
-            
-            // Add turrets to the tunnel walls
-            for (let i = 0; i < 30; i++) {
-                createTurret(-100 - i * 60);
-            }
-            
-            // Create enemy ships throughout the tunnel (all ahead of player)
-            for (let i = 0; i < 20; i++) {
-                createEnemy(-100 - i * 80);
-            }
+            // Load purr sound for the single cat
+            audioLoader.load('purr.mp3', (buffer) => {
+                try {
+                    catPurrSound = new THREE.PositionalAudio(audioListener);
+                    catPurrSound.setBuffer(buffer);
+                    catPurrSound.setRefDistance(1);
+                    catPurrSound.setRolloffFactor(2);
+                    catPurrSound.setDistanceModel('exponential');
+                    catPurrSound.setLoop(true);
+                    catPurrSound.setVolume(0.4);
+                    console.log('Cat purr sound loaded');
+                } catch (error) {
+                    console.log('Error creating cat purr sound:', error);
+                }
+            }, undefined, (error) => {
+                console.log('Error loading purr.mp3:', error);
+                catPurrSound = null;
+            });
         }
         
-        function createFinalTarget() {
-            // Create the Death Star-like final target
-            const targetGeometry = new THREE.SphereGeometry(15, 32, 32);
-            const targetMaterial = new THREE.MeshStandardMaterial({
-                color: 0x888888,
-                roughness: 0.7,
-                metalness: 0.3
+        function loadModels() {
+            // Load single cat - 3x bigger than before
+            loader.load('cat.glb', (gltf) => {
+                const catModel = gltf.scene;
+                catModel.scale.set(0.225, 0.225, 0.225); // Was 0.075, now 3x bigger = 0.225
+                createCat(catModel);
+            }, undefined, (error) => {
+                console.log('Error loading cat.glb, using fallback geometry');
+                createFallbackCat();
             });
             
-            const target = new THREE.Mesh(targetGeometry, targetMaterial);
-            target.position.z = -tunnelLength + 50;
-            target.userData = { 
-                isTarget: true,
-                health: 10
-            };
-            scene.add(target);
-            
-            // Add a glow effect
-            const targetGlowGeometry = new THREE.SphereGeometry(16, 32, 32);
-            const targetGlowMaterial = new THREE.MeshBasicMaterial({
-                color: 0xff0000,
-                transparent: true,
-                opacity: 0.3
+            // Load mushroom umbrellas for both hands
+            loader.load('shroom.glb', (gltf) => {
+                const mushroomModel = gltf.scene;
+                
+                // Left hand mushroom umbrella - smaller since player is bigger
+                leftMushroom = mushroomModel.clone();
+                leftMushroom.scale.set(0.15, 0.15, 0.15); // Smaller umbrellas for bigger player
+                controller1.add(leftMushroom);
+                leftMushroom.position.set(0, 0, -0.05);
+                
+                // Right hand mushroom umbrella
+                rightMushroom = mushroomModel.clone();
+                rightMushroom.scale.set(0.15, 0.15, 0.15);
+                controller2.add(rightMushroom);
+                rightMushroom.position.set(0, 0, -0.05);
+            }, undefined, (error) => {
+                console.log('Error loading shroom.glb, using fallback geometry');
+                createFallbackMushrooms();
             });
-            
-            const targetGlow = new THREE.Mesh(targetGlowGeometry, targetGlowMaterial);
-            target.add(targetGlow);
-            
-            // Add a small thermal exhaust port
-            const exhaustPortGeometry = new THREE.CylinderGeometry(2, 2, 4, 16);
-            const exhaustPortMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
-            const exhaustPort = new THREE.Mesh(exhaustPortGeometry, exhaustPortMaterial);
-            exhaustPort.position.y = 15;
-            exhaustPort.rotation.x = Math.PI / 2;
-            target.add(exhaustPort);
         }
-
-        function createCockpit() {
-            // Create a simple cockpit using geometric shapes
-            cockpit = new THREE.Group();
+        
+        function createCat(catModel) {
+            cat = catModel.clone();
+            cat.position.set(0, 0, 0); // Centered in front of player
+            cat.rotation.y = Math.random() * Math.PI * 2;
             
-            // Bottom panel
-            const bottomPanelGeometry = new THREE.BoxGeometry(2, 0.1, 1);
-            const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-            const bottomPanel = new THREE.Mesh(bottomPanelGeometry, panelMaterial);
-            bottomPanel.position.set(0, -0.6, -0.5);
-            cockpit.add(bottomPanel);
+            // Enable shadows for all meshes
+            cat.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
             
-            // Top panel
-            const topPanelGeometry = new THREE.BoxGeometry(2, 0.1, 1);
-            const topPanel = new THREE.Mesh(topPanelGeometry, panelMaterial);
-            topPanel.position.set(0, 0.6, -0.5);
-            cockpit.add(topPanel);
-            
-            // Side panels
-            const sidePanelGeometry = new THREE.BoxGeometry(0.1, 1.2, 1);
-            const leftPanel = new THREE.Mesh(sidePanelGeometry, panelMaterial);
-            leftPanel.position.set(-1, 0, -0.5);
-            cockpit.add(leftPanel);
-            
-            const rightPanel = new THREE.Mesh(sidePanelGeometry, panelMaterial);
-            rightPanel.position.set(1, 0, -0.5);
-            cockpit.add(rightPanel);
-            
-            // Dashboard indicators
-            const indicatorGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.05);
-            const indicatorMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-            
-            for (let i = 0; i < 5; i++) {
-                const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial.clone());
-                indicator.position.set(-0.8 + i * 0.4, -0.5, -0.2);
-                cockpit.add(indicator);
+            // Add purr sound to cat
+            if (catPurrSound) {
+                cat.add(catPurrSound);
             }
             
-            // Position the cockpit in front of the camera
-            cockpit.position.set(0, -0.2, -0.4);
-            camera.add(cockpit);
+            scene.add(cat);
         }
         
-        function setupControllers() {
-            // Controller model factory
-            const controllerModelFactory = new XRControllerModelFactory();
+        function createFallbackCat() {
+            const catGroup = new THREE.Group();
             
-            // Setup controllers
-            for (let i = 0; i < 2; i++) {
-                const controller = renderer.xr.getController(i);
-                controller.addEventListener('connected', (event) => {
-                    controller.userData.gamepad = event.data.gamepad;
-                    controller.userData.controllerIndex = i;
-                });
-                scene.add(controller);
-                
-                const grip = renderer.xr.getControllerGrip(i);
-                grip.add(controllerModelFactory.createControllerModel(grip));
-                scene.add(grip);
-                
-                controllers.push(controller);
-            }
-        }
-        
-        function createReticles() {
-            // Create left reticle (green)
-            const leftReticleGeometry = new THREE.RingGeometry(0.015, 0.025, 16);
-            const leftReticleMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x00ff00, 
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            leftReticle = new THREE.Mesh(leftReticleGeometry, leftReticleMaterial);
-            leftReticle.position.z = -5;
-            scene.add(leftReticle);
-            
-            // Create right reticle (green)
-            const rightReticleGeometry = new THREE.RingGeometry(0.015, 0.025, 16);
-            const rightReticleMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x00ff00, 
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            rightReticle = new THREE.Mesh(rightReticleGeometry, rightReticleMaterial);
-            rightReticle.position.z = -5;
-            scene.add(rightReticle);
-        }
-        
-        function createEnemy(zPosition) {
-            const enemyGroup = new THREE.Group();
-            
-            // Create enemy body
-            const bodyGeometry = new THREE.ConeGeometry(0.8, 2, 8);
-            const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+            // Simple sphere for cat body - 3x bigger than before
+            const bodyGeometry = new THREE.SphereGeometry(0.225, 16, 12); // Was 0.075, now 0.225
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.rotation.x = Math.PI / 2;
-            enemyGroup.add(body);
+            body.position.y = 0.135; // Adjusted for bigger size
+            body.castShadow = true;
+            catGroup.add(body);
             
-            // Create enemy wings
-            const wingGeometry = new THREE.BoxGeometry(2.5, 0.1, 0.8);
-            const wingMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-            const wings = new THREE.Mesh(wingGeometry, wingMaterial);
-            enemyGroup.add(wings);
+            // Simple ears - 3x bigger
+            const earGeometry = new THREE.ConeGeometry(0.045, 0.09, 8); // Was 0.015, 0.03
+            const earMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             
-            // Position the enemy ahead of the player
-            const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * (tunnelRadius - 5);
-            enemyGroup.position.x = Math.sin(angle) * radius;
-            enemyGroup.position.y = Math.cos(angle) * radius;
-            enemyGroup.position.z = zPosition;
+            const leftEar = new THREE.Mesh(earGeometry, earMaterial);
+            leftEar.position.set(-0.09, 0.27, 0.09); // Adjusted positions for bigger cat
+            catGroup.add(leftEar);
             
-            // Set enemy properties
-            enemyGroup.userData = {
-                isEnemy: true,
-                health: 2,
-                speed: 0.05 + Math.random() * 0.1, // Slower approach speed
-                direction: new THREE.Vector3(0, 0, 1), // Move towards player
-                timeSinceShot: Math.random() * 2 // Random initial delay
-            };
+            const rightEar = new THREE.Mesh(earGeometry, earMaterial);
+            rightEar.position.set(0.09, 0.27, 0.09);
+            catGroup.add(rightEar);
             
-            scene.add(enemyGroup);
-            enemies.push(enemyGroup);
-        }
-        
-        function createTurret(zPosition) {
-            const turretGroup = new THREE.Group();
+            catGroup.position.set(0, 0, 0);
+            catGroup.rotation.y = Math.random() * Math.PI * 2;
             
-            // Create turret base
-            const baseGeometry = new THREE.BoxGeometry(2, 2, 2);
-            const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-            const base = new THREE.Mesh(baseGeometry, baseMaterial);
-            turretGroup.add(base);
-            
-            // Create turret cannon
-            const cannonGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
-            const cannonMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            const cannon = new THREE.Mesh(cannonGeometry, cannonMaterial);
-            cannon.rotation.x = Math.PI / 2;
-            cannon.position.z = 1;
-            turretGroup.add(cannon);
-            
-            // Position the turret
-            const angle = Math.random() * Math.PI * 2;
-            turretGroup.position.x = Math.sin(angle) * (tunnelRadius - 1);
-            turretGroup.position.y = Math.cos(angle) * (tunnelRadius - 1);
-            turretGroup.position.z = zPosition;
-            turretGroup.rotation.z = angle;
-            
-            // Set turret properties
-            turretGroup.userData = {
-                isTurret: true,
-                health: 3,
-                timeToNextShot: 2 + Math.random() * 3,
-                angle
-            };
-            
-            scene.add(turretGroup);
-            turrets.push(turretGroup);
-        }
-        
-        function fireLaser(position, direction, isFromPlayer, controller = 'left') {
-            const laserGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4, 8);
-            const laserMaterial = new THREE.MeshBasicMaterial({ 
-                color: isFromPlayer ? 0x00ff00 : 0xff4444,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            const laser = new THREE.Mesh(laserGeometry, laserMaterial);
-            laser.position.copy(position);
-            
-            // Properly orient the laser beam to point in the direction of travel
-            const up = new THREE.Vector3(0, 1, 0);
-            laser.lookAt(position.clone().add(direction));
-            laser.rotateX(Math.PI / 2); // Cylinder's default orientation
-            
-            laser.userData = {
-                isLaser: true,
-                direction: direction,
-                speed: isFromPlayer ? 4 : 1.5,
-                fromPlayer: isFromPlayer,
-                controller
-            };
-            
-            scene.add(laser);
-            lasers.push(laser);
-        }
-        
-        function createExplosion(position, size = 1, particleCount = 100) {
-            const explosionGroup = new THREE.Group();
-            explosionGroup.position.copy(position);
-            
-            // Create explosion particles
-            for (let i = 0; i < particleCount; i++) {
-                const particleGeometry = new THREE.SphereGeometry(0.1 * size * Math.random());
-                const particleMaterial = new THREE.MeshBasicMaterial({ 
-                    color: new THREE.Color(
-                        0.8 + Math.random() * 0.2,
-                        0.3 * Math.random(),
-                        0.1 * Math.random()
-                    ) 
-                });
-                
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-                
-                // Random position within explosion radius
-                const angle1 = Math.random() * Math.PI * 2;
-                const angle2 = Math.random() * Math.PI * 2;
-                const radius = Math.random() * 0.1 * size;
-                
-                particle.position.set(
-                    radius * Math.cos(angle1) * Math.sin(angle2),
-                    radius * Math.sin(angle1) * Math.sin(angle2),
-                    radius * Math.cos(angle2)
-                );
-                
-                // Random velocity
-                particle.userData = {
-                    velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 0.2 * size,
-                        (Math.random() - 0.5) * 0.2 * size,
-                        (Math.random() - 0.5) * 0.2 * size
-                    ),
-                    lifespan: 1 + Math.random()
-                };
-                
-                explosionGroup.add(particle);
+            // Add purr sound to cat
+            if (catPurrSound) {
+                catGroup.add(catPurrSound);
             }
             
-            explosionGroup.userData = {
-                isExplosion: true,
-                age: 0
-            };
+            cat = catGroup;
+            scene.add(cat);
+        }
+        
+        function createFallbackMushrooms() {
+            // Create left mushroom umbrella
+            const leftMushroomGroup = new THREE.Group();
             
-            scene.add(explosionGroup);
-            explosions.push(explosionGroup);
+            // Mushroom cap
+            const capGeometry = new THREE.SphereGeometry(0.2, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            const capMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0xFF0000,
+                side: THREE.DoubleSide 
+            });
+            const leftCap = new THREE.Mesh(capGeometry, capMaterial);
+            leftCap.position.y = 0.1;
+            leftMushroomGroup.add(leftCap);
+            
+            // Mushroom stem
+            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8);
+            const stemMaterial = new THREE.MeshLambertMaterial({ color: 0xFFF8DC });
+            const leftStem = new THREE.Mesh(stemGeometry, stemMaterial);
+            leftMushroomGroup.add(leftStem);
+            
+            leftMushroom = leftMushroomGroup;
+            controller1.add(leftMushroom);
+            leftMushroom.position.set(0, 0, -0.05);
+            
+            // Create right mushroom umbrella (clone of left)
+            rightMushroom = leftMushroomGroup.clone();
+            controller2.add(rightMushroom);
+            rightMushroom.position.set(0, 0, -0.05);
+        }
+        
+        function enterVR() {
+            // Resume audio context
+            if (audioListener && audioListener.context.state === 'suspended') {
+                audioListener.context.resume().then(() => {
+                    console.log('Audio context resumed');
+                }).catch(error => {
+                    console.log('Failed to resume audio context:', error);
+                });
+            }
+            
+            document.getElementById('ui').style.display = 'none';
+            document.getElementById('timer').style.display = 'block';
+            startGame();
+            
+            if (navigator.xr) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (supported) {
+                        navigator.xr.requestSession('immersive-vr', {
+                            requiredFeatures: ['local'],
+                            optionalFeatures: ['local-floor', 'bounded-floor']
+                        }).then(session => {
+                            renderer.xr.setSession(session);
+                            
+                            session.requestReferenceSpace('local').then(refSpace => {
+                                console.log('Using local reference space');
+                            }).catch(err => {
+                                console.log('Local reference space not supported, trying viewer');
+                                session.requestReferenceSpace('viewer').then(refSpace => {
+                                    console.log('Using viewer reference space');
+                                }).catch(err2 => {
+                                    console.log('Viewer reference space also failed:', err2);
+                                });
+                            });
+                        }).catch(err => {
+                            console.log('VR session request failed:', err);
+                            console.log('Using desktop mode');
+                        });
+                    } else {
+                        console.log('VR not supported, using desktop mode');
+                    }
+                });
+            } else {
+                console.log('WebXR not available, using desktop mode');
+            }
+        }
+        
+        function startGame() {
+            gameStarted = true;
+            gameOver = false;
+            startTime = Date.now();
+            gameTime = 0;
+            raindrops = [];
+            particles = [];
+            currentSpawnRate = DROP_SPAWN_RATE;
+            lastDropTime = 0;
+            
+            // Make cat visible
+            if (cat) {
+                cat.visible = true;
+            }
+            
+            // Start rain sound
+            try {
+                if (backgroundRain && !backgroundRain.isPlaying) {
+                    backgroundRain.play().catch(error => {
+                        console.log('Failed to play rain sound:', error);
+                    });
+                }
+            } catch (error) {
+                console.log('Error with rain sound:', error);
+            }
+            
+            // Start cat purr sound
+            try {
+                if (catPurrSound && !catPurrSound.isPlaying) {
+                    catPurrSound.play().catch(error => {
+                        console.log('Failed to play purr sound:', error);
+                    });
+                }
+            } catch (error) {
+                console.log('Error with purr sound:', error);
+            }
         }
         
         function resetGame() {
-            // Remove all entities
-            for (const enemy of enemies) scene.remove(enemy);
-            for (const turret of turrets) scene.remove(turret);
-            for (const laser of lasers) scene.remove(laser);
-            for (const explosion of explosions) scene.remove(explosion);
-            
-            enemies = [];
-            turrets = [];
-            lasers = [];
-            explosions = [];
-            
-            // Reset game state
-            score = 0;
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('menu').style.display = 'block';
+            gameStarted = false;
             gameOver = false;
-            targetDestroyed = false;
             
-            // Reset reticle positions
-            leftReticlePos = { x: 0, y: 0 };
-            rightReticlePos = { x: 0, y: 0 };
+            // Remove all raindrops
+            raindrops.forEach(drop => scene.remove(drop));
+            raindrops = [];
             
-            // Reset player position
-            camera.position.set(0, 0, 0);
-            camera.rotation.set(0, Math.PI, 0);
+            // Remove all particles
+            particles.forEach(particle => scene.remove(particle));
+            particles = [];
             
-            // Recreate the tunnel and entities
-            scene.remove(tunnel);
-            createTunnel();
-            createFinalTarget();
-            
-            // Update score display
-            document.getElementById('score').innerText = `SCORE: ${score}`;
-        }
-        
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        function updateControllerState() {
-            controllers.forEach(controller => {
-                if (!controller.userData.gamepad) return;
-                
-                const gamepad = controller.userData.gamepad;
-                const index = controller.userData.controllerIndex;
-                const hand = index === 0 ? 'left' : 'right';
-                
-                // Update joystick position (axes) - improved sensitivity
-                if (gamepad.axes.length >= 4) {
-                    controllerState[hand].joystick.x = gamepad.axes[2] || 0;
-                    controllerState[hand].joystick.y = gamepad.axes[3] || 0;
-                }
-                
-                // Update trigger state
-                if (gamepad.buttons.length > 0) {
-                    controllerState[hand].trigger = gamepad.buttons[0].pressed;
-                    controllerState[hand].squeeze = gamepad.buttons[1].pressed;
-                }
-            });
-        }
-        
-        function handleControls(delta) {
-            if (!gameStarted) return;
-            
-            // Head tracking for ship movement (dampened)
-            if (headTrackingEnabled && initialHeadPosition) {
-                const headOffset = new THREE.Vector3().subVectors(camera.position, initialHeadPosition);
-                const dampingFactor = 0.3;
-                
-                // Apply dampened head movement to ship position
-                camera.position.x = initialHeadPosition.x + headOffset.x * dampingFactor;
-                camera.position.y = initialHeadPosition.y + headOffset.y * dampingFactor;
-                
-                // Update player hitbox position
-                playerHitbox.position.copy(camera.position);
-                
-                // Limit player position to inside the tunnel
-                const maxRadius = tunnelRadius - 2;
-                const currentRadius = Math.sqrt(camera.position.x ** 2 + camera.position.y ** 2);
-                if (currentRadius > maxRadius) {
-                    const angle = Math.atan2(camera.position.y, camera.position.x);
-                    camera.position.x = Math.cos(angle) * maxRadius;
-                    camera.position.y = Math.sin(angle) * maxRadius;
-                    playerHitbox.position.copy(camera.position);
-                }
+            // Reset cat
+            if (cat) {
+                cat.visible = true;
             }
             
-            // Left controller aiming (higher fidelity, no snap-back)
-            const leftAimX = controllerState.left.joystick.x * 0.008; // Much finer control
-            const leftAimY = -controllerState.left.joystick.y * 0.008;
-            
-            // Accumulate reticle position changes
-            leftReticlePos.x += leftAimX;
-            leftReticlePos.y += leftAimY;
-            
-            // Limit reticle range
-            const maxReticleRange = 15;
-            leftReticlePos.x = Math.max(-maxReticleRange, Math.min(maxReticleRange, leftReticlePos.x));
-            leftReticlePos.y = Math.max(-maxReticleRange, Math.min(maxReticleRange, leftReticlePos.y));
-            
-            // Update left reticle position
-            leftReticle.position.x = camera.position.x + leftReticlePos.x;
-            leftReticle.position.y = camera.position.y + leftReticlePos.y;
-            leftReticle.position.z = camera.position.z - 5;
-            
-            // Right controller aiming (higher fidelity, no snap-back)
-            const rightAimX = controllerState.right.joystick.x * 0.008; // Much finer control
-            const rightAimY = -controllerState.right.joystick.y * 0.008;
-            
-            // Accumulate reticle position changes
-            rightReticlePos.x += rightAimX;
-            rightReticlePos.y += rightAimY;
-            
-            // Limit reticle range
-            rightReticlePos.x = Math.max(-maxReticleRange, Math.min(maxReticleRange, rightReticlePos.x));
-            rightReticlePos.y = Math.max(-maxReticleRange, Math.min(maxReticleRange, rightReticlePos.y));
-            
-            // Update right reticle position
-            rightReticle.position.x = camera.position.x + rightReticlePos.x;
-            rightReticle.position.y = camera.position.y + rightReticlePos.y;
-            rightReticle.position.z = camera.position.z - 5;
-            
-            // Fire lasers with triggers
-            if (controllerState.left.trigger) {
-                // Fire left laser
-                const cooldown = 0.15;
-                if (!camera.userData.lastLeftShotTime || clock.getElapsedTime() - camera.userData.lastLeftShotTime > cooldown) {
-                    const laserPosition = new THREE.Vector3(
-                        camera.position.x - 0.3, 
-                        camera.position.y, 
-                        camera.position.z - 1
-                    );
-                    
-                    const laserDirection = new THREE.Vector3(
-                        leftReticle.position.x - camera.position.x,
-                        leftReticle.position.y - camera.position.y,
-                        leftReticle.position.z - camera.position.z
-                    ).normalize();
-                    
-                    fireLaser(laserPosition, laserDirection, true, 'left');
-                    camera.userData.lastLeftShotTime = clock.getElapsedTime();
+            // Stop howl sound if playing
+            try {
+                if (howlSound && howlSound.isPlaying) {
+                    howlSound.stop();
                 }
-            }
-            
-            if (controllerState.right.trigger) {
-                // Fire right laser
-                const cooldown = 0.15;
-                if (!camera.userData.lastRightShotTime || clock.getElapsedTime() - camera.userData.lastRightShotTime > cooldown) {
-                    const laserPosition = new THREE.Vector3(
-                        camera.position.x + 0.3, 
-                        camera.position.y, 
-                        camera.position.z - 1
-                    );
-                    
-                    const laserDirection = new THREE.Vector3(
-                        rightReticle.position.x - camera.position.x,
-                        rightReticle.position.y - camera.position.y,
-                        rightReticle.position.z - camera.position.z
-                    ).normalize();
-                    
-                    fireLaser(laserPosition, laserDirection, true, 'right');
-                    camera.userData.lastRightShotTime = clock.getElapsedTime();
-                }
+            } catch (error) {
+                console.log('Error stopping howl sound:', error);
             }
         }
         
-        function updateSpeedParticles(delta) {
-            for (let i = speedParticles.length - 1; i >= 0; i--) {
-                const particle = speedParticles[i];
+        function spawnRaindrop() {
+            const dropGroup = new THREE.Group();
+            
+            // Main cube body - smaller since player is bigger
+            const dropGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.04); // Halved from 0.08
+            const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
+            const dropCube = new THREE.Mesh(dropGeometry, dropMaterial);
+            dropGroup.add(dropCube);
+            
+            // Add pyramid tip - smaller
+            const tipGeometry = new THREE.ConeGeometry(0.02, 0.03, 6); // Halved from 0.04, 0.06
+            const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
+            const tip = new THREE.Mesh(tipGeometry, tipMaterial);
+            tip.position.y = 0.035; // Adjusted for smaller cube
+            dropGroup.add(tip);
+            
+            // Always target the cat area since there's only one
+            if (cat && cat.visible) {
+                const catPosition = new THREE.Vector3();
+                cat.getWorldPosition(catPosition);
                 
-                // Move particle forward
-                particle.position.z += particle.userData.speed;
-                
-                // Reset particle when it goes behind the camera
-                if (particle.position.z > camera.position.z + 10) {
-                    particle.position.z = camera.position.z - 100;
-                    
-                    // Randomize position again
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = Math.random() * (tunnelRadius - 1);
-                    particle.position.x = Math.sin(angle) * radius;
-                    particle.position.y = Math.cos(angle) * radius;
-                }
+                // Spawn above the cat with some random offset
+                dropGroup.position.set(
+                    catPosition.x + (Math.random() - 0.5) * 2, // ±1 unit from cat
+                    8 + Math.random() * 3, // 8-11 units high
+                    catPosition.z + (Math.random() - 0.5) * 2  // ±1 unit from cat
+                );
+            } else {
+                // Fallback to center spawn
+                dropGroup.position.set(
+                    (Math.random() - 0.5) * 4,
+                    8 + Math.random() * 3,
+                    (Math.random() - 0.5) * 4
+                );
             }
+            
+            dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
+            dropCube.castShadow = true;
+            tip.castShadow = true;
+            
+            scene.add(dropGroup);
+            raindrops.push(dropGroup);
         }
         
-        function updateLasers(delta) {
-            for (let i = lasers.length - 1; i >= 0; i--) {
-                const laser = lasers[i];
-                const direction = laser.userData.direction;
-                const speed = laser.userData.speed;
-                
-                laser.position.x += direction.x * speed;
-                laser.position.y += direction.y * speed;
-                laser.position.z += direction.z * speed;
-                
-                // Check if laser is out of bounds
-                if (Math.abs(laser.position.z - camera.position.z) > 100) {
-                    scene.remove(laser);
-                    lasers.splice(i, 1);
-                    continue;
-                }
-                
-                // Check for collisions with enemies
-                if (laser.userData.fromPlayer) {
-                    // Check enemy collisions
-                    for (let j = enemies.length - 1; j >= 0; j--) {
-                        const enemy = enemies[j];
-                        if (enemy.position.distanceTo(laser.position) < 1.5) {
-                            enemy.userData.health--;
-                            
-                            if (enemy.userData.health <= 0) {
-                                createExplosion(enemy.position, 1);
-                                scene.remove(enemy);
-                                enemies.splice(j, 1);
-                                score += 100;
-                                document.getElementById('score').innerText = `SCORE: ${score}`;
-                            }
-                            
-                            scene.remove(laser);
-                            lasers.splice(i, 1);
-                            break;
-                        }
-                    }
-                    
-                    // Check turret collisions
-                    for (let j = turrets.length - 1; j >= 0; j--) {
-                        const turret = turrets[j];
-                        if (turret.position.distanceTo(laser.position) < 1.5) {
-                            turret.userData.health--;
-                            
-                            if (turret.userData.health <= 0) {
-                                createExplosion(turret.position, 1);
-                                scene.remove(turret);
-                                turrets.splice(j, 1);
-                                score += 150;
-                                document.getElementById('score').innerText = `SCORE: ${score}`;
-                            }
-                            
-                            scene.remove(laser);
-                            lasers.splice(i, 1);
-                            break;
-                        }
-                    }
-                    
-                    // Check final target collision
-                    const finalTarget = scene.children.find(child => child.userData && child.userData.isTarget);
-                    if (finalTarget && laser.position.distanceTo(finalTarget.position) < 16) {
-                        finalTarget.userData.health--;
-                        
-                        scene.remove(laser);
-                        lasers.splice(i, 1);
-                        
-                        if (finalTarget.userData.health <= 0 && !targetDestroyed) {
-                            targetDestroyed = true;
-                            createExplosion(finalTarget.position, 10, 1000);
-                            scene.remove(finalTarget);
-                            score += 10000;
-                            document.getElementById('score').innerText = `SCORE: ${score}`;
-                        }
-                    }
-                } else {
-                    // Laser from enemy or turret hitting player
-                    if (laser.position.distanceTo(playerHitbox.position) < 1.2 && !gameOver) {
-                        gameOver = true;
-                        createExplosion(playerHitbox.position, 2);
-                        
-                        // Reset after short delay
-                        setTimeout(() => {
-                            resetGame();
-                        }, 3000);
-                        
-                        scene.remove(laser);
-                        lasers.splice(i, 1);
-                    }
-                }
-            }
-        }
-        
-        function updateEnemies(delta) {
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                
-                // Move enemy towards player gradually
-                enemy.position.z += enemy.userData.speed;
-                
-                // Make enemy gradually approach player's position
-                const approachSpeed = 0.02;
-                const targetX = playerHitbox.position.x;
-                const targetY = playerHitbox.position.y;
-                
-                enemy.position.x += (targetX - enemy.position.x) * approachSpeed;
-                enemy.position.y += (targetY - enemy.position.y) * approachSpeed;
-                
-                if (enemy.position.z < camera.position.z + 100) {
-                    // Make enemy face player
-                    enemy.lookAt(playerHitbox.position);
-                    
-                    // Occasionally shoot at player
-                    enemy.userData.timeSinceShot += delta;
-                    if (enemy.userData.timeSinceShot > 3) {
-                        enemy.userData.timeSinceShot = 0;
-                        
-                        const laserDirection = new THREE.Vector3(
-                            playerHitbox.position.x - enemy.position.x,
-                            playerHitbox.position.y - enemy.position.y,
-                            playerHitbox.position.z - enemy.position.z
-                        ).normalize();
-                        
-                        fireLaser(enemy.position.clone(), laserDirection, false);
-                    }
-                }
-                
-                // Check for collision with player
-                if (enemy.position.distanceTo(playerHitbox.position) < 1.5 && !gameOver) {
-                    gameOver = true;
-                    createExplosion(playerHitbox.position, 2);
-                    
-                    setTimeout(() => {
-                        resetGame();
-                    }, 3000);
-                }
-                
-                // Remove enemies that have passed the player
-                if (enemy.position.z > camera.position.z + 50) {
-                    scene.remove(enemy);
-                    enemies.splice(i, 1);
-                }
-            }
-        }
-        
-        function updateTurrets(delta) {
-            for (let i = turrets.length - 1; i >= 0; i--) {
-                const turret = turrets[i];
-                
-                // Only activate turrets that are close enough
-                if (turret.position.z < camera.position.z + 50 && turret.position.z > camera.position.z - 50) {
-                    // Make turret face player
-                    turret.lookAt(playerHitbox.position);
-                    
-                    // Occasionally shoot at player
-                    turret.userData.timeToNextShot -= delta;
-                    if (turret.userData.timeToNextShot <= 0) {
-                        turret.userData.timeToNextShot = 2 + Math.random() * 2;
-                        
-                        const laserDirection = new THREE.Vector3(
-                            playerHitbox.position.x - turret.position.x,
-                            playerHitbox.position.y - turret.position.y,
-                            playerHitbox.position.z - turret.position.z
-                        ).normalize();
-                        
-                        fireLaser(turret.position.clone(), laserDirection, false);
-                    }
-                }
-            }
-        }
-        
-        function updateExplosions(delta) {
-            for (let i = explosions.length - 1; i >= 0; i--) {
-                const explosion = explosions[i];
-                explosion.userData.age += delta;
-                
-                // Update particles in the explosion
-                explosion.children.forEach(particle => {
-                    particle.position.add(particle.userData.velocity);
-                    particle.userData.lifespan -= delta;
-                    
-                    if (particle.userData.lifespan <= 0) {
-                        particle.scale.multiplyScalar(0.9);
-                    }
+        function createParticleBurst(position) {
+            for (let i = 0; i < 20; i++) {
+                const particleGeometry = new THREE.SphereGeometry(0.01, 4, 4); // Smaller particles
+                const particleMaterial = new THREE.MeshBasicMaterial({ 
+                    color: Math.random() * 0xffffff 
                 });
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
                 
-                // Remove old explosions
-                if (explosion.userData.age > 2) {
-                    scene.remove(explosion);
-                    explosions.splice(i, 1);
+                particle.position.copy(position);
+                particle.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1
+                );
+                particle.life = 1.0;
+                
+                scene.add(particle);
+                particles.push(particle);
+            }
+        }
+        
+        function checkCollisions() {
+            const mushroomPositions = [];
+            
+            // Get both mushroom umbrella positions
+            if (leftMushroom) {
+                const leftPos = new THREE.Vector3();
+                leftMushroom.getWorldPosition(leftPos);
+                mushroomPositions.push(leftPos);
+            }
+            
+            if (rightMushroom) {
+                const rightPos = new THREE.Vector3();
+                rightMushroom.getWorldPosition(rightPos);
+                mushroomPositions.push(rightPos);
+            }
+            
+            for (let i = raindrops.length - 1; i >= 0; i--) {
+                const drop = raindrops[i];
+                let hitMushroom = false;
+                
+                // Check collision with either mushroom umbrella
+                for (const mushroomPos of mushroomPositions) {
+                    const distance = drop.position.distanceTo(mushroomPos);
+                    
+                    if (distance < 0.4 && drop.position.y > mushroomPos.y - 0.2) { // Adjusted for smaller umbrellas
+                        // Hit mushroom - create particle burst
+                        createParticleBurst(drop.position);
+                        
+                        // Haptic feedback on both controllers
+                        if (controller1.gamepad && controller1.gamepad.hapticActuators) {
+                            controller1.gamepad.hapticActuators[0].pulse(0.5, 100);
+                        }
+                        if (controller2.gamepad && controller2.gamepad.hapticActuators) {
+                            controller2.gamepad.hapticActuators[0].pulse(0.5, 100);
+                        }
+                        
+                        scene.remove(drop);
+                        raindrops.splice(i, 1);
+                        hitMushroom = true;
+                        break;
+                    }
+                }
+                
+                if (hitMushroom) continue;
+                
+                // Check if raindrop hits the cat - adjusted for bigger cat
+                if (cat && cat.visible) {
+                    const catPosition = new THREE.Vector3();
+                    cat.getWorldPosition(catPosition);
+                    const catDistance = drop.position.distanceTo(catPosition);
+                    
+                    if (catDistance < 0.5 && drop.position.y < catPosition.y + 0.5) { // Increased from 0.3 to 0.5 for bigger cat
+                        // Cat got wet - game over
+                        endGame();
+                        return;
+                    }
+                }
+                
+                // Remove drops that fall too low
+                if (drop.position.y < -1) {
+                    scene.remove(drop);
+                    raindrops.splice(i, 1);
                 }
             }
+        }
+        
+        function endGame() {
+            gameOver = true;
+            gameStarted = false;
+            
+            // Hide cat
+            if (cat) {
+                cat.visible = false;
+            }
+            
+            // Stop rain sound
+            try {
+                if (backgroundRain && backgroundRain.isPlaying) {
+                    backgroundRain.stop();
+                }
+            } catch (error) {
+                console.log('Error stopping rain sound:', error);
+            }
+            
+            // Stop cat purr sound
+            try {
+                if (catPurrSound && catPurrSound.isPlaying) {
+                    catPurrSound.stop();
+                }
+            } catch (error) {
+                console.log('Error stopping purr sound:', error);
+            }
+            
+            // Play howl sound
+            try {
+                if (howlSound && !howlSound.isPlaying) {
+                    howlSound.play().catch(error => {
+                        console.log('Failed to play howl sound:', error);
+                    });
+                }
+            } catch (error) {
+                console.log('Error with howl sound:', error);
+            }
+            
+            // Show game over screen
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'block';
+            document.getElementById('finalTime').textContent = `Time survived: ${Math.floor(gameTime / 1000)} seconds`;
         }
         
         function animate() {
-            if (showingVRButton) {
-                renderer.render(scene, camera);
-                return;
-            }
-            
-            const delta = clock.getDelta();
-            
-            // Update controller state
-            updateControllerState();
-            
-            // Handle player controls
-            handleControls(delta);
-            
-            // Move player forward
             if (gameStarted && !gameOver) {
-                camera.position.z -= playerSpeed;
+                gameTime = Date.now() - startTime;
+                document.getElementById('timer').textContent = `Time: ${Math.floor(gameTime / 1000)}s`;
                 
-                // Update reticle positions
-                leftReticle.position.z = camera.position.z - 5;
-                rightReticle.position.z = camera.position.z - 5;
+                // Spawn raindrops
+                if (Date.now() - lastDropTime > currentSpawnRate / 3) { // Increased frequency for single cat
+                    spawnRaindrop();
+                    lastDropTime = Date.now();
+                    
+                    // Increase difficulty over time
+                    currentSpawnRate = Math.max(50, DROP_SPAWN_RATE - (gameTime / 100));
+                }
                 
-                // Update player hitbox
-                playerHitbox.position.z = camera.position.z;
+                // Update raindrops
+                raindrops.forEach(drop => {
+                    drop.position.y -= drop.velocity;
+                });
+                
+                // Check collisions
+                checkCollisions();
             }
             
-            // Update game entities
-            updateSpeedParticles(delta);
-            updateLasers(delta);
-            updateEnemies(delta);
-            updateTurrets(delta);
-            updateExplosions(delta);
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                particle.position.add(particle.velocity);
+                particle.life -= 0.02;
+                particle.material.opacity = particle.life;
+                
+                if (particle.life <= 0) {
+                    scene.remove(particle);
+                    particles.splice(i, 1);
+                }
+            }
             
-            // Render the scene
             renderer.render(scene, camera);
         }
         
-        // Initialize the game
-        init();
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
