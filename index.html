@@ -128,7 +128,7 @@
         const DROP_SPAWN_RATE = 800; // ms between drops initially
         let currentSpawnRate = DROP_SPAWN_RATE;
         let lastDropTime = 0;
-        const SCALE_FACTOR = 0.5; // Scale everything up 2x for better VR accuracy
+        const SCALE_FACTOR = 2.0; // Scale everything up 2x for better VR accuracy
         
         // GLB Loader
         const loader = new THREE.GLTFLoader();
@@ -202,7 +202,7 @@
             renderer.setAnimationLoop(animate);
         }
         
-       function createVRUI() {
+   function createVRUI() {
     // Create VR UI group
     vrUI = new THREE.Group();
     vrUI.visible = false;
@@ -253,8 +253,8 @@
         ctx.font = 'bold 32px Arial';
         ctx.fillText(`Score: ${finalScore}`, 256, 340);
     }
-            
-          const texture = new THREE.CanvasTexture(canvas);
+    
+    const texture = new THREE.CanvasTexture(canvas);
     const textMaterial = new THREE.MeshBasicMaterial({ 
         map: texture, 
         transparent: true 
@@ -281,7 +281,7 @@
     
     vrUI.add(vrPlayAgainButton);
     
-    // Play Again button text - positioned on button surface, not inside
+    // Play Again button text - positioned very slightly in front to prevent Z-fighting
     const playCanvas = document.createElement('canvas');
     playCanvas.width = 256;
     playCanvas.height = 64;
@@ -300,7 +300,7 @@
         new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
         playTextMaterial
     );
-    playTextMesh.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.1 * SCALE_FACTOR); // On surface, not inside
+    playTextMesh.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.101 * SCALE_FACTOR); // Very slight offset
     vrUI.add(playTextMesh);
     
     // Create Quit button - scaled up with box colliders
@@ -313,7 +313,7 @@
     
     vrUI.add(vrQuitButton);
     
-    // Quit button text - positioned on button surface, not inside
+    // Quit button text - positioned very slightly in front to prevent Z-fighting
     const quitCanvas = document.createElement('canvas');
     quitCanvas.width = 256;
     quitCanvas.height = 64;
@@ -332,96 +332,98 @@
         new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
         quitTextMaterial
     );
-    quitTextMesh.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.1 * SCALE_FACTOR); // On surface, not inside
+    quitTextMesh.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.101 * SCALE_FACTOR); // Very slight offset
     vrUI.add(quitTextMesh);
     
     // Position VR UI closer to player and at arm's reach - scaled up
     vrUI.position.set(0, 2.8 * SCALE_FACTOR, -1.6 * SCALE_FACTOR);
     dolly.add(vrUI);
 }
+
         
-        function checkVRUIInteraction() {
-            if (!vrUI.visible) return;
+    function checkVRUIInteraction() {
+    if (!vrUI.visible) return;
+    
+    const mushrooms = [leftMushroom, rightMushroom].filter(m => m);
+    const currentTime = Date.now();
+    
+    mushrooms.forEach(mushroom => {
+        if (!mushroom) return;
+        
+        const mushroomPos = new THREE.Vector3();
+        mushroom.getWorldPosition(mushroomPos);
+        
+        // Check Play Again button with simple distance collision
+        const playAgainPos = new THREE.Vector3();
+        vrPlayAgainButton.getWorldPosition(playAgainPos);
+        const playAgainDistance = mushroomPos.distanceTo(playAgainPos);
+        
+        if (playAgainDistance < 0.5 * SCALE_FACTOR) { // Increased collision radius
+            if (hoveredButton !== 'playAgain') {
+                vrPlayAgainButton.material.color.setHex(0x66bb6a);
+                hoveredButton = 'playAgain';
+                console.log('Hovering Play Again button');
+            }
             
-            const mushrooms = [leftMushroom, rightMushroom].filter(m => m);
-            const currentTime = Date.now();
-            
-            mushrooms.forEach(mushroom => {
-                if (!mushroom) return;
-                
-                const mushroomPos = new THREE.Vector3();
-                mushroom.getWorldPosition(mushroomPos);
-                
-                // Create a raycaster for more precise collision detection
-                const raycaster = new THREE.Raycaster();
-                
-                // Check Play Again button with box collider
-                const playAgainPos = new THREE.Vector3();
-                vrPlayAgainButton.getWorldPosition(playAgainPos);
-                
-                // Create a bounding box for the button
-                const playAgainBox = new THREE.Box3().setFromObject(vrPlayAgainButton);
-                const mushroomPoint = new THREE.Vector3().copy(mushroomPos);
-                
-                if (playAgainBox.containsPoint(mushroomPoint) || playAgainBox.distanceToPoint(mushroomPoint) < 0.3 * SCALE_FACTOR) {
-                    if (hoveredButton !== 'playAgain') {
-                        vrPlayAgainButton.material.color.setHex(0x66bb6a);
-                        hoveredButton = 'playAgain';
-                    }
-                    
-                    // Check for trigger press with debouncing
-                    const controllers = [controller1, controller2];
-                    controllers.forEach(controller => {
-                        if (controller.gamepad && 
-                            controller.gamepad.buttons[0] && 
-                            controller.gamepad.buttons[0].pressed &&
-                            currentTime - lastButtonPressTime > 500) {
-                            lastButtonPressTime = currentTime;
-                            resetGame();
-                        }
-                    });
-                } else if (hoveredButton === 'playAgain') {
-                    vrPlayAgainButton.material.color.setHex(0x4CAF50);
-                    if (playAgainBox.distanceToPoint(mushroomPoint) > 0.5 * SCALE_FACTOR) {
-                        hoveredButton = null;
-                    }
-                }
-                
-                // Check Quit button with box collider
-                const quitPos = new THREE.Vector3();
-                vrQuitButton.getWorldPosition(quitPos);
-                
-                const quitBox = new THREE.Box3().setFromObject(vrQuitButton);
-                
-                if (quitBox.containsPoint(mushroomPoint) || quitBox.distanceToPoint(mushroomPoint) < 0.3 * SCALE_FACTOR) {
-                    if (hoveredButton !== 'quit') {
-                        vrQuitButton.material.color.setHex(0xef5350);
-                        hoveredButton = 'quit';
-                    }
-                    
-                    // Check for trigger press with debouncing
-                    const controllers = [controller1, controller2];
-                    controllers.forEach(controller => {
-                        if (controller.gamepad && 
-                            controller.gamepad.buttons[0] && 
-                            controller.gamepad.buttons[0].pressed &&
-                            currentTime - lastButtonPressTime > 500) {
-                            lastButtonPressTime = currentTime;
-                            // Exit VR and return to menu
-                            if (renderer.xr.getSession()) {
-                                renderer.xr.getSession().end();
-                            }
-                            resetGame();
-                        }
-                    });
-                } else if (hoveredButton === 'quit') {
-                    vrQuitButton.material.color.setHex(0xf44336);
-                    if (quitBox.distanceToPoint(mushroomPoint) > 0.5 * SCALE_FACTOR) {
-                        hoveredButton = null;
-                    }
+            // Check for trigger press with debouncing
+            const controllers = [controller1, controller2];
+            controllers.forEach(controller => {
+                if (controller.gamepad && 
+                    controller.gamepad.buttons[0] && 
+                    controller.gamepad.buttons[0].pressed &&
+                    currentTime - lastButtonPressTime > 500) {
+                    console.log('Play Again button pressed!');
+                    lastButtonPressTime = currentTime;
+                    resetGame();
                 }
             });
+        } else if (hoveredButton === 'playAgain') {
+            vrPlayAgainButton.material.color.setHex(0x4CAF50);
+            if (playAgainDistance > 0.7 * SCALE_FACTOR) {
+                hoveredButton = null;
+                console.log('Stopped hovering Play Again button');
+            }
         }
+        
+        // Check Quit button with simple distance collision
+        const quitPos = new THREE.Vector3();
+        vrQuitButton.getWorldPosition(quitPos);
+        const quitDistance = mushroomPos.distanceTo(quitPos);
+        
+        if (quitDistance < 0.5 * SCALE_FACTOR) { // Increased collision radius
+            if (hoveredButton !== 'quit') {
+                vrQuitButton.material.color.setHex(0xef5350);
+                hoveredButton = 'quit';
+                console.log('Hovering Quit button');
+            }
+            
+            // Check for trigger press with debouncing
+            const controllers = [controller1, controller2];
+            controllers.forEach(controller => {
+                if (controller.gamepad && 
+                    controller.gamepad.buttons[0] && 
+                    controller.gamepad.buttons[0].pressed &&
+                    currentTime - lastButtonPressTime > 500) {
+                    console.log('Quit button pressed!');
+                    lastButtonPressTime = currentTime;
+                    // Exit VR and return to menu
+                    if (renderer.xr.getSession()) {
+                        renderer.xr.getSession().end();
+                    }
+                    resetGame();
+                }
+            });
+        } else if (hoveredButton === 'quit') {
+            vrQuitButton.material.color.setHex(0xf44336);
+            if (quitDistance > 0.7 * SCALE_FACTOR) {
+                hoveredButton = null;
+                console.log('Stopped hovering Quit button');
+            }
+        }
+    });
+}
+
+
         
         function loadAudio() {
             const audioLoader = new THREE.AudioLoader();
