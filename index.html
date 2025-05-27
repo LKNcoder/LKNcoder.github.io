@@ -768,6 +768,7 @@
         }
         
  function resetGame() {
+    clearScoreboardFields();
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     document.getElementById('finalTime').textContent = '';
@@ -1008,9 +1009,29 @@ function createPuddle(position) {
         }
     }
 }
+
+function clearScoreboardFields() {
+    ['finalTime', 'finalDrops', 'finalScore'].forEach(id => {
+        const el = document.getElementById(id);
+        while (el.firstChild) el.removeChild(el.firstChild);
+    });
+}
+
         
         
-            function endGame() {
+function endGame() {
+
+clearScoreboardFields();
+
+document.getElementById('finalTime').appendChild(
+    document.createTextNode(`Time survived: ${timeInSeconds} seconds`)
+);
+document.getElementById('finalDrops').appendChild(
+    document.createTextNode(`Raindrops blocked: ${raindropsBlocked}`)
+);
+document.getElementById('finalScore').appendChild(
+    document.createTextNode(`Score: ${finalScore}`)
+);
     gameOver = true;
     gameStarted = false;
 
