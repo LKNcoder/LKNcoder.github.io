@@ -1020,27 +1020,9 @@ function clearScoreboardFields() {
         
         
 function endGame() {
-
-clearScoreboardFields();
-
-  // Calculate final score
+    // Calculate final score
     const timeInSeconds = Math.floor(gameTime / 1000);
     finalScore = calculateScore(timeInSeconds, raindropsBlocked);
-
-
-document.getElementById('finalTime').appendChild(
-    document.createTextNode(`Time survived: ${timeInSeconds} seconds`)
-);
-document.getElementById('finalDrops').appendChild(
-    document.createTextNode(`Raindrops blocked: ${raindropsBlocked}`)
-);
-document.getElementById('finalScore').appendChild(
-    document.createTextNode(`Score: ${finalScore}`)
-);
-    gameOver = true;
-    gameStarted = false;
-
-
 
     // Hide cat
     if (cat) {
@@ -1054,58 +1036,59 @@ document.getElementById('finalScore').appendChild(
     // Remove all puddles
     puddles.forEach(puddle => scene.remove(puddle));
     puddles = [];
-            
-            // Stop rain sound
-            try {
-                if (backgroundRain && backgroundRain.isPlaying) {
-                    backgroundRain.stop();
-                }
-            } catch (error) {
-                console.log('Error stopping rain sound:', error);
-            }
-            
-            // Stop cat purr sound
-            try {
-                if (catPurrSound && catPurrSound.isPlaying) {
-                    catPurrSound.stop();
-                }
-            } catch (error) {
-                console.log('Error stopping purr sound:', error);
-            }
-            
-            // Play howl sound
-            try {
-                if (howlSound && !howlSound.isPlaying) {
-                    howlSound.play().catch(error => {
-                        console.log('Failed to play howl sound:', error);
-                    });
-                }
-            } catch (error) {
-                console.log('Error with howl sound:', error);
-            }
-            
-            // Show VR UI or regular UI depending on mode
-            if (renderer.xr.isPresenting) {
-                // Update VR UI text and show it
-                vrUI.updateText();
-                vrUI.textTexture.needsUpdate = true;
-                vrUI.visible = true;
-            } else {
-                // Show regular game over screen
-                document.getElementById('timer').style.display = 'none';
-                document.getElementById('stats').style.display = 'none';
-                document.getElementById('ui').style.display = 'block';
-                document.getElementById('menu').style.display = 'none';
-                document.getElementById('gameOver').style.display = 'block';
-document.getElementById('finalTime').innerHTML = '';
-document.getElementById('finalDrops').innerHTML = '';
-document.getElementById('finalScore').innerHTML = '';
 
-                document.getElementById('finalTime').textContent = `Time survived: ${timeInSeconds} seconds`;
-                document.getElementById('finalDrops').textContent = `Raindrops blocked: ${raindropsBlocked}`;
-                document.getElementById('finalScore').textContent = `Score: ${finalScore}`;
-            }
+    // Stop rain sound
+    try {
+        if (backgroundRain && backgroundRain.isPlaying) {
+            backgroundRain.stop();
         }
+    } catch (error) {
+        console.log('Error stopping rain sound:', error);
+    }
+
+    // Stop cat purr sound
+    try {
+        if (catPurrSound && catPurrSound.isPlaying) {
+            catPurrSound.stop();
+        }
+    } catch (error) {
+        console.log('Error stopping purr sound:', error);
+    }
+
+    // Play howl sound
+    try {
+        if (howlSound && !howlSound.isPlaying) {
+            howlSound.play().catch(error => {
+                console.log('Failed to play howl sound:', error);
+            });
+        }
+    } catch (error) {
+        console.log('Error with howl sound:', error);
+    }
+
+    gameOver = true;
+    gameStarted = false;
+
+    // Show VR UI or regular UI depending on mode
+    if (renderer.xr.isPresenting) {
+        // Update VR UI text and show it
+        vrUI.updateText();
+        vrUI.textTexture.needsUpdate = true;
+        vrUI.visible = true;
+    } else {
+        // Show regular game over screen
+        document.getElementById('timer').style.display = 'none';
+        document.getElementById('stats').style.display = 'none';
+        document.getElementById('ui').style.display = 'block';
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('gameOver').style.display = 'block';
+
+        // Only use textContent to set the values ONCE per field
+        document.getElementById('finalTime').textContent = `Time survived: ${timeInSeconds} seconds`;
+        document.getElementById('finalDrops').textContent = `Raindrops blocked: ${raindropsBlocked}`;
+        document.getElementById('finalScore').textContent = `Score: ${finalScore}`;
+    }
+}
         
         function animate() {
             if (gameStarted && !gameOver) {
