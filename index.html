@@ -768,7 +768,7 @@
         }
         
  function resetGame() {
-    clearScoreboardFields();
+    
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     document.getElementById('finalTime').textContent = '';
@@ -1010,12 +1010,7 @@ function createPuddle(position) {
     }
 }
 
-function clearScoreboardFields() {
-    ['finalTime', 'finalDrops', 'finalScore'].forEach(id => {
-        const el = document.getElementById(id);
-        while (el.firstChild) el.removeChild(el.firstChild);
-    });
-}
+
 
         
         
