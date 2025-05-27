@@ -390,6 +390,7 @@
                 }, 200);
                 
                 resetGame();
+                startGame();
             }
             playAgainHit = true;
             break;
@@ -964,6 +965,8 @@ function createPuddle(position) {
                         hitMushroom = true;
                         break;
                     }
+                }
+
 
                     if (drop.position.y < -2 * SCALE_FACTOR) {
         // Create puddle at drop's XZ position
@@ -971,7 +974,7 @@ function createPuddle(position) {
         scene.remove(drop);
         raindrops.splice(i, 1);
     }
-                }
+                
                 
                 if (hitMushroom) continue;
                 
