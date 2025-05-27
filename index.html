@@ -768,54 +768,58 @@
         }
         
         function resetGame() {
-            document.getElementById('gameOver').style.display = 'none';
-            document.getElementById('menu').style.display = 'block';
-            gameStarted = false;
-            gameOver = false;
-            
-            // Reset camera to look down at cat for menu - scaled up
-            camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
-            camera.lookAt(0, 0, 0);
-            
-            // Hide VR UI
-            vrUI.visible = false;
-            
-            // Remove all raindrops
-            raindrops.forEach(drop => scene.remove(drop));
-            raindrops = [];
-            
-            // Remove all particles
-            particles.forEach(particle => scene.remove(particle));
-            particles = [];
-            
-            // Reset cat
-            if (cat) {
-                cat.visible = true;
-            }
-            
-            // Reset scoring
-            raindropsBlocked = 0;
-            finalScore = 0;
-            
-            // Reset button states
-            hoveredButton = null;
-            lastButtonPressTime = 0;
-            
-            // Stop all sounds
-            try {
-                if (howlSound && howlSound.isPlaying) {
-                    howlSound.stop();
-                }
-                if (backgroundRain && backgroundRain.isPlaying) {
-                    backgroundRain.stop();
-                }
-                if (thunderSound && thunderSound.isPlaying) {
-                    thunderSound.stop();
-                }
-            } catch (error) {
-                console.log('Error stopping sounds:', error);
-            }
+    document.getElementById('gameOver').style.display = 'none';
+    document.getElementById('menu').style.display = 'block';
+    gameStarted = false;
+    gameOver = false;
+
+    // Reset camera to look down at cat for menu - scaled up
+    camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
+    camera.lookAt(0, 0, 0);
+
+    // Hide VR UI
+    vrUI.visible = false;
+
+    // Remove all raindrops
+    raindrops.forEach(drop => scene.remove(drop));
+    raindrops = [];
+
+    // Remove all particles
+    particles.forEach(particle => scene.remove(particle));
+    particles = [];
+
+    // Remove all puddles
+    puddles.forEach(puddle => scene.remove(puddle));
+    puddles = [];
+
+    // Reset cat
+    if (cat) {
+        cat.visible = true;
+    }
+
+    // Reset scoring
+    raindropsBlocked = 0;
+    finalScore = 0;
+
+    // Reset button states
+    hoveredButton = null;
+    lastButtonPressTime = 0;
+
+    // Stop all sounds
+    try {
+        if (howlSound && howlSound.isPlaying) {
+            howlSound.stop();
         }
+        if (backgroundRain && backgroundRain.isPlaying) {
+            backgroundRain.stop();
+        }
+        if (thunderSound && thunderSound.isPlaying) {
+            thunderSound.stop();
+        }
+    } catch (error) {
+        console.log('Error stopping sounds:', error);
+    }
+}
         
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
@@ -920,97 +924,96 @@ function createPuddle(position) {
 }
 
         
-        function checkCollisions() {
-            const mushroomPositions = [];
-            
-            // Get both mushroom umbrella positions
-            if (leftMushroom) {
-                const leftPos = new THREE.Vector3();
-                leftMushroom.getWorldPosition(leftPos);
-                mushroomPositions.push(leftPos);
-            }
-            
-            if (rightMushroom) {
-                const rightPos = new THREE.Vector3();
-                rightMushroom.getWorldPosition(rightPos);
-                mushroomPositions.push(rightPos);
-            }
-            
-            for (let i = raindrops.length - 1; i >= 0; i--) {
-                const drop = raindrops[i];
-                let hitMushroom = false;
+        
                 
-                // Check collision with either mushroom umbrella - scaled collision distances
-                for (const mushroomPos of mushroomPositions) {
-                    const distance = drop.position.distanceTo(mushroomPos);
-                    
-                    if (distance < 0.8 * SCALE_FACTOR && drop.position.y > mushroomPos.y - 0.4 * SCALE_FACTOR) {
-                        // Hit mushroom - create particle burst and increment score
-                        createParticleBurst(drop.position);
-                        
-                        // Increment raindrops blocked counter
-                        raindropsBlocked++;
-                        updateStatsDisplay();
-                        
-                        // Haptic feedback on both controllers
-                        if (controller1.gamepad && controller1.gamepad.hapticActuators) {
-                            controller1.gamepad.hapticActuators[0].pulse(0.5, 100);
-                        }
-                        if (controller2.gamepad && controller2.gamepad.hapticActuators) {
-                            controller2.gamepad.hapticActuators[0].pulse(0.5, 100);
-                        }
-                        
-                        scene.remove(drop);
-                        raindrops.splice(i, 1);
-                        hitMushroom = true;
-                        break;
-                    }
-                }
-
-
-                    if (drop.position.y < -2 * SCALE_FACTOR) {
-        // Create puddle at drop's XZ position
-        createPuddle(drop.position);
-        scene.remove(drop);
-        raindrops.splice(i, 1);
+                
+    function checkCollisions() {
+    const mushroomPositions = [];
+    if (leftMushroom) {
+        const leftPos = new THREE.Vector3();
+        leftMushroom.getWorldPosition(leftPos);
+        mushroomPositions.push(leftPos);
     }
-                
-                
-                if (hitMushroom) continue;
-                
-                // Check if raindrop hits the cat - scaled collision distances
-                if (cat && cat.visible) {
-                    const catPosition = new THREE.Vector3();
-                    cat.getWorldPosition(catPosition);
-                    const catDistance = drop.position.distanceTo(catPosition);
-                    
-                    if (catDistance < 0.7 * SCALE_FACTOR && drop.position.y < catPosition.y + 0.7 * SCALE_FACTOR) {
-                        // Cat got wet - game over
-                        endGame();
-                        return;
-                    }
+    if (rightMushroom) {
+        const rightPos = new THREE.Vector3();
+        rightMushroom.getWorldPosition(rightPos);
+        mushroomPositions.push(rightPos);
+    }
+
+    for (let i = raindrops.length - 1; i >= 0; i--) {
+        const drop = raindrops[i];
+        let removed = false;
+
+        // Check collision with either mushroom umbrella
+        for (const mushroomPos of mushroomPositions) {
+            const distance = drop.position.distanceTo(mushroomPos);
+            if (distance < 0.8 * SCALE_FACTOR && drop.position.y > mushroomPos.y - 0.4 * SCALE_FACTOR) {
+                createParticleBurst(drop.position);
+                raindropsBlocked++;
+                updateStatsDisplay();
+
+                // Haptic feedback
+                if (controller1.gamepad && controller1.gamepad.hapticActuators) {
+                    controller1.gamepad.hapticActuators[0].pulse(0.5, 100);
                 }
-                
-                // Remove drops that fall too low - scaled
-                if (drop.position.y < -2 * SCALE_FACTOR) {
-                    scene.remove(drop);
-                    raindrops.splice(i, 1);
+                if (controller2.gamepad && controller2.gamepad.hapticActuators) {
+                    controller2.gamepad.hapticActuators[0].pulse(0.5, 100);
                 }
+
+                scene.remove(drop);
+                raindrops.splice(i, 1);
+                removed = true;
+                break;
             }
         }
-        
-        function endGame() {
-            gameOver = true;
-            gameStarted = false;
-            
-            // Calculate final score
-            const timeInSeconds = Math.floor(gameTime / 1000);
-            finalScore = calculateScore(timeInSeconds, raindropsBlocked);
-            
-            // Hide cat
-            if (cat) {
-                cat.visible = false;
+        if (removed) continue;
+
+        // Check if raindrop hits the cat
+        if (cat && cat.visible) {
+            const catPosition = new THREE.Vector3();
+            cat.getWorldPosition(catPosition);
+            const catDistance = drop.position.distanceTo(catPosition);
+
+            if (catDistance < 0.7 * SCALE_FACTOR && drop.position.y < catPosition.y + 0.7 * SCALE_FACTOR) {
+                // Remove the drop that hit the cat
+                scene.remove(drop);
+                raindrops.splice(i, 1);
+                endGame();
+                return;
             }
+        }
+
+        // Remove drops that fall too low and create puddle
+        if (drop.position.y < -2 * SCALE_FACTOR) {
+            createPuddle(drop.position);
+            scene.remove(drop);
+            raindrops.splice(i, 1);
+            continue;
+        }
+    }
+}
+        
+        
+            function endGame() {
+    gameOver = true;
+    gameStarted = false;
+
+    // Calculate final score
+    const timeInSeconds = Math.floor(gameTime / 1000);
+    finalScore = calculateScore(timeInSeconds, raindropsBlocked);
+
+    // Hide cat
+    if (cat) {
+        cat.visible = false;
+    }
+
+    // Remove all raindrops
+    raindrops.forEach(drop => scene.remove(drop));
+    raindrops = [];
+
+    // Remove all puddles
+    puddles.forEach(puddle => scene.remove(puddle));
+    puddles = [];
             
             // Stop rain sound
             try {
