@@ -65,9 +65,14 @@
             display: block;
         }
         
-        .score-display {
+        #scoreContainer {
             margin: 10px 0;
             padding: 5px 0;
+        }
+        
+        .score-line {
+            margin: 8px 0;
+            padding: 3px 0;
         }
         
         .final-score {
@@ -87,11 +92,7 @@
         <div id="gameOver">
             <h2>Game Over!</h2>
             <p>The cat got wet! 😿</p>
-            <div class="score-display">
-                <p id="finalTime"></p>
-    <p id="finalDrops"></p>
-    <p id="finalScore" class="final-score"></p>
-            </div>
+            <div id="scoreContainer"></div>
             <button id="playAgain">Play Again</button>
         </div>
     </div>
@@ -196,12 +197,9 @@
             loadAudio();
             loadModels();
             
-            // Event listeners
-            if (!document.getElementById('playAgain').hasAttribute('data-listener-added')) {
-    document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
-    document.getElementById('playAgain').addEventListener('click', resetGame);
-    document.getElementById('playAgain').setAttribute('data-listener-added', 'true');
-            }
+            // Event listeners - only add once
+            document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
+            document.getElementById('playAgain').addEventListener('click', resetGame);
             
             // Start render loop
             renderer.setAnimationLoop(animate);
@@ -826,15 +824,53 @@ function restartGameInVR() {
             
             return baseTimePoints + dropPoints + survivalBonus + efficiencyBonus;
         }
+
+        // NEW SCOREBOARD SYSTEM - Creates DOM elements programmatically
+        function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
+            document.getElementById('timer').style.display = 'none';
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'block';
+
+            // Clear score container completely
+            const scoreContainer = document.getElementById('scoreContainer');
+            
+            // Remove all existing children
+            while (scoreContainer.firstChild) {
+                scoreContainer.removeChild(scoreContainer.firstChild);
+            }
+            
+            // Create new score elements from scratch
+            const timeElement = document.createElement('p');
+            timeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
+            timeElement.className = 'score-line';
+            
+            const dropsElement = document.createElement('p');
+            dropsElement.textContent = `Raindrops blocked: ${dropsBlocked}`;
+            dropsElement.className = 'score-line';
+            
+            const scoreElement = document.createElement('p');
+            scoreElement.textContent = `Score: ${score}`;
+            scoreElement.className = 'score-line final-score';
+            
+            // Append in order
+            scoreContainer.appendChild(timeElement);
+            scoreContainer.appendChild(dropsElement);
+            scoreContainer.appendChild(scoreElement);
+        }
         
  function resetGame() {
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     
-    // Clear score fields ONCE at the beginning
-    document.getElementById('finalTime').textContent = '';
-    document.getElementById('finalDrops').textContent = '';
-    document.getElementById('finalScore').textContent = '';
+    // Clear the score container
+    const scoreContainer = document.getElementById('scoreContainer');
+    if (scoreContainer) {
+        while (scoreContainer.firstChild) {
+            scoreContainer.removeChild(scoreContainer.firstChild);
+        }
+    }
     
     gameStarted = false;
     gameOver = false;
@@ -869,7 +905,7 @@ function restartGameInVR() {
     gameTime = 0;
     startTime = undefined;
 
-    // Reset UI displays (but NOT the score fields again)
+    // Reset UI displays
     document.getElementById('timer').textContent = 'Time: 0s';
     document.getElementById('dropsBlocked').textContent = '0';
 
@@ -1130,20 +1166,8 @@ function endGame() {
         vrUI.textTexture.needsUpdate = true;
         vrUI.visible = true;
     } else {
-        // Show regular game over screen
-        document.getElementById('timer').style.display = 'none';
-        document.getElementById('stats').style.display = 'none';
-        document.getElementById('ui').style.display = 'block';
-        document.getElementById('menu').style.display = 'none';
-        document.getElementById('gameOver').style.display = 'block';
-
-        // COMPLETELY REPLACE the score elements with fresh content
-        const scoreDisplay = document.querySelector('.score-display');
-        scoreDisplay.innerHTML = `
-            <p id="finalTime">Time survived: ${timeInSeconds} seconds</p>
-            <p id="finalDrops">Raindrops blocked: ${raindropsBlocked}</p>
-            <p id="finalScore" class="final-score">Score: ${finalScore}</p>
-        `;
+        // Show regular game over screen with NEW score display system
+        showDesktopGameOver(timeInSeconds, raindropsBlocked, finalScore);
     }
 }
         
