@@ -141,7 +141,7 @@
             
          // Scene setup
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); // Sky blue
+    scene.background = new THREE.Color(0x888888); // Grey sky
     
     // Camera with narrower FOV to make player feel bigger - changed from 75 to 50
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -176,7 +176,7 @@
             
             // Ground - scaled up
             const groundGeometry = new THREE.PlaneGeometry(40 * SCALE_FACTOR, 40 * SCALE_FACTOR);
-            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 });
+            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x355c32 }); // Darker green
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
             ground.position.y = 0;
@@ -770,6 +770,9 @@
  function resetGame() {
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
+    document.getElementById('finalTime').textContent = '';
+document.getElementById('finalDrops').textContent = '';
+document.getElementById('finalScore').textContent = '';
     gameStarted = false;
     gameOver = false;
 
