@@ -389,8 +389,8 @@
                     vrPlayAgainButton.material.color.setHex(0x4CAF50);
                 }, 200);
                 
-                resetGame();
-                startGame();
+                // FIXED: Restart game directly in VR without going through menu
+                restartGameInVR();
             }
             playAgainHit = true;
             break;
@@ -446,6 +446,63 @@
         hoveredButton = null;
         console.log('Stopped hovering Quit button');
     }
+}
+
+function restartGameInVR() {
+    // Reset game state without showing menu
+    gameStarted = false;
+    gameOver = false;
+
+    // Hide VR UI
+    vrUI.visible = false;
+
+    // Remove all raindrops
+    raindrops.forEach(drop => scene.remove(drop));
+    raindrops = [];
+
+    // Remove all particles
+    particles.forEach(particle => scene.remove(particle));
+    particles = [];
+
+    // Remove all puddles
+    puddles.forEach(puddle => scene.remove(puddle));
+    puddles = [];
+
+    // Reset cat
+    if (cat) {
+        cat.visible = true;
+    }
+
+    // Reset scoring and time
+    raindropsBlocked = 0;
+    finalScore = 0;
+    gameTime = 0;
+    startTime = undefined;
+
+    // Reset button states
+    hoveredButton = null;
+    lastButtonPressTime = 0;
+
+    // Stop all sounds
+    try {
+        if (howlSound && howlSound.isPlaying) {
+            howlSound.stop();
+        }
+        if (backgroundRain && backgroundRain.isPlaying) {
+            backgroundRain.stop();
+        }
+        if (thunderSound && thunderSound.isPlaying) {
+            thunderSound.stop();
+        }
+        if (catPurrSound && catPurrSound.isPlaying) {
+            catPurrSound.stop();
+        }
+    } catch (error) {
+        console.log('Error stopping sounds:', error);
+    }
+
+    // Start new game immediately
+    startGame();
 }
 
 
