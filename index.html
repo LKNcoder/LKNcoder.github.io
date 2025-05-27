@@ -1137,20 +1137,13 @@ function endGame() {
         document.getElementById('menu').style.display = 'none';
         document.getElementById('gameOver').style.display = 'block';
 
-        // Clear any existing content first, then set new values
-        const finalTimeElement = document.getElementById('finalTime');
-        const finalDropsElement = document.getElementById('finalDrops');
-        const finalScoreElement = document.getElementById('finalScore');
-        
-        // Clear innerHTML to remove any accumulated content
-        finalTimeElement.innerHTML = '';
-        finalDropsElement.innerHTML = '';
-        finalScoreElement.innerHTML = '';
-        
-        // Now set the new values
-        finalTimeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
-        finalDropsElement.textContent = `Raindrops blocked: ${raindropsBlocked}`;
-        finalScoreElement.textContent = `Score: ${finalScore}`;
+        // COMPLETELY REPLACE the score elements with fresh content
+        const scoreDisplay = document.querySelector('.score-display');
+        scoreDisplay.innerHTML = `
+            <p id="finalTime">Time survived: ${timeInSeconds} seconds</p>
+            <p id="finalDrops">Raindrops blocked: ${raindropsBlocked}</p>
+            <p id="finalScore" class="final-score">Score: ${finalScore}</p>
+        `;
     }
 }
         
