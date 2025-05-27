@@ -1023,6 +1023,11 @@ function endGame() {
 
 clearScoreboardFields();
 
+  // Calculate final score
+    const timeInSeconds = Math.floor(gameTime / 1000);
+    finalScore = calculateScore(timeInSeconds, raindropsBlocked);
+
+
 document.getElementById('finalTime').appendChild(
     document.createTextNode(`Time survived: ${timeInSeconds} seconds`)
 );
@@ -1035,9 +1040,7 @@ document.getElementById('finalScore').appendChild(
     gameOver = true;
     gameStarted = false;
 
-    // Calculate final score
-    const timeInSeconds = Math.floor(gameTime / 1000);
-    finalScore = calculateScore(timeInSeconds, raindropsBlocked);
+
 
     // Hide cat
     if (cat) {
