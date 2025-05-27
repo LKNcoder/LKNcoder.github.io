@@ -124,10 +124,11 @@
         // Audio variables
         let audioListener, backgroundRain, howlSound, catPurrSound, thunderSound;
         
-        // Game settings
+        // Game settings - scaled up for better VR accuracy
         const DROP_SPAWN_RATE = 800; // ms between drops initially
         let currentSpawnRate = DROP_SPAWN_RATE;
         let lastDropTime = 0;
+        const SCALE_FACTOR = 2.0; // Scale everything up 2x for better VR accuracy
         
         // GLB Loader
         const loader = new THREE.GLTFLoader();
@@ -139,17 +140,17 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB); // Sky blue
             
-            // Camera positioned at standing height - 5x bigger player means scale everything else down
+            // Camera positioned at standing height - scaled up
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             
-            // Create dolly - no teleportation needed now
+            // Create dolly - scaled up
             dolly = new THREE.Group();
-            dolly.position.set(0, 0, 0.5); // Much closer to cat (was 1.5)
+            dolly.position.set(0, 0, 1.0 * SCALE_FACTOR); // Scaled up position
             dolly.add(camera);
             scene.add(dolly);
             
-            // Position camera to look down at cat for menu view
-            camera.position.set(0, 3, 2);
+            // Position camera to look down at cat for menu view - scaled up
+            camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
             camera.lookAt(0, 0, 0);
             
             // Audio setup
@@ -167,11 +168,11 @@
             scene.add(ambientLight);
             
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 15, 0); // Directly overhead
+            directionalLight.position.set(0, 30 * SCALE_FACTOR, 0); // Scaled up
             scene.add(directionalLight);
             
-            // Ground - scaled down relative to player
-            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            // Ground - scaled up
+            const groundGeometry = new THREE.PlaneGeometry(40 * SCALE_FACTOR, 40 * SCALE_FACTOR);
             const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90EE90 });
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
@@ -205,8 +206,8 @@
             vrUI = new THREE.Group();
             vrUI.visible = false;
             
-            // Create background panel - taller to accommodate all text
-            const panelGeometry = new THREE.PlaneGeometry(1.2, 1.0); // Increased height from 0.8 to 1.0
+            // Create background panel - scaled up
+            const panelGeometry = new THREE.PlaneGeometry(2.4 * SCALE_FACTOR, 2.0 * SCALE_FACTOR);
             const panelMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0x000000, 
                 transparent: true, 
@@ -231,25 +232,25 @@
                 ctx.font = 'bold 48px Arial';
                 ctx.textAlign = 'center';
                 
-                // Game Over text - moved down slightly
-                ctx.fillText('Game Over!', 256, 100); // Was 80
+                // Game Over text
+                ctx.fillText('Game Over!', 256, 100);
                 
                 // Cat emoji
                 ctx.font = '60px Arial';
-                ctx.fillText('😿', 256, 170); // Was 150
+                ctx.fillText('😿', 256, 170);
                 
                 // Score info
                 ctx.font = '24px Arial';
-                ctx.fillText('The cat got wet!', 256, 220); // Was 200
+                ctx.fillText('The cat got wet!', 256, 220);
                 
                 const timeInSeconds = Math.floor(gameTime / 1000);
-                ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260); // Was 240
-                ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 290); // Was 270
+                ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260);
+                ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 290);
                 
                 // Final score
                 ctx.fillStyle = '#FFD700';
                 ctx.font = 'bold 32px Arial';
-                ctx.fillText(`Score: ${finalScore}`, 256, 340); // Was 320
+                ctx.fillText(`Score: ${finalScore}`, 256, 340);
             }
             
             const texture = new THREE.CanvasTexture(canvas);
@@ -258,24 +259,28 @@
                 transparent: true 
             });
             const textMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.0, 1.0), // Matches panel size
+                new THREE.PlaneGeometry(2.0 * SCALE_FACTOR, 2.0 * SCALE_FACTOR),
                 textMaterial
             );
-            textMesh.position.z = 0.01;
+            textMesh.position.z = 0.02 * SCALE_FACTOR;
             vrUI.add(textMesh);
             
             // Store reference to update function
             vrUI.updateText = updateVRUIText;
             vrUI.textTexture = texture;
             
-            // Create Play Again button - smaller size
-            const buttonGeometry = new THREE.BoxGeometry(0.4, 0.12, 0.04);
+            // Create Play Again button - scaled up with box colliders
+            const buttonGeometry = new THREE.BoxGeometry(0.8 * SCALE_FACTOR, 0.24 * SCALE_FACTOR, 0.08 * SCALE_FACTOR);
             const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
             vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
-            vrPlayAgainButton.position.set(-0.3, -0.35, 0.03); // Adjusted for taller panel
+            vrPlayAgainButton.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.06 * SCALE_FACTOR);
+            
+            // Add bounding box for precise collision detection
+            vrPlayAgainButton.geometry.computeBoundingBox();
+            
             vrUI.add(vrPlayAgainButton);
             
-            // Play Again button text - fixed Z-fighting by moving further forward
+            // Play Again button text - positioned closer to button surface
             const playCanvas = document.createElement('canvas');
             playCanvas.width = 256;
             playCanvas.height = 64;
@@ -291,19 +296,23 @@
                 transparent: true 
             });
             const playTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.35, 0.1),
+                new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
                 playTextMaterial
             );
-            playTextMesh.position.set(-0.3, -0.35, 0.08); // Further forward to prevent Z-fighting
+            playTextMesh.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.08 * SCALE_FACTOR); // Closer to button
             vrUI.add(playTextMesh);
             
-            // Create Quit button - smaller size
+            // Create Quit button - scaled up with box colliders
             const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
             vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
-            vrQuitButton.position.set(0.3, -0.35, 0.03); // Adjusted for taller panel
+            vrQuitButton.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.06 * SCALE_FACTOR);
+            
+            // Add bounding box for precise collision detection
+            vrQuitButton.geometry.computeBoundingBox();
+            
             vrUI.add(vrQuitButton);
             
-            // Quit button text - fixed Z-fighting by moving further forward
+            // Quit button text - positioned closer to button surface
             const quitCanvas = document.createElement('canvas');
             quitCanvas.width = 256;
             quitCanvas.height = 64;
@@ -319,14 +328,14 @@
                 transparent: true 
             });
             const quitTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.35, 0.1),
+                new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
                 quitTextMaterial
             );
-            quitTextMesh.position.set(0.3, -0.35, 0.08); // Further forward to prevent Z-fighting
+            quitTextMesh.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.08 * SCALE_FACTOR); // Closer to button
             vrUI.add(quitTextMesh);
             
-            // Position VR UI closer to player and at arm's reach
-            vrUI.position.set(0, 1.4, -0.8);
+            // Position VR UI closer to player and at arm's reach - scaled up
+            vrUI.position.set(0, 2.8 * SCALE_FACTOR, -1.6 * SCALE_FACTOR);
             dolly.add(vrUI);
         }
         
@@ -342,12 +351,18 @@
                 const mushroomPos = new THREE.Vector3();
                 mushroom.getWorldPosition(mushroomPos);
                 
-                // Check Play Again button
+                // Create a raycaster for more precise collision detection
+                const raycaster = new THREE.Raycaster();
+                
+                // Check Play Again button with box collider
                 const playAgainPos = new THREE.Vector3();
                 vrPlayAgainButton.getWorldPosition(playAgainPos);
-                const playAgainDistance = mushroomPos.distanceTo(playAgainPos);
                 
-                if (playAgainDistance < 0.2) { // Increased interaction distance
+                // Create a bounding box for the button
+                const playAgainBox = new THREE.Box3().setFromObject(vrPlayAgainButton);
+                const mushroomPoint = new THREE.Vector3().copy(mushroomPos);
+                
+                if (playAgainBox.containsPoint(mushroomPoint) || playAgainBox.distanceToPoint(mushroomPoint) < 0.3 * SCALE_FACTOR) {
                     if (hoveredButton !== 'playAgain') {
                         vrPlayAgainButton.material.color.setHex(0x66bb6a);
                         hoveredButton = 'playAgain';
@@ -359,24 +374,25 @@
                         if (controller.gamepad && 
                             controller.gamepad.buttons[0] && 
                             controller.gamepad.buttons[0].pressed &&
-                            currentTime - lastButtonPressTime > 500) { // 500ms debounce
+                            currentTime - lastButtonPressTime > 500) {
                             lastButtonPressTime = currentTime;
                             resetGame();
                         }
                     });
                 } else if (hoveredButton === 'playAgain') {
                     vrPlayAgainButton.material.color.setHex(0x4CAF50);
-                    if (playAgainDistance > 0.3) { // Only clear hover when well outside
+                    if (playAgainBox.distanceToPoint(mushroomPoint) > 0.5 * SCALE_FACTOR) {
                         hoveredButton = null;
                     }
                 }
                 
-                // Check Quit button
+                // Check Quit button with box collider
                 const quitPos = new THREE.Vector3();
                 vrQuitButton.getWorldPosition(quitPos);
-                const quitDistance = mushroomPos.distanceTo(quitPos);
                 
-                if (quitDistance < 0.2) { // Increased interaction distance
+                const quitBox = new THREE.Box3().setFromObject(vrQuitButton);
+                
+                if (quitBox.containsPoint(mushroomPoint) || quitBox.distanceToPoint(mushroomPoint) < 0.3 * SCALE_FACTOR) {
                     if (hoveredButton !== 'quit') {
                         vrQuitButton.material.color.setHex(0xef5350);
                         hoveredButton = 'quit';
@@ -388,7 +404,7 @@
                         if (controller.gamepad && 
                             controller.gamepad.buttons[0] && 
                             controller.gamepad.buttons[0].pressed &&
-                            currentTime - lastButtonPressTime > 500) { // 500ms debounce
+                            currentTime - lastButtonPressTime > 500) {
                             lastButtonPressTime = currentTime;
                             // Exit VR and return to menu
                             if (renderer.xr.getSession()) {
@@ -399,7 +415,7 @@
                     });
                 } else if (hoveredButton === 'quit') {
                     vrQuitButton.material.color.setHex(0xf44336);
-                    if (quitDistance > 0.3) { // Only clear hover when well outside
+                    if (quitBox.distanceToPoint(mushroomPoint) > 0.5 * SCALE_FACTOR) {
                         hoveredButton = null;
                     }
                 }
@@ -455,16 +471,16 @@
                 thunderSound = null;
             });
             
-            // Load purr sound for the single cat
+            // Load purr sound for the single cat - louder volume
             audioLoader.load('purr.mp3', (buffer) => {
                 try {
                     catPurrSound = new THREE.PositionalAudio(audioListener);
                     catPurrSound.setBuffer(buffer);
-                    catPurrSound.setRefDistance(1);
-                    catPurrSound.setRolloffFactor(2);
+                    catPurrSound.setRefDistance(2 * SCALE_FACTOR); // Scaled up reference distance
+                    catPurrSound.setRolloffFactor(1); // Reduced rolloff for louder sound
                     catPurrSound.setDistanceModel('exponential');
                     catPurrSound.setLoop(true);
-                    catPurrSound.setVolume(0.4);
+                    catPurrSound.setVolume(0.8); // Increased from 0.4 to 0.8
                     console.log('Cat purr sound loaded');
                 } catch (error) {
                     console.log('Error creating cat purr sound:', error);
@@ -476,31 +492,31 @@
         }
         
         function loadModels() {
-            // Load single cat - smaller size (30% reduction)
+            // Load single cat - scaled up
             loader.load('cat.glb', (gltf) => {
                 const catModel = gltf.scene;
-                catModel.scale.set(0.1575, 0.1575, 0.1575); // Was 0.225, now 30% smaller = 0.1575
+                catModel.scale.set(0.315 * SCALE_FACTOR, 0.315 * SCALE_FACTOR, 0.315 * SCALE_FACTOR); // Scaled up
                 createCat(catModel);
             }, undefined, (error) => {
                 console.log('Error loading cat.glb, using fallback geometry');
                 createFallbackCat();
             });
             
-            // Load mushroom umbrellas for both hands
+            // Load mushroom umbrellas for both hands - scaled up
             loader.load('shroom.glb', (gltf) => {
                 const mushroomModel = gltf.scene;
                 
-                // Left hand mushroom umbrella - smaller since player is bigger
+                // Left hand mushroom umbrella
                 leftMushroom = mushroomModel.clone();
-                leftMushroom.scale.set(0.15, 0.15, 0.15);
+                leftMushroom.scale.set(0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR);
                 controller1.add(leftMushroom);
-                leftMushroom.position.set(0, 0, -0.05);
+                leftMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
                 
                 // Right hand mushroom umbrella
                 rightMushroom = mushroomModel.clone();
-                rightMushroom.scale.set(0.15, 0.15, 0.15);
+                rightMushroom.scale.set(0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR);
                 controller2.add(rightMushroom);
-                rightMushroom.position.set(0, 0, -0.05);
+                rightMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
             }, undefined, (error) => {
                 console.log('Error loading shroom.glb, using fallback geometry');
                 createFallbackMushrooms();
@@ -510,14 +526,7 @@
         function createCat(catModel) {
             cat = catModel.clone();
             cat.position.set(0, 0, 0); // Fixed position at origin
-            cat.rotation.y = Math.PI * (160/180); // Rotate 160 degrees to face player
-            
-            // No shadows needed
-            cat.traverse((child) => {
-                if (child.isMesh) {
-                    // Removed castShadow and receiveShadow
-                }
-            });
+            cat.rotation.y = Math.PI / 2; // Rotate 90 degrees to face sideways
             
             // Add purr sound to cat
             if (catPurrSound) {
@@ -530,27 +539,27 @@
         function createFallbackCat() {
             const catGroup = new THREE.Group();
             
-            // Simple sphere for cat body - 30% smaller than before
-            const bodyGeometry = new THREE.SphereGeometry(0.1575, 16, 12); // Was 0.225, now 30% smaller
+            // Simple sphere for cat body - scaled up
+            const bodyGeometry = new THREE.SphereGeometry(0.315 * SCALE_FACTOR, 16, 12);
             const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.position.y = 0.0945; // Adjusted for smaller size
+            body.position.y = 0.189 * SCALE_FACTOR;
             catGroup.add(body);
             
-            // Simple ears - 30% smaller
-            const earGeometry = new THREE.ConeGeometry(0.0315, 0.063, 8); // Was 0.045, 0.09
+            // Simple ears - scaled up
+            const earGeometry = new THREE.ConeGeometry(0.063 * SCALE_FACTOR, 0.126 * SCALE_FACTOR, 8);
             const earMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             
             const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-            leftEar.position.set(-0.063, 0.189, 0.063); // Adjusted for smaller cat
+            leftEar.position.set(-0.126 * SCALE_FACTOR, 0.378 * SCALE_FACTOR, 0.126 * SCALE_FACTOR);
             catGroup.add(leftEar);
             
             const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-            rightEar.position.set(0.063, 0.189, 0.063);
+            rightEar.position.set(0.126 * SCALE_FACTOR, 0.378 * SCALE_FACTOR, 0.126 * SCALE_FACTOR);
             catGroup.add(rightEar);
             
             catGroup.position.set(0, 0, 0); // Fixed position at origin
-            catGroup.rotation.y = Math.PI * (160/180); // Rotate 160 degrees to face player
+            catGroup.rotation.y = Math.PI / 2; // Rotate 90 degrees to face sideways
             
             // Add purr sound to cat
             if (catPurrSound) {
@@ -562,33 +571,33 @@
         }
         
         function createFallbackMushrooms() {
-            // Create left mushroom umbrella
+            // Create left mushroom umbrella - scaled up
             const leftMushroomGroup = new THREE.Group();
             
             // Mushroom cap
-            const capGeometry = new THREE.SphereGeometry(0.2, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            const capGeometry = new THREE.SphereGeometry(0.4 * SCALE_FACTOR, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
             const capMaterial = new THREE.MeshLambertMaterial({ 
                 color: 0xFF0000,
                 side: THREE.DoubleSide 
             });
             const leftCap = new THREE.Mesh(capGeometry, capMaterial);
-            leftCap.position.y = 0.1;
+            leftCap.position.y = 0.2 * SCALE_FACTOR;
             leftMushroomGroup.add(leftCap);
             
             // Mushroom stem
-            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8);
+            const stemGeometry = new THREE.CylinderGeometry(0.04 * SCALE_FACTOR, 0.04 * SCALE_FACTOR, 0.4 * SCALE_FACTOR, 8);
             const stemMaterial = new THREE.MeshLambertMaterial({ color: 0xFFF8DC });
             const leftStem = new THREE.Mesh(stemGeometry, stemMaterial);
             leftMushroomGroup.add(leftStem);
             
             leftMushroom = leftMushroomGroup;
             controller1.add(leftMushroom);
-            leftMushroom.position.set(0, 0, -0.05);
+            leftMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
             
             // Create right mushroom umbrella (clone of left)
             rightMushroom = leftMushroomGroup.clone();
             controller2.add(rightMushroom);
-            rightMushroom.position.set(0, 0, -0.05);
+            rightMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
         }
         
         function startGameAndTryVR() {
@@ -606,8 +615,8 @@
             document.getElementById('timer').style.display = 'block';
             document.getElementById('stats').style.display = 'block';
             
-            // Reset camera position for VR/game mode - no awkward ground level view
-            camera.position.set(0, 1.7, 0); // Standing height, no ground level transition
+            // Reset camera position for VR/game mode - scaled up
+            camera.position.set(0, 3.4 * SCALE_FACTOR, 0);
             camera.lookAt(0, 0, -1);
             
             startGame();
@@ -736,8 +745,8 @@
             gameStarted = false;
             gameOver = false;
             
-            // Reset camera to look down at cat for menu
-            camera.position.set(0, 3, 2);
+            // Reset camera to look down at cat for menu - scaled up
+            camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
             camera.lookAt(0, 0, 0);
             
             // Hide VR UI
@@ -783,17 +792,17 @@
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
             
-            // Main sphere body
-            const dropGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+            // Main sphere body - scaled up
+            const dropGeometry = new THREE.SphereGeometry(0.06 * SCALE_FACTOR, 8, 8);
             const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const dropSphere = new THREE.Mesh(dropGeometry, dropMaterial);
             dropGroup.add(dropSphere);
             
-            // Add teardrop cone that starts from sphere's equator
-            const tipGeometry = new THREE.ConeGeometry(0.03, 0.06, 6);
+            // Add teardrop cone that starts from sphere's equator - scaled up
+            const tipGeometry = new THREE.ConeGeometry(0.06 * SCALE_FACTOR, 0.12 * SCALE_FACTOR, 6);
             const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.03;
+            tip.position.y = 0.06 * SCALE_FACTOR;
             dropGroup.add(tip);
             
             // Always target the cat area since there's only one
@@ -801,22 +810,22 @@
                 const catPosition = new THREE.Vector3();
                 cat.getWorldPosition(catPosition);
                 
-                // Spawn above the cat with some random offset
+                // Spawn above the cat with some random offset - scaled up
                 dropGroup.position.set(
-                    catPosition.x + (Math.random() - 0.5) * 2,
-                    8 + Math.random() * 3,
-                    catPosition.z + (Math.random() - 0.5) * 2
+                    catPosition.x + (Math.random() - 0.5) * 4 * SCALE_FACTOR,
+                    16 * SCALE_FACTOR + Math.random() * 6 * SCALE_FACTOR,
+                    catPosition.z + (Math.random() - 0.5) * 4 * SCALE_FACTOR
                 );
             } else {
-                // Fallback to center spawn
+                // Fallback to center spawn - scaled up
                 dropGroup.position.set(
-                    (Math.random() - 0.5) * 4,
-                    8 + Math.random() * 3,
-                    (Math.random() - 0.5) * 4
+                    (Math.random() - 0.5) * 8 * SCALE_FACTOR,
+                    16 * SCALE_FACTOR + Math.random() * 6 * SCALE_FACTOR,
+                    (Math.random() - 0.5) * 8 * SCALE_FACTOR
                 );
             }
             
-            dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
+            dropGroup.velocity = (0.02 + (gameTime / 120000) * 0.08) * SCALE_FACTOR;
             
             scene.add(dropGroup);
             raindrops.push(dropGroup);
@@ -836,7 +845,7 @@
             ];
             
             for (let i = 0; i < 20; i++) {
-                const particleGeometry = new THREE.SphereGeometry(0.01, 4, 4);
+                const particleGeometry = new THREE.SphereGeometry(0.02 * SCALE_FACTOR, 4, 4);
                 const particleMaterial = new THREE.MeshBasicMaterial({ 
                     color: waterColors[Math.floor(Math.random() * waterColors.length)]
                 });
@@ -844,9 +853,9 @@
                 
                 particle.position.copy(position);
                 particle.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.1,
-                    (Math.random() - 0.5) * 0.1,
-                    (Math.random() - 0.5) * 0.1
+                    (Math.random() - 0.5) * 0.1 * SCALE_FACTOR,
+                    (Math.random() - 0.5) * 0.1 * SCALE_FACTOR,
+                    (Math.random() - 0.5) * 0.1 * SCALE_FACTOR
                 );
                 particle.life = 1.0;
                 
@@ -875,11 +884,11 @@
                 const drop = raindrops[i];
                 let hitMushroom = false;
                 
-                // Check collision with either mushroom umbrella
+                // Check collision with either mushroom umbrella - scaled collision distances
                 for (const mushroomPos of mushroomPositions) {
                     const distance = drop.position.distanceTo(mushroomPos);
                     
-                    if (distance < 0.4 && drop.position.y > mushroomPos.y - 0.2) {
+                    if (distance < 0.8 * SCALE_FACTOR && drop.position.y > mushroomPos.y - 0.4 * SCALE_FACTOR) {
                         // Hit mushroom - create particle burst and increment score
                         createParticleBurst(drop.position);
                         
@@ -904,21 +913,21 @@
                 
                 if (hitMushroom) continue;
                 
-                // Check if raindrop hits the cat - adjusted for smaller cat
+                // Check if raindrop hits the cat - scaled collision distances
                 if (cat && cat.visible) {
                     const catPosition = new THREE.Vector3();
                     cat.getWorldPosition(catPosition);
                     const catDistance = drop.position.distanceTo(catPosition);
                     
-                    if (catDistance < 0.35 && drop.position.y < catPosition.y + 0.35) { // Reduced from 0.5 for smaller cat
+                    if (catDistance < 0.7 * SCALE_FACTOR && drop.position.y < catPosition.y + 0.7 * SCALE_FACTOR) {
                         // Cat got wet - game over
                         endGame();
                         return;
                     }
                 }
                 
-                // Remove drops that fall too low
-                if (drop.position.y < -1) {
+                // Remove drops that fall too low - scaled
+                if (drop.position.y < -2 * SCALE_FACTOR) {
                     scene.remove(drop);
                     raindrops.splice(i, 1);
                 }
