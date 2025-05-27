@@ -1073,6 +1073,10 @@ function createPuddle(position) {
                 document.getElementById('ui').style.display = 'block';
                 document.getElementById('menu').style.display = 'none';
                 document.getElementById('gameOver').style.display = 'block';
+document.getElementById('finalTime').innerHTML = '';
+document.getElementById('finalDrops').innerHTML = '';
+document.getElementById('finalScore').innerHTML = '';
+
                 document.getElementById('finalTime').textContent = `Time survived: ${timeInSeconds} seconds`;
                 document.getElementById('finalDrops').textContent = `Raindrops blocked: ${raindropsBlocked}`;
                 document.getElementById('finalScore').textContent = `Score: ${finalScore}`;
