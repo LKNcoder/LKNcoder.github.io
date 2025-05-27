@@ -767,7 +767,7 @@
             return baseTimePoints + dropPoints + survivalBonus + efficiencyBonus;
         }
         
-        function resetGame() {
+ function resetGame() {
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     gameStarted = false;
@@ -797,9 +797,18 @@
         cat.visible = true;
     }
 
-    // Reset scoring
+    // Reset scoring and time
     raindropsBlocked = 0;
     finalScore = 0;
+    gameTime = 0;
+    startTime = undefined;
+
+    // Reset UI displays
+    document.getElementById('timer').textContent = 'Time: 0s';
+    document.getElementById('dropsBlocked').textContent = '0';
+    document.getElementById('finalTime').textContent = '';
+    document.getElementById('finalDrops').textContent = '';
+    document.getElementById('finalScore').textContent = '';
 
     // Reset button states
     hoveredButton = null;
