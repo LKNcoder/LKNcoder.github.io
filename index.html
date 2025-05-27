@@ -832,6 +832,10 @@
         
         function spawnRaindrop() {
             const dropGroup = new THREE.Group();
+
+            // Make raindrop half as big as before (multiply by 0.5)
+    const dropRadius = 0.06 * 0.5 * SCALE_FACTOR;
+    const dropHeight = 0.12 * 0.5 * SCALE_FACTOR;
             
             // Main sphere body - scaled up
             const dropGeometry = new THREE.SphereGeometry(0.06 * SCALE_FACTOR, 8, 8);
