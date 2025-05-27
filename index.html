@@ -128,7 +128,9 @@
         const DROP_SPAWN_RATE = 800; // ms between drops initially
         let currentSpawnRate = DROP_SPAWN_RATE;
         let lastDropTime = 0;
-        const SCALE_FACTOR = 0.5; // Scale everything up 2x for better VR accuracy
+        const SCALE_FACTOR = 2.0; // Scale everything up 2x for better VR accuracy
+
+        let puddles = [];
         
         // GLB Loader
         const loader = new THREE.GLTFLoader();
@@ -347,28 +349,38 @@
     const mushrooms = [leftMushroom, rightMushroom].filter(m => m);
     const currentTime = Date.now();
     
-    mushrooms.forEach((mushroom, mushroomIndex) => {
-        if (!mushroom) return;
+    // Get mushroom positions (same as in checkCollisions)
+    const mushroomPositions = [];
+    if (leftMushroom) {
+        const leftPos = new THREE.Vector3();
+        leftMushroom.getWorldPosition(leftPos);
+        mushroomPositions.push(leftPos);
+    }
+    if (rightMushroom) {
+        const rightPos = new THREE.Vector3();
+        rightMushroom.getWorldPosition(rightPos);
+        mushroomPositions.push(rightPos);
+    }
+    
+    // Check Play Again button collision (using exact same method as raindrops)
+    const playAgainPos = new THREE.Vector3();
+    vrPlayAgainButton.getWorldPosition(playAgainPos);
+    
+    let playAgainHit = false;
+    for (const mushroomPos of mushroomPositions) {
+        const distance = playAgainPos.distanceTo(mushroomPos);
         
-        const mushroomPos = new THREE.Vector3();
-        mushroom.getWorldPosition(mushroomPos);
-        
-        // Check Play Again button with intersection collision - adjusted for smaller button
-        const playAgainPos = new THREE.Vector3();
-        vrPlayAgainButton.getWorldPosition(playAgainPos);
-        const playAgainDistance = mushroomPos.distanceTo(playAgainPos);
-        
-        // Visual feedback when hovering - adjusted collision radius for smaller button
-        if (playAgainDistance < 0.3 * SCALE_FACTOR) { 
+        // Use same collision detection as raindrops - just check simple distance
+        if (distance < 0.8 * SCALE_FACTOR) {
             if (hoveredButton !== 'playAgain') {
                 vrPlayAgainButton.material.color.setHex(0x66bb6a);
                 hoveredButton = 'playAgain';
-                console.log('Hovering Play Again button');
+                console.log('Hovering Play Again button - distance:', distance);
             }
             
-            // Trigger on close intersection with debouncing - smaller activation radius
-            if (playAgainDistance < 0.15 * SCALE_FACTOR && currentTime - lastButtonPressTime > 1000) {
-                console.log('Play Again button triggered by mushroom intersection!');
+            // Trigger on very close collision with debouncing
+            if (distance < 0.4 * SCALE_FACTOR && currentTime - lastButtonPressTime > 1000) {
+                console.log('Play Again button triggered! Distance:', distance);
                 lastButtonPressTime = currentTime;
                 
                 // Visual feedback for activation
@@ -379,30 +391,36 @@
                 
                 resetGame();
             }
-        } else if (hoveredButton === 'playAgain') {
-            vrPlayAgainButton.material.color.setHex(0x4CAF50);
-            if (playAgainDistance > 0.4 * SCALE_FACTOR) {
-                hoveredButton = null;
-                console.log('Stopped hovering Play Again button');
-            }
+            playAgainHit = true;
+            break;
         }
+    }
+    
+    if (!playAgainHit && hoveredButton === 'playAgain') {
+        vrPlayAgainButton.material.color.setHex(0x4CAF50);
+        hoveredButton = null;
+        console.log('Stopped hovering Play Again button');
+    }
+    
+    // Check Quit button collision (using exact same method as raindrops)
+    const quitPos = new THREE.Vector3();
+    vrQuitButton.getWorldPosition(quitPos);
+    
+    let quitHit = false;
+    for (const mushroomPos of mushroomPositions) {
+        const distance = quitPos.distanceTo(mushroomPos);
         
-        // Check Quit button with intersection collision - adjusted for smaller button
-        const quitPos = new THREE.Vector3();
-        vrQuitButton.getWorldPosition(quitPos);
-        const quitDistance = mushroomPos.distanceTo(quitPos);
-        
-        // Visual feedback when hovering - adjusted collision radius for smaller button
-        if (quitDistance < 0.3 * SCALE_FACTOR) { 
+        // Use same collision detection as raindrops - just check simple distance
+        if (distance < 0.8 * SCALE_FACTOR) {
             if (hoveredButton !== 'quit') {
                 vrQuitButton.material.color.setHex(0xef5350);
                 hoveredButton = 'quit';
-                console.log('Hovering Quit button');
+                console.log('Hovering Quit button - distance:', distance);
             }
             
-            // Trigger on close intersection with debouncing - smaller activation radius
-            if (quitDistance < 0.15 * SCALE_FACTOR && currentTime - lastButtonPressTime > 1000) {
-                console.log('Quit button triggered by mushroom intersection!');
+            // Trigger on very close collision with debouncing
+            if (distance < 0.4 * SCALE_FACTOR && currentTime - lastButtonPressTime > 1000) {
+                console.log('Quit button triggered! Distance:', distance);
                 lastButtonPressTime = currentTime;
                 
                 // Visual feedback for activation
@@ -417,14 +435,16 @@
                 }
                 resetGame();
             }
-        } else if (hoveredButton === 'quit') {
-            vrQuitButton.material.color.setHex(0xf44336);
-            if (quitDistance > 0.4 * SCALE_FACTOR) {
-                hoveredButton = null;
-                console.log('Stopped hovering Quit button');
-            }
+            quitHit = true;
+            break;
         }
-    });
+    }
+    
+    if (!quitHit && hoveredButton === 'quit') {
+        vrQuitButton.material.color.setHex(0xf44336);
+        hoveredButton = null;
+        console.log('Stopped hovering Quit button');
+    }
 }
 
 
@@ -870,6 +890,34 @@
                 particles.push(particle);
             }
         }
+
+       
+
+function createPuddle(position) {
+    // Puddle geometry and material
+    const puddleRadius = 0.25 * SCALE_FACTOR + Math.random() * 0.15 * SCALE_FACTOR;
+    const puddleGeometry = new THREE.CircleGeometry(puddleRadius, 24);
+    const puddleMaterial = new THREE.MeshBasicMaterial({
+        color: 0x3399ff,
+        transparent: true,
+        opacity: 0.35
+    });
+    const puddle = new THREE.Mesh(puddleGeometry, puddleMaterial);
+
+    // Place puddle at ground level + small random offset to avoid Z-fighting
+    puddle.position.set(position.x, 0.01 + Math.random() * 0.01, position.z);
+    puddle.rotation.x = -Math.PI / 2;
+
+    scene.add(puddle);
+    puddles.push(puddle);
+
+    // Optional: fade out and remove puddle after some time
+    setTimeout(() => {
+        scene.remove(puddle);
+        puddles = puddles.filter(p => p !== puddle);
+    }, 20000); // 20 seconds
+}
+
         
         function checkCollisions() {
             const mushroomPositions = [];
@@ -916,6 +964,13 @@
                         hitMushroom = true;
                         break;
                     }
+
+                    if (drop.position.y < -2 * SCALE_FACTOR) {
+        // Create puddle at drop's XZ position
+        createPuddle(drop.position);
+        scene.remove(drop);
+        raindrops.splice(i, 1);
+    }
                 }
                 
                 if (hitMushroom) continue;
