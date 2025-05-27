@@ -115,6 +115,7 @@
         // VR UI variables
         let vrUI, vrPlayAgainButton, vrQuitButton;
         let hoveredButton = null;
+        let lastButtonPressTime = 0; // Prevent button spam
         
         // Scoring variables
         let raindropsBlocked = 0;
@@ -143,7 +144,7 @@
             
             // Create dolly - no teleportation needed now
             dolly = new THREE.Group();
-            dolly.position.set(0, 0, 1.5); // Moved closer to cat (was 3)
+            dolly.position.set(0, 0, 0.5); // Much closer to cat (was 1.5)
             dolly.add(camera);
             scene.add(dolly);
             
@@ -204,8 +205,8 @@
             vrUI = new THREE.Group();
             vrUI.visible = false;
             
-            // Create background panel - smaller size
-            const panelGeometry = new THREE.PlaneGeometry(1.2, 0.8); // Was 3, 2
+            // Create background panel - taller to accommodate all text
+            const panelGeometry = new THREE.PlaneGeometry(1.2, 1.0); // Increased height from 0.8 to 1.0
             const panelMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0x000000, 
                 transparent: true, 
@@ -230,25 +231,25 @@
                 ctx.font = 'bold 48px Arial';
                 ctx.textAlign = 'center';
                 
-                // Game Over text
-                ctx.fillText('Game Over!', 256, 80);
+                // Game Over text - moved down slightly
+                ctx.fillText('Game Over!', 256, 100); // Was 80
                 
                 // Cat emoji
                 ctx.font = '60px Arial';
-                ctx.fillText('😿', 256, 150);
+                ctx.fillText('😿', 256, 170); // Was 150
                 
                 // Score info
                 ctx.font = '24px Arial';
-                ctx.fillText('The cat got wet!', 256, 200);
+                ctx.fillText('The cat got wet!', 256, 220); // Was 200
                 
                 const timeInSeconds = Math.floor(gameTime / 1000);
-                ctx.fillText(`Time: ${timeInSeconds}s`, 256, 240);
-                ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 270);
+                ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260); // Was 240
+                ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 290); // Was 270
                 
                 // Final score
                 ctx.fillStyle = '#FFD700';
                 ctx.font = 'bold 32px Arial';
-                ctx.fillText(`Score: ${finalScore}`, 256, 320);
+                ctx.fillText(`Score: ${finalScore}`, 256, 340); // Was 320
             }
             
             const texture = new THREE.CanvasTexture(canvas);
@@ -257,7 +258,7 @@
                 transparent: true 
             });
             const textMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.0, 1.0), // Smaller text panel
+                new THREE.PlaneGeometry(1.0, 1.0), // Matches panel size
                 textMaterial
             );
             textMesh.position.z = 0.01;
@@ -268,19 +269,19 @@
             vrUI.textTexture = texture;
             
             // Create Play Again button - smaller size
-            const buttonGeometry = new THREE.BoxGeometry(0.4, 0.12, 0.04); // Much smaller
+            const buttonGeometry = new THREE.BoxGeometry(0.4, 0.12, 0.04);
             const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
             vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
-            vrPlayAgainButton.position.set(-0.3, -0.25, 0.03); // Closer to center and forward
+            vrPlayAgainButton.position.set(-0.3, -0.35, 0.03); // Adjusted for taller panel
             vrUI.add(vrPlayAgainButton);
             
-            // Play Again button text - placed in front of button
+            // Play Again button text - fixed Z-fighting by moving further forward
             const playCanvas = document.createElement('canvas');
             playCanvas.width = 256;
             playCanvas.height = 64;
             const playCtx = playCanvas.getContext('2d');
             playCtx.fillStyle = 'white';
-            playCtx.font = 'bold 24px Arial'; // Smaller font
+            playCtx.font = 'bold 24px Arial';
             playCtx.textAlign = 'center';
             playCtx.fillText('Play Again', 128, 40);
             
@@ -290,25 +291,25 @@
                 transparent: true 
             });
             const playTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.35, 0.1), // Smaller text size
+                new THREE.PlaneGeometry(0.35, 0.1),
                 playTextMaterial
             );
-            playTextMesh.position.set(-0.3, -0.25, 0.05); // In front of button
+            playTextMesh.position.set(-0.3, -0.35, 0.08); // Further forward to prevent Z-fighting
             vrUI.add(playTextMesh);
             
             // Create Quit button - smaller size
             const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
             vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
-            vrQuitButton.position.set(0.3, -0.25, 0.03); // Closer to center and forward
+            vrQuitButton.position.set(0.3, -0.35, 0.03); // Adjusted for taller panel
             vrUI.add(vrQuitButton);
             
-            // Quit button text - placed in front of button
+            // Quit button text - fixed Z-fighting by moving further forward
             const quitCanvas = document.createElement('canvas');
             quitCanvas.width = 256;
             quitCanvas.height = 64;
             const quitCtx = quitCanvas.getContext('2d');
             quitCtx.fillStyle = 'white';
-            quitCtx.font = 'bold 24px Arial'; // Smaller font
+            quitCtx.font = 'bold 24px Arial';
             quitCtx.textAlign = 'center';
             quitCtx.fillText('Quit', 128, 40);
             
@@ -318,14 +319,14 @@
                 transparent: true 
             });
             const quitTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.35, 0.1), // Smaller text size
+                new THREE.PlaneGeometry(0.35, 0.1),
                 quitTextMaterial
             );
-            quitTextMesh.position.set(0.3, -0.25, 0.05); // In front of button
+            quitTextMesh.position.set(0.3, -0.35, 0.08); // Further forward to prevent Z-fighting
             vrUI.add(quitTextMesh);
             
             // Position VR UI closer to player and at arm's reach
-            vrUI.position.set(0, 1.4, -0.8); // Much closer (was -2) and slightly lower
+            vrUI.position.set(0, 1.4, -0.8);
             dolly.add(vrUI);
         }
         
@@ -333,45 +334,62 @@
             if (!vrUI.visible) return;
             
             const mushrooms = [leftMushroom, rightMushroom].filter(m => m);
+            const currentTime = Date.now();
             
             mushrooms.forEach(mushroom => {
+                if (!mushroom) return;
+                
                 const mushroomPos = new THREE.Vector3();
                 mushroom.getWorldPosition(mushroomPos);
                 
-                // Check Play Again button - smaller interaction distance
+                // Check Play Again button
                 const playAgainPos = new THREE.Vector3();
                 vrPlayAgainButton.getWorldPosition(playAgainPos);
-                if (mushroomPos.distanceTo(playAgainPos) < 0.15) { // Smaller distance for smaller buttons
+                const playAgainDistance = mushroomPos.distanceTo(playAgainPos);
+                
+                if (playAgainDistance < 0.2) { // Increased interaction distance
                     if (hoveredButton !== 'playAgain') {
                         vrPlayAgainButton.material.color.setHex(0x66bb6a);
                         hoveredButton = 'playAgain';
                     }
                     
-                    // Check for trigger press (simplified - using gamepad if available)
+                    // Check for trigger press with debouncing
                     const controllers = [controller1, controller2];
                     controllers.forEach(controller => {
-                        if (controller.gamepad && controller.gamepad.buttons[0] && controller.gamepad.buttons[0].pressed) {
+                        if (controller.gamepad && 
+                            controller.gamepad.buttons[0] && 
+                            controller.gamepad.buttons[0].pressed &&
+                            currentTime - lastButtonPressTime > 500) { // 500ms debounce
+                            lastButtonPressTime = currentTime;
                             resetGame();
                         }
                     });
                 } else if (hoveredButton === 'playAgain') {
                     vrPlayAgainButton.material.color.setHex(0x4CAF50);
-                    hoveredButton = null;
+                    if (playAgainDistance > 0.3) { // Only clear hover when well outside
+                        hoveredButton = null;
+                    }
                 }
                 
-                // Check Quit button - smaller interaction distance
+                // Check Quit button
                 const quitPos = new THREE.Vector3();
                 vrQuitButton.getWorldPosition(quitPos);
-                if (mushroomPos.distanceTo(quitPos) < 0.15) { // Smaller distance for smaller buttons
+                const quitDistance = mushroomPos.distanceTo(quitPos);
+                
+                if (quitDistance < 0.2) { // Increased interaction distance
                     if (hoveredButton !== 'quit') {
                         vrQuitButton.material.color.setHex(0xef5350);
                         hoveredButton = 'quit';
                     }
                     
-                    // Check for trigger press
+                    // Check for trigger press with debouncing
                     const controllers = [controller1, controller2];
                     controllers.forEach(controller => {
-                        if (controller.gamepad && controller.gamepad.buttons[0] && controller.gamepad.buttons[0].pressed) {
+                        if (controller.gamepad && 
+                            controller.gamepad.buttons[0] && 
+                            controller.gamepad.buttons[0].pressed &&
+                            currentTime - lastButtonPressTime > 500) { // 500ms debounce
+                            lastButtonPressTime = currentTime;
                             // Exit VR and return to menu
                             if (renderer.xr.getSession()) {
                                 renderer.xr.getSession().end();
@@ -381,7 +399,9 @@
                     });
                 } else if (hoveredButton === 'quit') {
                     vrQuitButton.material.color.setHex(0xf44336);
-                    hoveredButton = null;
+                    if (quitDistance > 0.3) { // Only clear hover when well outside
+                        hoveredButton = null;
+                    }
                 }
             });
         }
@@ -456,10 +476,10 @@
         }
         
         function loadModels() {
-            // Load single cat - 3x bigger than before
+            // Load single cat - smaller size (30% reduction)
             loader.load('cat.glb', (gltf) => {
                 const catModel = gltf.scene;
-                catModel.scale.set(0.225, 0.225, 0.225); // Was 0.075, now 3x bigger = 0.225
+                catModel.scale.set(0.1575, 0.1575, 0.1575); // Was 0.225, now 30% smaller = 0.1575
                 createCat(catModel);
             }, undefined, (error) => {
                 console.log('Error loading cat.glb, using fallback geometry');
@@ -472,7 +492,7 @@
                 
                 // Left hand mushroom umbrella - smaller since player is bigger
                 leftMushroom = mushroomModel.clone();
-                leftMushroom.scale.set(0.15, 0.15, 0.15); // Smaller umbrellas for bigger player
+                leftMushroom.scale.set(0.15, 0.15, 0.15);
                 controller1.add(leftMushroom);
                 leftMushroom.position.set(0, 0, -0.05);
                 
@@ -490,7 +510,7 @@
         function createCat(catModel) {
             cat = catModel.clone();
             cat.position.set(0, 0, 0); // Fixed position at origin
-            cat.rotation.y = 0; // Face the player (removed randomization)
+            cat.rotation.y = Math.PI * (160/180); // Rotate 160 degrees to face player
             
             // No shadows needed
             cat.traverse((child) => {
@@ -510,27 +530,27 @@
         function createFallbackCat() {
             const catGroup = new THREE.Group();
             
-            // Simple sphere for cat body - 3x bigger than before
-            const bodyGeometry = new THREE.SphereGeometry(0.225, 16, 12); // Was 0.075, now 0.225
+            // Simple sphere for cat body - 30% smaller than before
+            const bodyGeometry = new THREE.SphereGeometry(0.1575, 16, 12); // Was 0.225, now 30% smaller
             const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.position.y = 0.135; // Adjusted for bigger size
+            body.position.y = 0.0945; // Adjusted for smaller size
             catGroup.add(body);
             
-            // Simple ears - 3x bigger
-            const earGeometry = new THREE.ConeGeometry(0.045, 0.09, 8); // Was 0.015, 0.03
+            // Simple ears - 30% smaller
+            const earGeometry = new THREE.ConeGeometry(0.0315, 0.063, 8); // Was 0.045, 0.09
             const earMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
             
             const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-            leftEar.position.set(-0.09, 0.27, 0.09); // Adjusted positions for bigger cat
+            leftEar.position.set(-0.063, 0.189, 0.063); // Adjusted for smaller cat
             catGroup.add(leftEar);
             
             const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-            rightEar.position.set(0.09, 0.27, 0.09);
+            rightEar.position.set(0.063, 0.189, 0.063);
             catGroup.add(rightEar);
             
             catGroup.position.set(0, 0, 0); // Fixed position at origin
-            catGroup.rotation.y = 0; // Face the player (removed randomization)
+            catGroup.rotation.y = Math.PI * (160/180); // Rotate 160 degrees to face player
             
             // Add purr sound to cat
             if (catPurrSound) {
@@ -586,8 +606,8 @@
             document.getElementById('timer').style.display = 'block';
             document.getElementById('stats').style.display = 'block';
             
-            // Reset camera position for VR/game mode
-            camera.position.set(0, 0, 0);
+            // Reset camera position for VR/game mode - no awkward ground level view
+            camera.position.set(0, 1.7, 0); // Standing height, no ground level transition
             camera.lookAt(0, 0, -1);
             
             startGame();
@@ -740,6 +760,10 @@
             raindropsBlocked = 0;
             finalScore = 0;
             
+            // Reset button states
+            hoveredButton = null;
+            lastButtonPressTime = 0;
+            
             // Stop all sounds
             try {
                 if (howlSound && howlSound.isPlaying) {
@@ -766,10 +790,10 @@
             dropGroup.add(dropSphere);
             
             // Add teardrop cone that starts from sphere's equator
-            const tipGeometry = new THREE.ConeGeometry(0.03, 0.06, 6); // Base radius matches sphere radius
+            const tipGeometry = new THREE.ConeGeometry(0.03, 0.06, 6);
             const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
             const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.03; // Position so base of cone is at sphere's top
+            tip.position.y = 0.03;
             dropGroup.add(tip);
             
             // Always target the cat area since there's only one
@@ -779,9 +803,9 @@
                 
                 // Spawn above the cat with some random offset
                 dropGroup.position.set(
-                    catPosition.x + (Math.random() - 0.5) * 2, // ±1 unit from cat
-                    8 + Math.random() * 3, // 8-11 units high
-                    catPosition.z + (Math.random() - 0.5) * 2  // ±1 unit from cat
+                    catPosition.x + (Math.random() - 0.5) * 2,
+                    8 + Math.random() * 3,
+                    catPosition.z + (Math.random() - 0.5) * 2
                 );
             } else {
                 // Fallback to center spawn
@@ -793,7 +817,6 @@
             }
             
             dropGroup.velocity = 0.02 + (gameTime / 120000) * 0.08;
-            // No shadows needed
             
             scene.add(dropGroup);
             raindrops.push(dropGroup);
@@ -856,7 +879,7 @@
                 for (const mushroomPos of mushroomPositions) {
                     const distance = drop.position.distanceTo(mushroomPos);
                     
-                    if (distance < 0.4 && drop.position.y > mushroomPos.y - 0.2) { // Adjusted for smaller umbrellas
+                    if (distance < 0.4 && drop.position.y > mushroomPos.y - 0.2) {
                         // Hit mushroom - create particle burst and increment score
                         createParticleBurst(drop.position);
                         
@@ -881,13 +904,13 @@
                 
                 if (hitMushroom) continue;
                 
-                // Check if raindrop hits the cat - adjusted for bigger cat
+                // Check if raindrop hits the cat - adjusted for smaller cat
                 if (cat && cat.visible) {
                     const catPosition = new THREE.Vector3();
                     cat.getWorldPosition(catPosition);
                     const catDistance = drop.position.distanceTo(catPosition);
                     
-                    if (catDistance < 0.5 && drop.position.y < catPosition.y + 0.5) { // Increased from 0.3 to 0.5 for bigger cat
+                    if (catDistance < 0.35 && drop.position.y < catPosition.y + 0.35) { // Reduced from 0.5 for smaller cat
                         // Cat got wet - game over
                         endGame();
                         return;
@@ -969,7 +992,7 @@
                 document.getElementById('timer').textContent = `Time: ${Math.floor(gameTime / 1000)}s`;
                 
                 // Spawn raindrops
-                if (Date.now() - lastDropTime > currentSpawnRate / 3) { // Increased frequency for single cat
+                if (Date.now() - lastDropTime > currentSpawnRate / 3) {
                     spawnRaindrop();
                     lastDropTime = Date.now();
                     
