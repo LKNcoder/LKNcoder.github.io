@@ -826,50 +826,70 @@ function restartGameInVR() {
         }
 
         // NEW SCOREBOARD SYSTEM - Creates DOM elements programmatically
-        function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
-            document.getElementById('timer').style.display = 'none';
-            document.getElementById('stats').style.display = 'none';
-            document.getElementById('ui').style.display = 'block';
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('gameOver').style.display = 'block';
+function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
+    console.log('=== DEBUGGING GAME OVER ===');
+    console.log('Called with:', { timeInSeconds, dropsBlocked, score });
+    
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('stats').style.display = 'none';
+    document.getElementById('ui').style.display = 'block';
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('gameOver').style.display = 'block';
 
-            // Clear score container completely
-            const scoreContainer = document.getElementById('scoreContainer');
-            
-            // Remove all existing children
-            while (scoreContainer.firstChild) {
-                scoreContainer.removeChild(scoreContainer.firstChild);
-            }
-            
-            // Create new score elements from scratch
-            const timeElement = document.createElement('p');
-            timeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
-            timeElement.className = 'score-line';
-            
-            const dropsElement = document.createElement('p');
-            dropsElement.textContent = `Raindrops blocked: ${dropsBlocked}`;
-            dropsElement.className = 'score-line';
-            
-            const scoreElement = document.createElement('p');
-            scoreElement.textContent = `Score: ${score}`;
-            scoreElement.className = 'score-line final-score';
-            
-            // Append in order
-            scoreContainer.appendChild(timeElement);
-            scoreContainer.appendChild(dropsElement);
-            scoreContainer.appendChild(scoreElement);
-        }
+    // Clear score container completely
+    const scoreContainer = document.getElementById('scoreContainer');
+    console.log('Score container found:', scoreContainer);
+    console.log('Children before clearing:', scoreContainer.children.length);
+    
+    // Remove all existing children
+    while (scoreContainer.firstChild) {
+        console.log('Removing child:', scoreContainer.firstChild.textContent);
+        scoreContainer.removeChild(scoreContainer.firstChild);
+    }
+    
+    console.log('Children after clearing:', scoreContainer.children.length);
+    
+    // Create new score elements from scratch
+    const timeElement = document.createElement('p');
+    timeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
+    timeElement.className = 'score-line';
+    console.log('Created time element:', timeElement.textContent);
+    
+    const dropsElement = document.createElement('p');
+    dropsElement.textContent = `Raindrops blocked: ${dropsBlocked}`;
+    dropsElement.className = 'score-line';
+    console.log('Created drops element:', dropsElement.textContent);
+    
+    const scoreElement = document.createElement('p');
+    scoreElement.textContent = `Score: ${score}`;
+    scoreElement.className = 'score-line final-score';
+    console.log('Created score element:', scoreElement.textContent);
+    
+    // Append in order
+    scoreContainer.appendChild(timeElement);
+    scoreContainer.appendChild(dropsElement);
+    scoreContainer.appendChild(scoreElement);
+    
+    console.log('Final children count:', scoreContainer.children.length);
+    console.log('Final container HTML:', scoreContainer.innerHTML);
+    console.log('=== END DEBUGGING ===');
+}
         
  function resetGame() {
+    console.log('=== DEBUGGING RESET GAME ===');
+    
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     
     // Clear the score container
     const scoreContainer = document.getElementById('scoreContainer');
     if (scoreContainer) {
+        console.log('Clearing score container in reset - children before:', scoreContainer.children.length);
         while (scoreContainer.firstChild) {
+            console.log('Removing in reset:', scoreContainer.firstChild.textContent);
             scoreContainer.removeChild(scoreContainer.firstChild);
         }
+        console.log('Children after reset clearing:', scoreContainer.children.length);
     }
     
     gameStarted = false;
@@ -927,6 +947,8 @@ function restartGameInVR() {
     } catch (error) {
         console.log('Error stopping sounds:', error);
     }
+    
+    console.log('=== END RESET DEBUGGING ===');
 }
         
         function spawnRaindrop() {
@@ -1224,5 +1246,3 @@ function endGame() {
     </script>
 </body>
 </html>
-
-
