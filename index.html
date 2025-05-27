@@ -136,22 +136,23 @@
         init();
         
         function init() {
-            // Scene setup
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); // Sky blue
             
-            // Camera positioned at standing height - scaled up
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
-            // Create dolly - scaled up
-            dolly = new THREE.Group();
-            dolly.position.set(0, 0, 1.0 * SCALE_FACTOR); // Scaled up position
-            dolly.add(camera);
-            scene.add(dolly);
-            
-            // Position camera to look down at cat for menu view - scaled up
-            camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
-            camera.lookAt(0, 0, 0);
+         // Scene setup
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Sky blue
+    
+    // Camera with narrower FOV to make player feel bigger - changed from 75 to 50
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    // Create dolly - scaled up
+    dolly = new THREE.Group();
+    dolly.position.set(0, 0, 1.0 * SCALE_FACTOR); // Scaled up position
+    dolly.add(camera);
+    scene.add(dolly);
+    
+    // Position camera to look down at cat for menu view - scaled up
+    camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
+    camera.lookAt(0, 0, 0);
             
             // Audio setup
             audioListener = new THREE.AudioListener();
@@ -201,143 +202,143 @@
             renderer.setAnimationLoop(animate);
         }
         
-        function createVRUI() {
-            // Create VR UI group
-            vrUI = new THREE.Group();
-            vrUI.visible = false;
+       function createVRUI() {
+    // Create VR UI group
+    vrUI = new THREE.Group();
+    vrUI.visible = false;
+    
+    // Create background panel - scaled up
+    const panelGeometry = new THREE.PlaneGeometry(2.4 * SCALE_FACTOR, 2.0 * SCALE_FACTOR);
+    const panelMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x000000, 
+        transparent: true, 
+        opacity: 0.8 
+    });
+    const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+    vrUI.add(panel);
+    
+    // Create text using canvas texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    function updateVRUIText() {
+        // Clear canvas
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillRect(0, 0, 512, 512);
+        
+        // Text styling
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        
+        // Game Over text
+        ctx.fillText('Game Over!', 256, 100);
+        
+        // Cat emoji
+        ctx.font = '60px Arial';
+        ctx.fillText('😿', 256, 170);
+        
+        // Score info
+        ctx.font = '24px Arial';
+        ctx.fillText('The cat got wet!', 256, 220);
+        
+        const timeInSeconds = Math.floor(gameTime / 1000);
+        ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260);
+        ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 290);
+        
+        // Final score
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 32px Arial';
+        ctx.fillText(`Score: ${finalScore}`, 256, 340);
+    }
             
-            // Create background panel - scaled up
-            const panelGeometry = new THREE.PlaneGeometry(2.4 * SCALE_FACTOR, 2.0 * SCALE_FACTOR);
-            const panelMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x000000, 
-                transparent: true, 
-                opacity: 0.8 
-            });
-            const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-            vrUI.add(panel);
-            
-            // Create text using canvas texture
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            
-            function updateVRUIText() {
-                // Clear canvas
-                ctx.fillStyle = 'rgba(0, 0, 0, 0)';
-                ctx.fillRect(0, 0, 512, 512);
-                
-                // Text styling
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 48px Arial';
-                ctx.textAlign = 'center';
-                
-                // Game Over text
-                ctx.fillText('Game Over!', 256, 100);
-                
-                // Cat emoji
-                ctx.font = '60px Arial';
-                ctx.fillText('😿', 256, 170);
-                
-                // Score info
-                ctx.font = '24px Arial';
-                ctx.fillText('The cat got wet!', 256, 220);
-                
-                const timeInSeconds = Math.floor(gameTime / 1000);
-                ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260);
-                ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 290);
-                
-                // Final score
-                ctx.fillStyle = '#FFD700';
-                ctx.font = 'bold 32px Arial';
-                ctx.fillText(`Score: ${finalScore}`, 256, 340);
-            }
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const textMaterial = new THREE.MeshBasicMaterial({ 
-                map: texture, 
-                transparent: true 
-            });
-            const textMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(2.0 * SCALE_FACTOR, 2.0 * SCALE_FACTOR),
-                textMaterial
-            );
-            textMesh.position.z = 0.02 * SCALE_FACTOR;
-            vrUI.add(textMesh);
-            
-            // Store reference to update function
-            vrUI.updateText = updateVRUIText;
-            vrUI.textTexture = texture;
-            
-            // Create Play Again button - scaled up with box colliders
-            const buttonGeometry = new THREE.BoxGeometry(0.8 * SCALE_FACTOR, 0.24 * SCALE_FACTOR, 0.08 * SCALE_FACTOR);
-            const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
-            vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
-            vrPlayAgainButton.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.06 * SCALE_FACTOR);
-            
-            // Add bounding box for precise collision detection
-            vrPlayAgainButton.geometry.computeBoundingBox();
-            
-            vrUI.add(vrPlayAgainButton);
-            
-            // Play Again button text - positioned closer to button surface
-            const playCanvas = document.createElement('canvas');
-            playCanvas.width = 256;
-            playCanvas.height = 64;
-            const playCtx = playCanvas.getContext('2d');
-            playCtx.fillStyle = 'white';
-            playCtx.font = 'bold 24px Arial';
-            playCtx.textAlign = 'center';
-            playCtx.fillText('Play Again', 128, 40);
-            
-            const playTexture = new THREE.CanvasTexture(playCanvas);
-            const playTextMaterial = new THREE.MeshBasicMaterial({ 
-                map: playTexture, 
-                transparent: true 
-            });
-            const playTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
-                playTextMaterial
-            );
-            playTextMesh.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.08 * SCALE_FACTOR); // Closer to button
-            vrUI.add(playTextMesh);
-            
-            // Create Quit button - scaled up with box colliders
-            const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
-            vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
-            vrQuitButton.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.06 * SCALE_FACTOR);
-            
-            // Add bounding box for precise collision detection
-            vrQuitButton.geometry.computeBoundingBox();
-            
-            vrUI.add(vrQuitButton);
-            
-            // Quit button text - positioned closer to button surface
-            const quitCanvas = document.createElement('canvas');
-            quitCanvas.width = 256;
-            quitCanvas.height = 64;
-            const quitCtx = quitCanvas.getContext('2d');
-            quitCtx.fillStyle = 'white';
-            quitCtx.font = 'bold 24px Arial';
-            quitCtx.textAlign = 'center';
-            quitCtx.fillText('Quit', 128, 40);
-            
-            const quitTexture = new THREE.CanvasTexture(quitCanvas);
-            const quitTextMaterial = new THREE.MeshBasicMaterial({ 
-                map: quitTexture, 
-                transparent: true 
-            });
-            const quitTextMesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
-                quitTextMaterial
-            );
-            quitTextMesh.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.08 * SCALE_FACTOR); // Closer to button
-            vrUI.add(quitTextMesh);
-            
-            // Position VR UI closer to player and at arm's reach - scaled up
-            vrUI.position.set(0, 2.8 * SCALE_FACTOR, -1.6 * SCALE_FACTOR);
-            dolly.add(vrUI);
-        }
+          const texture = new THREE.CanvasTexture(canvas);
+    const textMaterial = new THREE.MeshBasicMaterial({ 
+        map: texture, 
+        transparent: true 
+    });
+    const textMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.0 * SCALE_FACTOR, 2.0 * SCALE_FACTOR),
+        textMaterial
+    );
+    textMesh.position.z = 0.02 * SCALE_FACTOR;
+    vrUI.add(textMesh);
+    
+    // Store reference to update function
+    vrUI.updateText = updateVRUIText;
+    vrUI.textTexture = texture;
+    
+    // Create Play Again button - scaled up with box colliders
+    const buttonGeometry = new THREE.BoxGeometry(0.8 * SCALE_FACTOR, 0.24 * SCALE_FACTOR, 0.08 * SCALE_FACTOR);
+    const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
+    vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
+    vrPlayAgainButton.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.06 * SCALE_FACTOR);
+    
+    // Add bounding box for precise collision detection
+    vrPlayAgainButton.geometry.computeBoundingBox();
+    
+    vrUI.add(vrPlayAgainButton);
+    
+    // Play Again button text - positioned on button surface, not inside
+    const playCanvas = document.createElement('canvas');
+    playCanvas.width = 256;
+    playCanvas.height = 64;
+    const playCtx = playCanvas.getContext('2d');
+    playCtx.fillStyle = 'white';
+    playCtx.font = 'bold 24px Arial';
+    playCtx.textAlign = 'center';
+    playCtx.fillText('Play Again', 128, 40);
+    
+    const playTexture = new THREE.CanvasTexture(playCanvas);
+    const playTextMaterial = new THREE.MeshBasicMaterial({ 
+        map: playTexture, 
+        transparent: true 
+    });
+    const playTextMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
+        playTextMaterial
+    );
+    playTextMesh.position.set(-0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.1 * SCALE_FACTOR); // On surface, not inside
+    vrUI.add(playTextMesh);
+    
+    // Create Quit button - scaled up with box colliders
+    const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
+    vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
+    vrQuitButton.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.06 * SCALE_FACTOR);
+    
+    // Add bounding box for precise collision detection
+    vrQuitButton.geometry.computeBoundingBox();
+    
+    vrUI.add(vrQuitButton);
+    
+    // Quit button text - positioned on button surface, not inside
+    const quitCanvas = document.createElement('canvas');
+    quitCanvas.width = 256;
+    quitCanvas.height = 64;
+    const quitCtx = quitCanvas.getContext('2d');
+    quitCtx.fillStyle = 'white';
+    quitCtx.font = 'bold 24px Arial';
+    quitCtx.textAlign = 'center';
+    quitCtx.fillText('Quit', 128, 40);
+    
+    const quitTexture = new THREE.CanvasTexture(quitCanvas);
+    const quitTextMaterial = new THREE.MeshBasicMaterial({ 
+        map: quitTexture, 
+        transparent: true 
+    });
+    const quitTextMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.7 * SCALE_FACTOR, 0.2 * SCALE_FACTOR),
+        quitTextMaterial
+    );
+    quitTextMesh.position.set(0.6 * SCALE_FACTOR, -0.7 * SCALE_FACTOR, 0.1 * SCALE_FACTOR); // On surface, not inside
+    vrUI.add(quitTextMesh);
+    
+    // Position VR UI closer to player and at arm's reach - scaled up
+    vrUI.position.set(0, 2.8 * SCALE_FACTOR, -1.6 * SCALE_FACTOR);
+    dolly.add(vrUI);
+}
         
         function checkVRUIInteraction() {
             if (!vrUI.visible) return;
