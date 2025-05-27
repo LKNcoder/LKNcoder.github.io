@@ -197,8 +197,11 @@
             loadModels();
             
             // Event listeners
-            document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
-            document.getElementById('playAgain').addEventListener('click', resetGame);
+            if (!document.getElementById('playAgain').hasAttribute('data-listener-added')) {
+    document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
+    document.getElementById('playAgain').addEventListener('click', resetGame);
+    document.getElementById('playAgain').setAttribute('data-listener-added', 'true');
+            }
             
             // Start render loop
             renderer.setAnimationLoop(animate);
@@ -1134,10 +1137,20 @@ function endGame() {
         document.getElementById('menu').style.display = 'none';
         document.getElementById('gameOver').style.display = 'block';
 
-        // Only use textContent to set the values ONCE per field
-        document.getElementById('finalTime').textContent = `Time survived: ${timeInSeconds} seconds`;
-        document.getElementById('finalDrops').textContent = `Raindrops blocked: ${raindropsBlocked}`;
-        document.getElementById('finalScore').textContent = `Score: ${finalScore}`;
+        // Clear any existing content first, then set new values
+        const finalTimeElement = document.getElementById('finalTime');
+        const finalDropsElement = document.getElementById('finalDrops');
+        const finalScoreElement = document.getElementById('finalScore');
+        
+        // Clear innerHTML to remove any accumulated content
+        finalTimeElement.innerHTML = '';
+        finalDropsElement.innerHTML = '';
+        finalScoreElement.innerHTML = '';
+        
+        // Now set the new values
+        finalTimeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
+        finalDropsElement.textContent = `Raindrops blocked: ${raindropsBlocked}`;
+        finalScoreElement.textContent = `Score: ${finalScore}`;
     }
 }
         
