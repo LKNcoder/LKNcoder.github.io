@@ -768,12 +768,14 @@
         }
         
  function resetGame() {
-    
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
+    
+    // Clear score fields ONCE at the beginning
     document.getElementById('finalTime').textContent = '';
-document.getElementById('finalDrops').textContent = '';
-document.getElementById('finalScore').textContent = '';
+    document.getElementById('finalDrops').textContent = '';
+    document.getElementById('finalScore').textContent = '';
+    
     gameStarted = false;
     gameOver = false;
 
@@ -807,12 +809,9 @@ document.getElementById('finalScore').textContent = '';
     gameTime = 0;
     startTime = undefined;
 
-    // Reset UI displays
+    // Reset UI displays (but NOT the score fields again)
     document.getElementById('timer').textContent = 'Time: 0s';
     document.getElementById('dropsBlocked').textContent = '0';
-    document.getElementById('finalTime').textContent = '';
-    document.getElementById('finalDrops').textContent = '';
-    document.getElementById('finalScore').textContent = '';
 
     // Reset button states
     hoveredButton = null;
