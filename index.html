@@ -89,13 +89,7 @@
             <p>Protect the sleeping cat from the rain! Use your mushroom umbrellas to shield it.</p>
             <button id="enterVR">Start Game</button>
         </div>
-        <div id="gameOver">
-            <h2>Game Over!</h2>
-            <p>The cat got wet! 😿</p>
-            <div id="scoreContainer"></div>
-            <button id="playAgain">Play Again</button>
-        </div>
-    </div>
+         </div>
     
     <div id="timer" style="display: none;">Time: 0s</div>
     <div id="stats" style="display: none;">
@@ -132,6 +126,7 @@
         const SCALE_FACTOR = 0.5; // Scale everything up 2x for better VR accuracy
 
         let puddles = [];
+        let isInVRMode = false;
         
         // GLB Loader
         const loader = new THREE.GLTFLoader();
@@ -688,58 +683,86 @@ function restartGameInVR() {
         }
         
         function startGameAndTryVR() {
-            // Resume audio context
-            if (audioListener && audioListener.context.state === 'suspended') {
-                audioListener.context.resume().then(() => {
-                    console.log('Audio context resumed');
-                }).catch(error => {
-                    console.log('Failed to resume audio context:', error);
-                });
-            }
-            
-            // Start the game first
-            document.getElementById('ui').style.display = 'none';
-            document.getElementById('timer').style.display = 'block';
-            document.getElementById('stats').style.display = 'block';
-            
-            // Reset camera position for VR/game mode - scaled up
-            camera.position.set(0, 3.4 * SCALE_FACTOR, 0);
-            camera.lookAt(0, 0, -1);
-            
-            startGame();
-            
-            // Try to enter VR
-            if (navigator.xr) {
-                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-                    if (supported) {
-                        navigator.xr.requestSession('immersive-vr', {
-                            requiredFeatures: ['local'],
-                            optionalFeatures: ['local-floor', 'bounded-floor']
-                        }).then(session => {
-                            renderer.xr.setSession(session);
-                            
-                            session.requestReferenceSpace('local').then(refSpace => {
-                                console.log('Using local reference space');
-                            }).catch(err => {
-                                console.log('Local reference space not supported, trying viewer');
-                                session.requestReferenceSpace('viewer').then(refSpace => {
-                                    console.log('Using viewer reference space');
-                                }).catch(err2 => {
-                                    console.log('Viewer reference space also failed:', err2);
-                                });
-                            });
-                        }).catch(err => {
-                            console.log('VR session request failed:', err);
-                            console.log('Using desktop mode');
+    // Resume audio context
+    if (audioListener && audioListener.context.state === 'suspended') {
+        audioListener.context.resume().then(() => {
+            console.log('Audio context resumed');
+        }).catch(error => {
+            console.log('Failed to resume audio context:', error);
+        });
+    }
+    
+    // Start the game first
+    document.getElementById('ui').style.display = 'none';
+    document.getElementById('timer').style.display = 'block';
+    document.getElementById('stats').style.display = 'block';
+    
+    // Reset camera position for VR/game mode - scaled up
+    camera.position.set(0, 3.4 * SCALE_FACTOR, 0);
+    camera.lookAt(0, 0, -1);
+    
+    startGame();
+    
+    // Try to enter VR
+    if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+            if (supported) {
+                navigator.xr.requestSession('immersive-vr', {
+                    requiredFeatures: ['local'],
+                    optionalFeatures: ['local-floor', 'bounded-floor']
+                }).then(session => {
+                    renderer.xr.setSession(session);
+                    
+                    // Set our manual VR flag
+                    isInVRMode = true;
+                    console.log('VR session started, isInVRMode =', isInVRMode);
+                    
+                    // Listen for session end to reset flag
+                    session.addEventListener('end', () => {
+                        isInVRMode = false;
+                        console.log('VR session ended, isInVRMode =', isInVRMode);
+                        // When VR ends, go back to menu
+                        resetGame();
+                    });
+                    
+                    session.requestReferenceSpace('local').then(refSpace => {
+                        console.log('Using local reference space');
+                    }).catch(err => {
+                        console.log('Local reference space not supported, trying viewer');
+                        session.requestReferenceSpace('viewer').then(refSpace => {
+                            console.log('Using viewer reference space');
+                        }).catch(err2 => {
+                            console.log('Viewer reference space also failed:', err2);
                         });
-                    } else {
-                        console.log('VR not supported, using desktop mode');
-                    }
+                    });
+                }).catch(err => {
+                    console.log('VR session request failed:', err);
+                    console.log('VR required - returning to menu');
+                    // If VR fails, show error message and stay at menu
+                    alert('VR headset required to play this game!');
+                    document.getElementById('ui').style.display = 'block';
+                    document.getElementById('timer').style.display = 'none';
+                    document.getElementById('stats').style.display = 'none';
+                    resetGame();
                 });
             } else {
-                console.log('WebXR not available, using desktop mode');
+                console.log('VR not supported');
+                alert('VR headset required to play this game!');
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('timer').style.display = 'none';
+                document.getElementById('stats').style.display = 'none';
+                resetGame();
             }
-        }
+        });
+    } else {
+        console.log('WebXR not available');
+        alert('VR headset required to play this game!');
+        document.getElementById('ui').style.display = 'block';
+        document.getElementById('timer').style.display = 'none';
+        document.getElementById('stats').style.display = 'none';
+        resetGame();
+    }
+}
         
         function startGame() {
             gameStarted = true;
@@ -826,77 +849,19 @@ function restartGameInVR() {
             return baseTimePoints + dropPoints + survivalBonus + efficiencyBonus;
         }
 
-        // NEW SCOREBOARD SYSTEM - Creates DOM elements programmatically
-function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
-    console.log('=== DEBUGGING GAME OVER ===');
-    console.log('Called with PARAMETERS:', { timeInSeconds, dropsBlocked, score });
-    console.log('Global values at this time:', { 
-        globalTime: Math.floor(gameTime / 1000), 
-        globalDrops: raindropsBlocked, 
-        globalScore: finalScore 
-    });
-    
-    document.getElementById('timer').style.display = 'none';
-    document.getElementById('stats').style.display = 'none';
-    document.getElementById('ui').style.display = 'block';
-    document.getElementById('menu').style.display = 'none';
-    document.getElementById('gameOver').style.display = 'block';
 
-    // Clear score container completely
-    const scoreContainer = document.getElementById('scoreContainer');
-    console.log('Score container found:', scoreContainer);
-    console.log('Children before clearing:', scoreContainer.children.length);
-    
-    // Force clear using multiple methods to be absolutely sure
-    while (scoreContainer.firstChild) {
-        scoreContainer.removeChild(scoreContainer.firstChild);
-    }
-    scoreContainer.innerHTML = '';
-    
-    // Force a reflow
-    scoreContainer.offsetHeight;
-    
-    console.log('Children after clearing:', scoreContainer.children.length);
-    
-    // Create new score elements using ONLY the passed parameters
-    const timeElement = document.createElement('p');
-    timeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
-    timeElement.className = 'score-line';
-    console.log('Created time element:', timeElement.textContent);
-    
-    const dropsElement = document.createElement('p');
-    dropsElement.textContent = `Raindrops blocked: ${dropsBlocked}`;
-    dropsElement.className = 'score-line';
-    console.log('Created drops element:', dropsElement.textContent);
-    
-    const scoreElement = document.createElement('p');
-    scoreElement.textContent = `Score: ${score}`;
-    scoreElement.className = 'score-line final-score';
-    console.log('Created score element:', scoreElement.textContent);
-    
-    // Append in order
-    scoreContainer.appendChild(timeElement);
-    scoreContainer.appendChild(dropsElement);
-    scoreContainer.appendChild(scoreElement);
-    
-    console.log('Final children count:', scoreContainer.children.length);
-    console.log('Final container HTML:', scoreContainer.innerHTML);
-    console.log('=== END DEBUGGING ===');
-}
 
         
  function resetGame() {
-    console.log('=== DEBUGGING RESET GAME ===');
+    console.log('=== RESET GAME ===');
     
-    document.getElementById('gameOver').style.display = 'none';
-    document.getElementById('menu').style.display = 'block';
-    
-    // Clear the score container using innerHTML (more reliable)
-    const scoreContainer = document.getElementById('scoreContainer');
-    if (scoreContainer) {
-        console.log('Clearing score container in reset - children before:', scoreContainer.children.length);
-        scoreContainer.innerHTML = '';
-        console.log('Children after reset clearing:', scoreContainer.children.length);
+    // Show menu only if not in VR
+    if (!isInVRMode) {
+        document.getElementById('gameOver').style.display = 'none';
+        document.getElementById('menu').style.display = 'block';
+        document.getElementById('ui').style.display = 'block';
+        document.getElementById('timer').style.display = 'none';
+        document.getElementById('stats').style.display = 'none';
     }
     
     gameStarted = false;
@@ -940,6 +905,9 @@ function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
     hoveredButton = null;
     lastButtonPressTime = 0;
 
+    // Reset VR flag when returning to menu
+    isInVRMode = false;
+
     // Stop all sounds
     try {
         if (howlSound && howlSound.isPlaying) {
@@ -955,7 +923,7 @@ function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
         console.log('Error stopping sounds:', error);
     }
     
-    console.log('=== END RESET DEBUGGING ===');
+    console.log('=== END RESET ===');
 }
         
         function spawnRaindrop() {
@@ -1200,21 +1168,12 @@ function endGame() {
         console.log('Error with howl sound:', error);
     }
 
-    // Determine which UI to show and show it IMMEDIATELY
-    const isVRMode = renderer.xr.isPresenting;
-    console.log('VR presenting?', isVRMode);
-    
-    if (isVRMode) {
-        // FIXED: Pass the captured values to VR UI instead of using globals
-        vrUI.updateText(timeInSeconds, currentRaindropsBlocked, finalScore);
-        vrUI.textTexture.needsUpdate = true;
-        vrUI.visible = true;
-        console.log('Showing VR UI with passed scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
-    } else {
-        // Show desktop UI with the captured values
-        console.log('Calling showDesktopGameOver with captured values:', { timeInSeconds, currentRaindropsBlocked, finalScore });
-        showDesktopGameOver(timeInSeconds, currentRaindropsBlocked, finalScore);
-    }
+    // SIMPLIFIED: Only show VR UI - no desktop fallback
+    console.log('Game ended - showing VR UI only');
+    vrUI.updateText(timeInSeconds, currentRaindropsBlocked, finalScore);
+    vrUI.textTexture.needsUpdate = true;
+    vrUI.visible = true;
+    console.log('Showing VR UI with scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
     
     console.log('=== ENDGAME COMPLETE ===');
 }
