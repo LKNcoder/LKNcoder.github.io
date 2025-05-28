@@ -184,15 +184,7 @@ camera.lookAt(0, 0, 0);
     vrUI = new THREE.Group();
     vrUI.visible = false;
     
-    // Create background panel - scaled down to half size
-    const panelGeometry = new THREE.PlaneGeometry(1.2 * SCALE_FACTOR, 1.0 * SCALE_FACTOR);
-    const panelMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x000000, 
-        transparent: true, 
-        opacity: 0.8 
-    });
-    const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-    vrUI.add(panel);
+   
     
     // Create text using canvas texture
     const canvas = document.createElement('canvas');
