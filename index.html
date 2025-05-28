@@ -836,16 +836,13 @@ function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
     document.getElementById('menu').style.display = 'none';
     document.getElementById('gameOver').style.display = 'block';
 
-    // Clear score container completely
+    // Clear score container completely using innerHTML (more reliable)
     const scoreContainer = document.getElementById('scoreContainer');
     console.log('Score container found:', scoreContainer);
     console.log('Children before clearing:', scoreContainer.children.length);
     
-    // Remove all existing children
-    while (scoreContainer.firstChild) {
-        console.log('Removing child:', scoreContainer.firstChild.textContent);
-        scoreContainer.removeChild(scoreContainer.firstChild);
-    }
+    // Use innerHTML to completely clear - this is more reliable than removeChild
+    scoreContainer.innerHTML = '';
     
     console.log('Children after clearing:', scoreContainer.children.length);
     
@@ -881,14 +878,11 @@ function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
     document.getElementById('gameOver').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     
-    // Clear the score container
+    // Clear the score container using innerHTML (more reliable)
     const scoreContainer = document.getElementById('scoreContainer');
     if (scoreContainer) {
         console.log('Clearing score container in reset - children before:', scoreContainer.children.length);
-        while (scoreContainer.firstChild) {
-            console.log('Removing in reset:', scoreContainer.firstChild.textContent);
-            scoreContainer.removeChild(scoreContainer.firstChild);
-        }
+        scoreContainer.innerHTML = '';
         console.log('Children after reset clearing:', scoreContainer.children.length);
     }
     
