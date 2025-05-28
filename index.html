@@ -205,7 +205,7 @@
             renderer.setAnimationLoop(animate);
         }
         
-   function createVRUI() {
+  function createVRUI() {
     // Create VR UI group
     vrUI = new THREE.Group();
     vrUI.visible = false;
@@ -226,7 +226,10 @@
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     
-    function updateVRUIText() {
+    // FIXED: Modified to accept parameters instead of using globals
+    function updateVRUIText(timeInSeconds, dropsBlocked, score) {
+        console.log('VR UI updateText called with:', { timeInSeconds, dropsBlocked, score });
+        
         // Clear canvas
         ctx.fillStyle = 'rgba(0, 0, 0, 0)';
         ctx.fillRect(0, 0, 512, 512);
@@ -243,18 +246,16 @@
         ctx.font = '60px Arial';
         ctx.fillText('😿', 256, 170);
         
-        // Score info
+        // Score info - using PASSED parameters, not globals
         ctx.font = '24px Arial';
         ctx.fillText('The cat got wet!', 256, 220);
-        
-        const timeInSeconds = Math.floor(gameTime / 1000);
         ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260);
-        ctx.fillText(`Drops blocked: ${raindropsBlocked}`, 256, 290);
+        ctx.fillText(`Drops blocked: ${dropsBlocked}`, 256, 290);
         
         // Final score
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 32px Arial';
-        ctx.fillText(`Score: ${finalScore}`, 256, 340);
+        ctx.fillText(`Score: ${score}`, 256, 340);
     }
     
     const texture = new THREE.CanvasTexture(canvas);
@@ -1152,7 +1153,7 @@ function endGame() {
     
     // Calculate final score ONCE and store in variables
     const timeInSeconds = Math.floor(gameTime / 1000);
-    const currentRaindropsBlocked = raindropsBlocked; // Capture current values
+    const currentRaindropsBlocked = raindropsBlocked;
     finalScore = calculateScore(timeInSeconds, currentRaindropsBlocked);
     
     console.log('Final scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
@@ -1204,13 +1205,13 @@ function endGame() {
     console.log('VR presenting?', isVRMode);
     
     if (isVRMode) {
-        // Update VR UI text and show it
-        vrUI.updateText();
+        // FIXED: Pass the captured values to VR UI instead of using globals
+        vrUI.updateText(timeInSeconds, currentRaindropsBlocked, finalScore);
         vrUI.textTexture.needsUpdate = true;
         vrUI.visible = true;
-        console.log('Showing VR UI with scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
+        console.log('Showing VR UI with passed scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
     } else {
-        // Show desktop UI with the captured values (not global variables)
+        // Show desktop UI with the captured values
         console.log('Calling showDesktopGameOver with captured values:', { timeInSeconds, currentRaindropsBlocked, finalScore });
         showDesktopGameOver(timeInSeconds, currentRaindropsBlocked, finalScore);
     }
