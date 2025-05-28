@@ -200,18 +200,20 @@ camera.lookAt(0, 0, 0);
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
     
-    // FIXED: Modified to accept parameters instead of using globals
+    // FIXED: Proper canvas clearing and texture updating
     function updateVRUIText(timeInSeconds, dropsBlocked, score) {
         console.log('VR UI updateText called with:', { timeInSeconds, dropsBlocked, score });
         
-        // Clear canvas
-        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        // PROPERLY clear the entire canvas with solid background
+        ctx.clearRect(0, 0, 512, 512);
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';  // Solid black background
         ctx.fillRect(0, 0, 512, 512);
         
         // Text styling
         ctx.fillStyle = 'white';
         ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';  // Better text alignment
         
         // Game Over text
         ctx.fillText('Game Over!', 256, 100);
@@ -222,6 +224,7 @@ camera.lookAt(0, 0, 0);
         
         // Score info - using PASSED parameters, not globals
         ctx.font = '24px Arial';
+        ctx.fillStyle = 'white';  // Reset color
         ctx.fillText('The cat got wet!', 256, 220);
         ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260);
         ctx.fillText(`Drops blocked: ${dropsBlocked}`, 256, 290);
@@ -230,9 +233,16 @@ camera.lookAt(0, 0, 0);
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 32px Arial';
         ctx.fillText(`Score: ${score}`, 256, 340);
+        
+        // FORCE texture update
+        texture.needsUpdate = true;
+        console.log('Canvas updated and texture marked for update');
     }
     
     const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;  // Better text quality
+    texture.magFilter = THREE.LinearFilter;
+    
     const textMaterial = new THREE.MeshBasicMaterial({ 
         map: texture, 
         transparent: true 
@@ -317,6 +327,7 @@ camera.lookAt(0, 0, 0);
     vrUI.position.set(0, 2.8 * SCALE_FACTOR, -1.6 * SCALE_FACTOR);
     dolly.add(vrUI);
 }
+
 
         
  function checkVRUIInteraction() {
@@ -1150,7 +1161,7 @@ function endGame() {
     // SIMPLIFIED: Only show VR UI - no desktop fallback
     console.log('Game ended - showing VR UI only');
     vrUI.updateText(timeInSeconds, currentRaindropsBlocked, finalScore);
-    vrUI.textTexture.needsUpdate = true;
+    // REMOVED: vrUI.textTexture.needsUpdate = true; (now handled in updateText function)
     vrUI.visible = true;
     console.log('Showing VR UI with scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
     
