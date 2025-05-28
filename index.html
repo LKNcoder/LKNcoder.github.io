@@ -38,13 +38,6 @@
             background: #45a049;
         }
         
-        #gameOver {
-            display: none;
-            background: rgba(0,0,0,0.8);
-            padding: 30px;
-            border-radius: 15px;
-        }
-        
         #timer {
             position: absolute;
             top: 20px;
@@ -64,32 +57,18 @@
         canvas {
             display: block;
         }
-        
-        #scoreContainer {
-            margin: 10px 0;
-            padding: 5px 0;
-        }
-        
-        .score-line {
-            margin: 8px 0;
-            padding: 3px 0;
-        }
-        
-        .final-score {
-            font-size: 28px;
-            color: #FFD700;
-            font-weight: bold;
-        }
     </style>
 </head>
 <body>
     <div id="ui">
         <div id="menu">
             <h1>🐱 Shroom Cat 🍄</h1>
-            <p>Protect the sleeping cat from the rain! Use your mushroom umbrellas to shield it.</p>
-            <button id="enterVR">Start Game</button>
+            <p><strong>VR Game:</strong> Protect the sleeping cat from the rain!</p>
+            <p>Use your mushroom umbrellas to shield it.</p>
+            <p><em>VR Headset Required</em></p>
+            <button id="enterVR">Start VR Game</button>
         </div>
-         </div>
+    </div>
     
     <div id="timer" style="display: none;">Time: 0s</div>
     <div id="stats" style="display: none;">
@@ -133,72 +112,72 @@
         
         init();
         
-        function init() {
-            
-         // Scene setup
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x888888); // Grey sky
+    function init() {
     
-    // Camera with narrower FOV to make player feel bigger - changed from 75 to 50
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+ // Scene setup
+scene = new THREE.Scene();
+scene.background = new THREE.Color(0x888888); // Grey sky
+
+// Camera with narrower FOV to make player feel bigger - changed from 75 to 50
+camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+// Create dolly - scaled up
+dolly = new THREE.Group();
+dolly.position.set(0, 0, 1.0 * SCALE_FACTOR); // Scaled up position
+dolly.add(camera);
+scene.add(dolly);
+
+// Position camera to look down at cat for menu view - scaled up
+camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
+camera.lookAt(0, 0, 0);
     
-    // Create dolly - scaled up
-    dolly = new THREE.Group();
-    dolly.position.set(0, 0, 1.0 * SCALE_FACTOR); // Scaled up position
-    dolly.add(camera);
-    scene.add(dolly);
+    // Audio setup
+    audioListener = new THREE.AudioListener();
+    camera.add(audioListener);
     
-    // Position camera to look down at cat for menu view - scaled up
-    camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
-    camera.lookAt(0, 0, 0);
-            
-            // Audio setup
-            audioListener = new THREE.AudioListener();
-            camera.add(audioListener);
-            
-            // Renderer with VR support - no shadows
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true;
-            document.body.appendChild(renderer.domElement);
-            
-            // Lighting - no shadows
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-            scene.add(ambientLight);
-            
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 30 * SCALE_FACTOR, 0); // Scaled up
-            scene.add(directionalLight);
-            
-            // Ground - scaled up
-            const groundGeometry = new THREE.PlaneGeometry(40 * SCALE_FACTOR, 40 * SCALE_FACTOR);
-            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x355c32 }); // Darker green
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.y = 0;
-            scene.add(ground);
-            
-            // VR Controllers
-            controller1 = renderer.xr.getController(0);
-            dolly.add(controller1);
-            
-            controller2 = renderer.xr.getController(1);
-            dolly.add(controller2);
-            
-            // Create VR UI
-            createVRUI();
-            
-            // Load audio and models
-            loadAudio();
-            loadModels();
-            
-            // Event listeners - only add once
-            document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
-            document.getElementById('playAgain').addEventListener('click', resetGame);
-            
-            // Start render loop
-            renderer.setAnimationLoop(animate);
-        }
+    // Renderer with VR support - no shadows
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+    
+    // Lighting - no shadows
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(0, 30 * SCALE_FACTOR, 0); // Scaled up
+    scene.add(directionalLight);
+    
+    // Ground - scaled up
+    const groundGeometry = new THREE.PlaneGeometry(40 * SCALE_FACTOR, 40 * SCALE_FACTOR);
+    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x355c32 }); // Darker green
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
+    scene.add(ground);
+    
+    // VR Controllers
+    controller1 = renderer.xr.getController(0);
+    dolly.add(controller1);
+    
+    controller2 = renderer.xr.getController(1);
+    dolly.add(controller2);
+    
+    // Create VR UI
+    createVRUI();
+    
+    // Load audio and models
+    loadAudio();
+    loadModels();
+    
+    // Event listeners - FIXED: removed the orphaned playAgain listener
+    document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
+    // REMOVED: document.getElementById('playAgain').addEventListener('click', resetGame);
+    
+    // Start render loop
+    renderer.setAnimationLoop(animate);
+}
         
   function createVRUI() {
     // Create VR UI group
