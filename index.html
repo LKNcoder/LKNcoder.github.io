@@ -828,55 +828,61 @@ function restartGameInVR() {
         // NEW SCOREBOARD SYSTEM - Creates DOM elements programmatically
 function showDesktopGameOver(timeInSeconds, dropsBlocked, score) {
     console.log('=== DEBUGGING GAME OVER ===');
-    console.log('Called with:', { timeInSeconds, dropsBlocked, score });
+    console.log('Called with PARAMETERS:', { timeInSeconds, dropsBlocked, score });
+    console.log('Global values at this time:', { 
+        globalTime: Math.floor(gameTime / 1000), 
+        globalDrops: raindropsBlocked, 
+        globalScore: finalScore 
+    });
     
-    // Use a small timeout to ensure DOM operations complete
-    setTimeout(() => {
-        document.getElementById('timer').style.display = 'none';
-        document.getElementById('stats').style.display = 'none';
-        document.getElementById('ui').style.display = 'block';
-        document.getElementById('menu').style.display = 'none';
-        document.getElementById('gameOver').style.display = 'block';
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('stats').style.display = 'none';
+    document.getElementById('ui').style.display = 'block';
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('gameOver').style.display = 'block';
 
-        // Clear score container completely using innerHTML (more reliable)
-        const scoreContainer = document.getElementById('scoreContainer');
-        console.log('Score container found:', scoreContainer);
-        console.log('Children before clearing:', scoreContainer.children.length);
-        
-        // Use innerHTML to completely clear - this is more reliable than removeChild
-        scoreContainer.innerHTML = '';
-        
-        // Force a reflow
-        scoreContainer.offsetHeight;
-        
-        console.log('Children after clearing:', scoreContainer.children.length);
-        
-        // Create new score elements from scratch
-        const timeElement = document.createElement('p');
-        timeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
-        timeElement.className = 'score-line';
-        console.log('Created time element:', timeElement.textContent);
-        
-        const dropsElement = document.createElement('p');
-        dropsElement.textContent = `Raindrops blocked: ${dropsBlocked}`;
-        dropsElement.className = 'score-line';
-        console.log('Created drops element:', dropsElement.textContent);
-        
-        const scoreElement = document.createElement('p');
-        scoreElement.textContent = `Score: ${score}`;
-        scoreElement.className = 'score-line final-score';
-        console.log('Created score element:', scoreElement.textContent);
-        
-        // Append in order
-        scoreContainer.appendChild(timeElement);
-        scoreContainer.appendChild(dropsElement);
-        scoreContainer.appendChild(scoreElement);
-        
-        console.log('Final children count:', scoreContainer.children.length);
-        console.log('Final container HTML:', scoreContainer.innerHTML);
-        console.log('=== END DEBUGGING ===');
-    }, 10); // Small delay to ensure DOM is ready
+    // Clear score container completely
+    const scoreContainer = document.getElementById('scoreContainer');
+    console.log('Score container found:', scoreContainer);
+    console.log('Children before clearing:', scoreContainer.children.length);
+    
+    // Force clear using multiple methods to be absolutely sure
+    while (scoreContainer.firstChild) {
+        scoreContainer.removeChild(scoreContainer.firstChild);
+    }
+    scoreContainer.innerHTML = '';
+    
+    // Force a reflow
+    scoreContainer.offsetHeight;
+    
+    console.log('Children after clearing:', scoreContainer.children.length);
+    
+    // Create new score elements using ONLY the passed parameters
+    const timeElement = document.createElement('p');
+    timeElement.textContent = `Time survived: ${timeInSeconds} seconds`;
+    timeElement.className = 'score-line';
+    console.log('Created time element:', timeElement.textContent);
+    
+    const dropsElement = document.createElement('p');
+    dropsElement.textContent = `Raindrops blocked: ${dropsBlocked}`;
+    dropsElement.className = 'score-line';
+    console.log('Created drops element:', dropsElement.textContent);
+    
+    const scoreElement = document.createElement('p');
+    scoreElement.textContent = `Score: ${score}`;
+    scoreElement.className = 'score-line final-score';
+    console.log('Created score element:', scoreElement.textContent);
+    
+    // Append in order
+    scoreContainer.appendChild(timeElement);
+    scoreContainer.appendChild(dropsElement);
+    scoreContainer.appendChild(scoreElement);
+    
+    console.log('Final children count:', scoreContainer.children.length);
+    console.log('Final container HTML:', scoreContainer.innerHTML);
+    console.log('=== END DEBUGGING ===');
 }
+
         
  function resetGame() {
     console.log('=== DEBUGGING RESET GAME ===');
@@ -1140,11 +1146,16 @@ function endGame() {
     
     console.log('=== ENDGAME CALLED ===');
     
-    // Calculate final score
-    const timeInSeconds = Math.floor(gameTime / 1000);
-    finalScore = calculateScore(timeInSeconds, raindropsBlocked);
+    // Set game over IMMEDIATELY to prevent race conditions
+    gameOver = true;
+    gameStarted = false;
     
-    console.log('Final scores:', { timeInSeconds, raindropsBlocked, finalScore });
+    // Calculate final score ONCE and store in variables
+    const timeInSeconds = Math.floor(gameTime / 1000);
+    const currentRaindropsBlocked = raindropsBlocked; // Capture current values
+    finalScore = calculateScore(timeInSeconds, currentRaindropsBlocked);
+    
+    console.log('Final scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
 
     // Hide cat
     if (cat) {
@@ -1188,27 +1199,20 @@ function endGame() {
         console.log('Error with howl sound:', error);
     }
 
-    // Set game over BEFORE showing UI
-    gameOver = true;
-    gameStarted = false;
-
-    // Force clear any existing score display first
-    const scoreContainer = document.getElementById('scoreContainer');
-    if (scoreContainer) {
-        scoreContainer.innerHTML = '';
-    }
-
-    // Show VR UI or regular UI depending on mode
-    console.log('VR presenting?', renderer.xr.isPresenting);
-    if (renderer.xr.isPresenting) {
+    // Determine which UI to show and show it IMMEDIATELY
+    const isVRMode = renderer.xr.isPresenting;
+    console.log('VR presenting?', isVRMode);
+    
+    if (isVRMode) {
         // Update VR UI text and show it
         vrUI.updateText();
         vrUI.textTexture.needsUpdate = true;
         vrUI.visible = true;
+        console.log('Showing VR UI with scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
     } else {
-        // Show regular game over screen with NEW score display system
-        console.log('Calling showDesktopGameOver with:', { timeInSeconds, raindropsBlocked, finalScore });
-        showDesktopGameOver(timeInSeconds, raindropsBlocked, finalScore);
+        // Show desktop UI with the captured values (not global variables)
+        console.log('Calling showDesktopGameOver with captured values:', { timeInSeconds, currentRaindropsBlocked, finalScore });
+        showDesktopGameOver(timeInSeconds, currentRaindropsBlocked, finalScore);
     }
     
     console.log('=== ENDGAME COMPLETE ===');
