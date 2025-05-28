@@ -15,6 +15,7 @@
     </script>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
         body {
             margin: 0;
             padding: 0;
@@ -29,22 +30,29 @@
         }
         #vrButton {
             position: absolute;
-            bottom: 20px;
+            top: 40%;
             left: 50%;
-            transform: translateX(-50%);
-            padding: 16px 32px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 20px;
+            transform: translate(-50%, -50%);
+            padding: 22px 60px;
+            background: linear-gradient(90deg, #0ff 0%, #09f 100%);
+            color: #fff;
+            border: 2px solid #0ff;
+            border-radius: 18px;
+            font-size: 2rem;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 2px;
+            box-shadow: 0 0 24px #0ff, 0 0 8px #09f inset;
             cursor: pointer;
             z-index: 100;
-            transition: all 0.3s ease;
+            transition: all 0.2s cubic-bezier(.4,2,.6,1);
+            text-shadow: 0 0 8px #0ff, 0 0 2px #fff;
         }
         #vrButton:hover {
-            background: #0055aa;
-            transform: translateX(-50%) scale(1.05);
+            background: linear-gradient(90deg, #09f 0%, #0ff 100%);
+            border-color: #fff;
+            box-shadow: 0 0 32px #0ff, 0 0 16px #09f inset;
+            color: #0ff;
+            transform: translate(-50%, -50%) scale(1.05);
         }
         #loadingScreen {
             position: absolute;
@@ -95,7 +103,6 @@
 
     <script type="module">
         import * as THREE from 'three';
-        import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
         import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
         // Game variables
@@ -109,7 +116,7 @@
         let score = 0;
         let gameOver = false;
         let gameStarted = false;
-        let joystick, joystickBase, joystickStick;
+        let controlStick, stickBase, stickHandle;
         let cockpit;
         let targetDestroyed = false;
         let showingVRButton = true;
@@ -117,12 +124,13 @@
         let initialHeadPosition = new THREE.Vector3();
         let headTrackingEnabled = false;
         let leftHand, rightHand;
-        let joystickGrabbed = false;
+        let stickGrabbed = false;
         let grabbingController = null;
-        let joystickPosition = new THREE.Vector3(0, 0, 0);
         let crosshair;
+        let stickNeutralPosition = new THREE.Vector3(0, 0, 0);
+        let stickMaxTilt = Math.PI / 4; // 45 degrees max tilt
 
-        // Controller state - simplified for single joystick
+        // Controller state
         const controllerState = {
             left: {
                 position: new THREE.Vector3(),
@@ -157,24 +165,28 @@
 
             // VR button
             const vrButton = document.getElementById('vrButton');
-            vrButton.addEventListener('click', () => {
+            vrButton.addEventListener('click', async () => {
                 showingVRButton = false;
                 vrButton.style.display = 'none';
-                document.body.appendChild(VRButton.createButton(renderer));
-                renderer.xr.addEventListener('sessionstart', () => {
-                    gameStarted = true;
-                    headTrackingEnabled = true;
-                    setTimeout(() => {
-                        initialHeadPosition.copy(camera.position);
-                    }, 1000);
-                    resetGame();
-                });
+                gameStarted = true;
+                headTrackingEnabled = true;
+                setTimeout(() => {
+                    initialHeadPosition.copy(camera.position);
+                }, 1000);
+                resetGame();
+                if (navigator.xr) {
+                    try {
+                        await renderer.xr.setSession(await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] }));
+                    } catch (e) {
+                        alert('Could not start VR session: ' + e.message);
+                    }
+                }
             });
 
             // Create clock
             clock = new THREE.Clock();
 
-            // Create lights (increased ambient lighting)
+            // Create lights
             const ambientLight = new THREE.AmbientLight(0x666666, 0.8);
             scene.add(ambientLight);
 
@@ -182,31 +194,16 @@
             directionalLight.position.set(0, 10, 10);
             scene.add(directionalLight);
 
-            // Create tunnel
+            // Create game objects
             createTunnel();
-            
-            // Create the final target
             createFinalTarget();
-            
-            // Create cockpit
             createCockpit();
-            
-            // Setup controllers
             setupControllers();
-            
-            // Create speed particles
             createSpeedParticles();
-            
-            // Create player hitbox
             createPlayerHitbox();
             
-            // Handle window resize
             window.addEventListener('resize', onWindowResize);
-            
-            // Simulate loading
             simulateLoading();
-            
-            // Start animation loop
             renderer.setAnimationLoop(animate);
         }
 
@@ -224,12 +221,11 @@
         }
 
         function createPlayerHitbox() {
-            // Invisible sphere representing player hitbox
             const hitboxGeometry = new THREE.SphereGeometry(0.8, 8, 8);
             const hitboxMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0xff0000, 
                 transparent: true, 
-                opacity: 0.0 // Invisible
+                opacity: 0.0
             });
             playerHitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
             scene.add(playerHitbox);
@@ -247,7 +243,6 @@
             for (let i = 0; i < particleCount; i++) {
                 const particle = new THREE.Mesh(particleGeometry, particleMaterial);
                 
-                // Random position in tunnel
                 const angle = Math.random() * Math.PI * 2;
                 const radius = Math.random() * (tunnelRadius - 1);
                 particle.position.x = Math.sin(angle) * radius;
@@ -265,13 +260,9 @@
         }
 
         function createTunnel() {
-            // Create tunnel geometry
             const tunnelGeometry = new THREE.CylinderGeometry(tunnelRadius, tunnelRadius, tunnelLength, 24, 20, true);
-            
-            // Rotate and position the tunnel
             tunnelGeometry.rotateX(Math.PI / 2);
             
-            // Create tunnel material with internal texture
             const tunnelMaterial = new THREE.MeshStandardMaterial({
                 color: 0x444444,
                 side: THREE.BackSide,
@@ -279,7 +270,11 @@
                 metalness: 0.2,
             });
             
-            // Add details to the tunnel
+            tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
+            tunnel.position.z = -tunnelLength / 2;
+            scene.add(tunnel);
+            
+            // Add tunnel details
             const tunnelDetailGeometry = new THREE.BoxGeometry(1, 1, 1);
             const tunnelDetailMaterial = new THREE.MeshStandardMaterial({
                 color: 0x777777,
@@ -287,12 +282,6 @@
                 metalness: 0.3
             });
             
-            // Create tunnel mesh
-            tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-            tunnel.position.z = -tunnelLength / 2;
-            scene.add(tunnel);
-            
-            // Add tunnel details (pipes, panels, etc.)
             for (let i = 0; i < 200; i++) {
                 const detail = new THREE.Mesh(tunnelDetailGeometry, tunnelDetailMaterial);
                 const angle = Math.random() * Math.PI * 2;
@@ -307,19 +296,17 @@
                 tunnel.add(detail);
             }
             
-            // Add turrets to the tunnel walls
+            // Add enemies and turrets
             for (let i = 0; i < 30; i++) {
                 createTurret(-100 - i * 60);
             }
             
-            // Create enemy ships throughout the tunnel
             for (let i = 0; i < 20; i++) {
                 createEnemy(-100 - i * 80);
             }
         }
         
         function createFinalTarget() {
-            // Create the Death Star-like final target
             const targetGeometry = new THREE.SphereGeometry(15, 32, 32);
             const targetMaterial = new THREE.MeshStandardMaterial({
                 color: 0x888888,
@@ -335,7 +322,7 @@
             };
             scene.add(target);
             
-            // Add a glow effect
+            // Add glow effect
             const targetGlowGeometry = new THREE.SphereGeometry(16, 32, 32);
             const targetGlowMaterial = new THREE.MeshBasicMaterial({
                 color: 0xff0000,
@@ -346,7 +333,7 @@
             const targetGlow = new THREE.Mesh(targetGlowGeometry, targetGlowMaterial);
             target.add(targetGlow);
             
-            // Add a small thermal exhaust port
+            // Exhaust port
             const exhaustPortGeometry = new THREE.CylinderGeometry(2, 2, 4, 16);
             const exhaustPortMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
             const exhaustPort = new THREE.Mesh(exhaustPortGeometry, exhaustPortMaterial);
@@ -356,108 +343,100 @@
         }
 
         function createCockpit() {
-            // Create a simple cockpit using geometric shapes
             cockpit = new THREE.Group();
             
-            // Add more lighting to the cockpit
-            const cockpitLight = new THREE.PointLight(0xffffff, 1, 10);
+            // Enhanced lighting
+            const cockpitLight = new THREE.PointLight(0xffffff, 2, 15);
             cockpitLight.position.set(0, 1, -1);
             cockpit.add(cockpitLight);
             
-            const cockpitAmbient = new THREE.AmbientLight(0x404040, 0.8);
+            const cockpitAmbient = new THREE.AmbientLight(0x606060, 1.2);
             cockpit.add(cockpitAmbient);
             
-            // Bottom panel
-            const bottomPanelGeometry = new THREE.BoxGeometry(2, 0.1, 1);
+            // Cockpit panels
             const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-            const bottomPanel = new THREE.Mesh(bottomPanelGeometry, panelMaterial);
+            
+            // Bottom panel
+            const bottomPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 1), panelMaterial);
             bottomPanel.position.set(0, -0.6, -0.5);
             cockpit.add(bottomPanel);
             
             // Top panel
-            const topPanelGeometry = new THREE.BoxGeometry(2, 0.1, 1);
-            const topPanel = new THREE.Mesh(topPanelGeometry, panelMaterial);
+            const topPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 1), panelMaterial);
             topPanel.position.set(0, 0.6, -0.5);
             cockpit.add(topPanel);
             
             // Side panels
-            const sidePanelGeometry = new THREE.BoxGeometry(0.1, 1.2, 1);
-            const leftPanel = new THREE.Mesh(sidePanelGeometry, panelMaterial);
+            const leftPanel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 1), panelMaterial);
             leftPanel.position.set(-1, 0, -0.5);
             cockpit.add(leftPanel);
             
-            const rightPanel = new THREE.Mesh(sidePanelGeometry, panelMaterial);
+            const rightPanel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 1), panelMaterial);
             rightPanel.position.set(1, 0, -0.5);
             cockpit.add(rightPanel);
             
-            // Dashboard indicators
-            const indicatorGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.05);
-            const indicatorMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            // Create the airplane-style control stick
+            createControlStick();
             
-            for (let i = 0; i < 5; i++) {
-                const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial.clone());
-                indicator.position.set(-0.8 + i * 0.4, -0.5, -0.2);
-                cockpit.add(indicator);
-            }
-            
-            // Create the joystick
-            createJoystick();
-            
-            // Position the cockpit in front of the camera
             cockpit.position.set(0, -0.2, -0.4);
             camera.add(cockpit);
         }
 
-        function createJoystick() {
-            joystick = new THREE.Group();
+        function createControlStick() {
+            controlStick = new THREE.Group();
             
-            // Joystick base (wider and more visible)
-            const baseGeometry = new THREE.CylinderGeometry(0.12, 0.15, 0.08, 16);
+            // Base mount (like airplane yoke base)
+            const baseGeometry = new THREE.CylinderGeometry(0.08, 0.12, 0.15, 16);
             const baseMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x222222,
-                metalness: 0.8,
+                color: 0x1a1a1a,
+                metalness: 0.9,
+                roughness: 0.1
+            });
+            stickBase = new THREE.Mesh(baseGeometry, baseMaterial);
+            stickBase.position.y = -0.45;
+            controlStick.add(stickBase);
+            
+            // Main stick shaft
+            const shaftGeometry = new THREE.CylinderGeometry(0.025, 0.03, 0.35, 12);
+            const shaftMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x444444,
+                metalness: 0.7,
                 roughness: 0.2
             });
-            joystickBase = new THREE.Mesh(baseGeometry, baseMaterial);
-            joystick.add(joystickBase);
+            const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+            shaft.position.y = -0.2;
+            controlStick.add(shaft);
             
-            // Joystick stick
-            const stickGeometry = new THREE.CylinderGeometry(0.03, 0.04, 0.2, 8);
-            const stickMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x666666,
-                metalness: 0.6,
-                roughness: 0.3
-            });
-            joystickStick = new THREE.Mesh(stickGeometry, stickMaterial);
-            joystickStick.position.y = 0.14;
-            joystick.add(joystickStick);
-            
-            // Joystick handle (sphere at top)
-            const handleGeometry = new THREE.SphereGeometry(0.05, 12, 12);
+            // Handle/grip at top (spherical like airplane yoke)
+            const handleGeometry = new THREE.SphereGeometry(0.06, 16, 16);
             const handleMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x888888,
-                metalness: 0.4,
+                color: 0x666666,
+                metalness: 0.5,
                 roughness: 0.4
             });
-            const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-            handle.position.y = 0.05;
-            joystickStick.add(handle);
+            stickHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+            stickHandle.position.y = 0.02;
+            controlStick.add(stickHandle);
             
-            // Position joystick in cockpit
-            joystick.position.set(0, -0.3, -0.1);
-            joystick.userData = {
-                isJoystick: true,
-                basePosition: new THREE.Vector3(0, -0.3, -0.1),
-                currentTilt: new THREE.Vector3(0, 0, 0)
+            // Position in center of cockpit
+            controlStick.position.set(0, 0, -0.2);
+            controlStick.userData = {
+                isControlStick: true,
+                baseRotation: new THREE.Euler(0, 0, 0),
+                currentRotation: new THREE.Euler(0, 0, 0)
             };
             
-            cockpit.add(joystick);
+            cockpit.add(controlStick);
         }
 
         function createHands() {
-            // Left hand
-            const handGeometry = new THREE.BoxGeometry(0.08, 0.15, 0.04);
-            const handMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            // Create more realistic hand models
+            const handGeometry = new THREE.BoxGeometry(0.06, 0.12, 0.03);
+            const handMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffdbac,
+                roughness: 0.8,
+                metalness: 0.1
+            });
             
             leftHand = new THREE.Mesh(handGeometry, handMaterial);
             leftHand.visible = false;
@@ -469,27 +448,24 @@
         }
 
         function createCrosshair() {
-            // Create a single crosshair in the center
             const crosshairGroup = new THREE.Group();
             
-            // Horizontal line
-            const hLineGeometry = new THREE.BoxGeometry(0.06, 0.002, 0.002);
             const crosshairMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0x00ff00, 
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.9
             });
-            const hLine = new THREE.Mesh(hLineGeometry, crosshairMaterial);
+            
+            // Horizontal line
+            const hLine = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.002, 0.002), crosshairMaterial);
             crosshairGroup.add(hLine);
             
             // Vertical line
-            const vLineGeometry = new THREE.BoxGeometry(0.002, 0.06, 0.002);
-            const vLine = new THREE.Mesh(vLineGeometry, crosshairMaterial);
+            const vLine = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.06, 0.002), crosshairMaterial);
             crosshairGroup.add(vLine);
             
             // Center dot
-            const dotGeometry = new THREE.SphereGeometry(0.005, 8, 8);
-            const dot = new THREE.Mesh(dotGeometry, crosshairMaterial);
+            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), crosshairMaterial);
             crosshairGroup.add(dot);
             
             crosshair = crosshairGroup;
@@ -498,10 +474,8 @@
         }
         
         function setupControllers() {
-            // Controller model factory
             const controllerModelFactory = new XRControllerModelFactory();
             
-            // Setup controllers
             for (let i = 0; i < 2; i++) {
                 const controller = renderer.xr.getController(i);
                 controller.addEventListener('connected', (event) => {
@@ -510,44 +484,163 @@
                 });
                 scene.add(controller);
                 
+                // Hide the controller models and show hands instead
                 const grip = renderer.xr.getControllerGrip(i);
-                grip.add(controllerModelFactory.createControllerModel(grip));
                 scene.add(grip);
                 
                 controllers.push(controller);
             }
             
-            // Create hands
             createHands();
-            
-            // Create crosshair
             createCrosshair();
         }
         
+        function updateControllerState() {
+            controllers.forEach(controller => {
+                if (!controller.userData.gamepad) return;
+                
+                const gamepad = controller.userData.gamepad;
+                const index = controller.userData.controllerIndex;
+                const hand = index === 0 ? 'left' : 'right';
+                
+                controllerState[hand].position.copy(controller.position);
+                
+                if (gamepad.buttons.length > 0) {
+                    controllerState[hand].trigger = gamepad.buttons[0].pressed;
+                    controllerState[hand].grip = gamepad.buttons[1].pressed;
+                }
+                
+                // Update hand positions and visibility
+                if (hand === 'left') {
+                    leftHand.position.copy(controller.position);
+                    leftHand.quaternion.copy(controller.quaternion);
+                    leftHand.visible = gameStarted;
+                } else {
+                    rightHand.position.copy(controller.position);
+                    rightHand.quaternion.copy(controller.quaternion);
+                    rightHand.visible = gameStarted;
+                }
+            });
+        }
+
+        function handleControlStick() {
+            if (!gameStarted) return;
+            
+            const stickWorldPos = new THREE.Vector3();
+            stickHandle.getWorldPosition(stickWorldPos);
+            
+            if (!stickGrabbed) {
+                // Check for stick grabbing
+                ['left', 'right'].forEach(hand => {
+                    const controllerPos = controllerState[hand].position;
+                    const distance = controllerPos.distanceTo(stickWorldPos);
+                    
+                    if (distance < 0.12 && controllerState[hand].grip) {
+                        stickGrabbed = true;
+                        grabbingController = hand;
+                    }
+                });
+            } else {
+                if (!controllerState[grabbingController].grip) {
+                    // Release stick - return to neutral
+                    stickGrabbed = false;
+                    grabbingController = null;
+                    controlStick.rotation.x = 0;
+                    controlStick.rotation.z = 0;
+                    controlStick.userData.currentRotation.set(0, 0, 0);
+                } else {
+                    // Control stick with hand position (airplane-style)
+                    const controllerPos = controllerState[grabbingController].position;
+                    const offset = new THREE.Vector3().subVectors(controllerPos, stickWorldPos);
+                    
+                    // Convert to stick rotations (airplane controls)
+                    // X offset = roll (left/right banking)
+                    // Z offset = pitch (forward/back = dive/climb)
+                    const rollInput = THREE.MathUtils.clamp(offset.x * 8, -stickMaxTilt, stickMaxTilt);
+                    const pitchInput = THREE.MathUtils.clamp(offset.z * 8, -stickMaxTilt, stickMaxTilt);
+                    
+                    controlStick.rotation.z = rollInput;  // Roll
+                    controlStick.rotation.x = pitchInput; // Pitch
+                    
+                    controlStick.userData.currentRotation.set(pitchInput, 0, rollInput);
+                }
+            }
+        }
+        
+        function handleControls(delta) {
+            if (!gameStarted) return;
+            
+            handleControlStick();
+            
+            // Airplane-style movement based on stick position
+            if (stickGrabbed) {
+                const rotation = controlStick.userData.currentRotation;
+                const moveSpeed = 0.08;
+                const pitchSpeed = 0.06;
+                
+                // Roll (banking left/right) - Z rotation controls X movement
+                camera.position.x += rotation.z * moveSpeed;
+                
+                // Pitch (dive/climb) - X rotation controls Y movement
+                // Forward stick (positive X) = dive (negative Y)
+                // Back stick (negative X) = climb (positive Y)
+                camera.position.y -= rotation.x * pitchSpeed;
+                
+                // Keep player inside tunnel
+                const maxRadius = tunnelRadius - 2;
+                const currentRadius = Math.sqrt(camera.position.x ** 2 + camera.position.y ** 2);
+                if (currentRadius > maxRadius) {
+                    const angle = Math.atan2(camera.position.y, camera.position.x);
+                    camera.position.x = Math.cos(angle) * maxRadius;
+                    camera.position.y = Math.sin(angle) * maxRadius;
+                }
+            }
+            
+            // Update crosshair
+            crosshair.position.x = camera.position.x;
+            crosshair.position.y = camera.position.y;
+            crosshair.position.z = camera.position.z - 5;
+            
+            playerHitbox.position.copy(camera.position);
+            
+            // Fire with trigger
+            const canFire = controllerState.left.trigger || controllerState.right.trigger;
+            if (canFire) {
+                const cooldown = 0.15;
+                if (!camera.userData.lastShotTime || clock.getElapsedTime() - camera.userData.lastShotTime > cooldown) {
+                    const laserPosition = new THREE.Vector3(
+                        camera.position.x, 
+                        camera.position.y, 
+                        camera.position.z - 1
+                    );
+                    
+                    fireLaser(laserPosition, new THREE.Vector3(0, 0, -1), true);
+                    camera.userData.lastShotTime = clock.getElapsedTime();
+                }
+            }
+        }
+
+        // Rest of the functions remain the same as before...
         function createEnemy(zPosition) {
             const enemyGroup = new THREE.Group();
             
-            // Create enemy body
             const bodyGeometry = new THREE.ConeGeometry(0.8, 2, 8);
             const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
             body.rotation.x = Math.PI / 2;
             enemyGroup.add(body);
             
-            // Create enemy wings
             const wingGeometry = new THREE.BoxGeometry(2.5, 0.1, 0.8);
             const wingMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
             const wings = new THREE.Mesh(wingGeometry, wingMaterial);
             enemyGroup.add(wings);
             
-            // Position the enemy
             const angle = Math.random() * Math.PI * 2;
             const radius = Math.random() * (tunnelRadius - 5);
             enemyGroup.position.x = Math.sin(angle) * radius;
             enemyGroup.position.y = Math.cos(angle) * radius;
             enemyGroup.position.z = zPosition;
             
-            // Set enemy properties
             enemyGroup.userData = {
                 isEnemy: true,
                 health: 2,
@@ -567,13 +660,11 @@
         function createTurret(zPosition) {
             const turretGroup = new THREE.Group();
             
-            // Create turret base
             const baseGeometry = new THREE.BoxGeometry(2, 2, 2);
             const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
             const base = new THREE.Mesh(baseGeometry, baseMaterial);
             turretGroup.add(base);
             
-            // Create turret cannon
             const cannonGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
             const cannonMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
             const cannon = new THREE.Mesh(cannonGeometry, cannonMaterial);
@@ -581,14 +672,12 @@
             cannon.position.z = 1;
             turretGroup.add(cannon);
             
-            // Position the turret
             const angle = Math.random() * Math.PI * 2;
             turretGroup.position.x = Math.sin(angle) * (tunnelRadius - 1);
             turretGroup.position.y = Math.cos(angle) * (tunnelRadius - 1);
             turretGroup.position.z = zPosition;
             turretGroup.rotation.z = angle;
             
-            // Set turret properties
             turretGroup.userData = {
                 isTurret: true,
                 health: 3,
@@ -632,7 +721,6 @@
             const explosionGroup = new THREE.Group();
             explosionGroup.position.copy(position);
             
-            // Create explosion particles
             for (let i = 0; i < particleCount; i++) {
                 const particleGeometry = new THREE.SphereGeometry(0.1 * size * Math.random());
                 const particleMaterial = new THREE.MeshBasicMaterial({ 
@@ -645,7 +733,6 @@
                 
                 const particle = new THREE.Mesh(particleGeometry, particleMaterial);
                 
-                // Random position within explosion radius
                 const angle1 = Math.random() * Math.PI * 2;
                 const angle2 = Math.random() * Math.PI * 2;
                 const radius = Math.random() * 0.1 * size;
@@ -656,7 +743,6 @@
                     radius * Math.cos(angle2)
                 );
                 
-                // Random velocity
                 particle.userData = {
                     velocity: new THREE.Vector3(
                         (Math.random() - 0.5) * 0.2 * size,
@@ -679,7 +765,6 @@
         }
         
         function resetGame() {
-            // Remove all entities
             for (const enemy of enemies) scene.remove(enemy);
             for (const turret of turrets) scene.remove(turret);
             for (const laser of lasers) scene.remove(laser);
@@ -690,21 +775,17 @@
             lasers = [];
             explosions = [];
             
-            // Reset game state
             score = 0;
             gameOver = false;
             targetDestroyed = false;
             
-            // Reset player position
             camera.position.set(0, 0, 0);
             camera.rotation.set(0, Math.PI, 0);
             
-            // Recreate the tunnel and entities
             scene.remove(tunnel);
             createTunnel();
             createFinalTarget();
             
-            // Update score display
             document.getElementById('score').innerText = `SCORE: ${score}`;
         }
         
@@ -714,145 +795,15 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
-        function updateControllerState() {
-            controllers.forEach(controller => {
-                if (!controller.userData.gamepad) return;
-                
-                const gamepad = controller.userData.gamepad;
-                const index = controller.userData.controllerIndex;
-                const hand = index === 0 ? 'left' : 'right';
-                
-                // Update controller position
-                controllerState[hand].position.copy(controller.position);
-                
-                // Update button states
-                if (gamepad.buttons.length > 0) {
-                    controllerState[hand].trigger = gamepad.buttons[0].pressed;
-                    controllerState[hand].grip = gamepad.buttons[1].pressed;
-                }
-                
-                // Update hand positions
-                if (hand === 'left') {
-                    leftHand.position.copy(controller.position);
-                    leftHand.quaternion.copy(controller.quaternion);
-                    leftHand.visible = gameStarted;
-                } else {
-                    rightHand.position.copy(controller.position);
-                    rightHand.quaternion.copy(controller.quaternion);
-                    rightHand.visible = gameStarted;
-                }
-            });
-        }
-
-        function handleJoystickInteraction() {
-            if (!gameStarted) return;
-            
-            const joystickWorldPos = new THREE.Vector3();
-            joystick.getWorldPosition(joystickWorldPos);
-            
-            // Check for joystick grabbing
-            if (!joystickGrabbed) {
-                // Check if either hand is close to joystick and grip is pressed
-                ['left', 'right'].forEach(hand => {
-                    const controllerPos = controllerState[hand].position;
-                    const distance = controllerPos.distanceTo(joystickWorldPos);
-                    
-                    if (distance < 0.15 && controllerState[hand].grip) {
-                        joystickGrabbed = true;
-                        grabbingController = hand;
-                    }
-                });
-            } else {
-                // Handle joystick control
-                if (!controllerState[grabbingController].grip) {
-                    // Release joystick
-                    joystickGrabbed = false;
-                    grabbingController = null;
-                    // Return joystick to center
-                    joystickStick.rotation.x = 0;
-                    joystickStick.rotation.z = 0;
-                    joystick.userData.currentTilt.set(0, 0, 0);
-                } else {
-                    // Control joystick with hand position
-                    const controllerPos = controllerState[grabbingController].position;
-                    const offset = new THREE.Vector3().subVectors(controllerPos, joystickWorldPos);
-                    
-                    // Convert to joystick tilt (limited range)
-                    const maxTilt = Math.PI / 6; // 30 degrees max
-                    const tiltX = THREE.MathUtils.clamp(offset.x * 5, -maxTilt, maxTilt);
-                    const tiltZ = THREE.MathUtils.clamp(-offset.z * 5, -maxTilt, maxTilt);
-                    
-                    joystickStick.rotation.x = tiltZ;
-                    joystickStick.rotation.z = tiltX;
-                    
-                    joystick.userData.currentTilt.set(tiltX, 0, tiltZ);
-                }
-            }
-        }
-        
-        function handleControls(delta) {
-            if (!gameStarted) return;
-            
-            // Handle joystick interaction
-            handleJoystickInteraction();
-            
-            // Ship movement based on joystick tilt
-            if (joystickGrabbed) {
-                const tilt = joystick.userData.currentTilt;
-                const moveSpeed = 0.1;
-                
-                camera.position.x += tilt.x * moveSpeed;
-                camera.position.y += tilt.z * moveSpeed;
-                
-                // Limit player position to inside the tunnel
-                const maxRadius = tunnelRadius - 2;
-                const currentRadius = Math.sqrt(camera.position.x ** 2 + camera.position.y ** 2);
-                if (currentRadius > maxRadius) {
-                    const angle = Math.atan2(camera.position.y, camera.position.x);
-                    camera.position.x = Math.cos(angle) * maxRadius;
-                    camera.position.y = Math.sin(angle) * maxRadius;
-                }
-            }
-            
-            // Update crosshair position
-            crosshair.position.x = camera.position.x;
-            crosshair.position.y = camera.position.y;
-            crosshair.position.z = camera.position.z - 5;
-            
-            // Update player hitbox
-            playerHitbox.position.copy(camera.position);
-            
-            // Fire laser with trigger (either controller)
-            const canFire = controllerState.left.trigger || controllerState.right.trigger;
-            if (canFire) {
-                const cooldown = 0.15;
-                if (!camera.userData.lastShotTime || clock.getElapsedTime() - camera.userData.lastShotTime > cooldown) {
-                    const laserPosition = new THREE.Vector3(
-                        camera.position.x, 
-                        camera.position.y, 
-                        camera.position.z - 1
-                    );
-                    
-                    const laserDirection = new THREE.Vector3(0, 0, -1);
-                    
-                    fireLaser(laserPosition, laserDirection, true);
-                    camera.userData.lastShotTime = clock.getElapsedTime();
-                }
-            }
-        }
-        
         function updateSpeedParticles(delta) {
             for (let i = speedParticles.length - 1; i >= 0; i--) {
                 const particle = speedParticles[i];
                 
-                // Move particle forward
                 particle.position.z += particle.userData.speed;
                 
-                // Reset particle when it goes behind the camera
                 if (particle.position.z > camera.position.z + 10) {
                     particle.position.z = camera.position.z - 100;
                     
-                    // Randomize position again
                     const angle = Math.random() * Math.PI * 2;
                     const radius = Math.random() * (tunnelRadius - 1);
                     particle.position.x = Math.sin(angle) * radius;
@@ -871,14 +822,12 @@
                 laser.position.y += direction.y * speed;
                 laser.position.z += direction.z * speed;
                 
-                // Check if laser is out of bounds
                 if (Math.abs(laser.position.z - camera.position.z) > 100) {
                     scene.remove(laser);
                     lasers.splice(i, 1);
                     continue;
                 }
                 
-                // Check for collisions with enemies
                 if (laser.userData.fromPlayer) {
                     // Check enemy collisions
                     for (let j = enemies.length - 1; j >= 0; j--) {
@@ -937,12 +886,11 @@
                         }
                     }
                 } else {
-                    // Laser from enemy or turret hitting player
+                    // Enemy laser hitting player
                     if (laser.position.distanceTo(playerHitbox.position) < 1.2 && !gameOver) {
                         gameOver = true;
                         createExplosion(playerHitbox.position, 2);
                         
-                        // Reset after short delay
                         setTimeout(() => {
                             resetGame();
                         }, 3000);
@@ -958,15 +906,12 @@
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
                 
-                // Move the enemy
                 enemy.position.x += enemy.userData.direction.x;
                 enemy.position.y += enemy.userData.direction.y;
                 
                 if (enemy.position.z < camera.position.z + 100) {
-                    // Make enemy face player
                     enemy.lookAt(playerHitbox.position);
                     
-                    // Occasionally shoot at player
                     enemy.userData.timeSinceShot += delta;
                     if (enemy.userData.timeSinceShot > 2) {
                         enemy.userData.timeSinceShot = 0;
@@ -981,7 +926,6 @@
                     }
                 }
                 
-                // Check for collision with player
                 if (enemy.position.distanceTo(playerHitbox.position) < 1.5 && !gameOver) {
                     gameOver = true;
                     createExplosion(playerHitbox.position, 2);
@@ -991,7 +935,6 @@
                     }, 3000);
                 }
                 
-                // Remove enemies that are far behind
                 if (enemy.position.z > camera.position.z + 50) {
                     scene.remove(enemy);
                     enemies.splice(i, 1);
@@ -1003,12 +946,9 @@
             for (let i = turrets.length - 1; i >= 0; i--) {
                 const turret = turrets[i];
                 
-                // Only activate turrets that are close enough
                 if (turret.position.z < camera.position.z + 50 && turret.position.z > camera.position.z - 50) {
-                    // Make turret face player
                     turret.lookAt(playerHitbox.position);
                     
-                    // Occasionally shoot at player
                     turret.userData.timeToNextShot -= delta;
                     if (turret.userData.timeToNextShot <= 0) {
                         turret.userData.timeToNextShot = 2 + Math.random() * 2;
@@ -1030,7 +970,6 @@
                 const explosion = explosions[i];
                 explosion.userData.age += delta;
                 
-                // Update particles in the explosion
                 explosion.children.forEach(particle => {
                     particle.position.add(particle.userData.velocity);
                     particle.userData.lifespan -= delta;
@@ -1040,7 +979,6 @@
                     }
                 });
                 
-                // Remove old explosions
                 if (explosion.userData.age > 2) {
                     scene.remove(explosion);
                     explosions.splice(i, 1);
@@ -1056,35 +994,24 @@
             
             const delta = clock.getDelta();
             
-            // Update controller state
             updateControllerState();
-            
-            // Handle player controls
             handleControls(delta);
             
-            // Move player forward
             if (gameStarted && !gameOver) {
                 camera.position.z -= playerSpeed;
-                
-                // Update crosshair position
                 crosshair.position.z = camera.position.z - 5;
-                
-                // Update player hitbox
                 playerHitbox.position.z = camera.position.z;
             }
             
-            // Update game entities
             updateSpeedParticles(delta);
             updateLasers(delta);
             updateEnemies(delta);
             updateTurrets(delta);
             updateExplosions(delta);
             
-            // Render the scene
             renderer.render(scene, camera);
         }
         
-        // Initialize the game
         init();
     </script>
 </body>
