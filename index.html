@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StarBlast VR</title>
+    <title>Shield Defender VR</title>
  
     <script type="importmap">
     {
@@ -51,54 +51,47 @@
             background: linear-gradient(90deg, #09f 0%, #0ff 100%);
             border-color: #fff;
             box-shadow: 0 0 32px #0ff, 0 0 16px #09f inset;
-            color: #0ff;
+            color: #000;
             transform: translate(-50%, -50%) scale(1.05);
         }
-        #loadingScreen {
+        #gameUI {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 18px;
+            z-index: 100;
+            text-align: right;
+            font-family: 'Orbitron', Arial, sans-serif;
+        }
+        #gameOverScreen {
             position: absolute;
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.9);
             color: white;
-            display: flex;
+            display: none;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 200;
-        }
-        #loadingBar {
-            width: 300px;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
-            margin-top: 20px;
-        }
-        #loadingBarFill {
-            width: 0%;
-            height: 100%;
-            background: #0066cc;
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-        #score {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            font-size: 24px;
-            z-index: 100;
+            font-family: 'Orbitron', Arial, sans-serif;
         }
     </style>
 </head>
 <body>
     <div id="container"></div>
-    <div id="score">SCORE: 0</div>
+    <div id="gameUI">
+        <div>TIME: <span id="time">0:00</span></div>
+        <div>SHOTS BLOCKED: <span id="blocked">0</span></div>
+        <div>ENEMY PANELS: <span id="enemyPanels">9</span></div>
+        <div>YOUR PANELS: <span id="playerPanels">9</span></div>
+    </div>
     <button id="vrButton">ENTER VR</button>
-    <div id="loadingScreen">
-        <h1>LOADING STARBLAST VR</h1>
-        <div id="loadingBar">
-            <div id="loadingBarFill"></div>
-        </div>
+    <div id="gameOverScreen">
+        <h1 id="gameResult">VICTORY!</h1>
+        <div id="finalStats"></div>
+        <button id="playAgain" style="margin-top: 20px; padding: 10px 20px; font-size: 18px;">Play Again</button>
     </div>
 
     <script type="module">
@@ -108,884 +101,598 @@
         // Game variables
         let scene, camera, renderer, clock;
         let controllers = [];
-        let tunnel, player, enemies = [], turrets = [], lasers = [], explosions = [];
-        let speedParticles = [];
-        let tunnelLength = 2000;
-        let tunnelRadius = 20;
-        let playerSpeed = 0.8;
-        let score = 0;
-        let gameOver = false;
+        let leftShield, rightShield;
+        let playerGrid, enemyGrid;
+        let enemy;
+        let lasers = [];
         let gameStarted = false;
-        let controlStick, stickBase, stickHandle;
-        let cockpit;
-        let targetDestroyed = false;
+        let gameOver = false;
         let showingVRButton = true;
-        let playerHitbox;
-        let initialHeadPosition = new THREE.Vector3();
-        let headTrackingEnabled = false;
-        let leftHand, rightHand;
-        let stickGrabbed = false;
-        let grabbingController = null;
-        let crosshair;
-        let stickNeutralPosition = new THREE.Vector3(0, 0, 0);
-        let stickMaxTilt = Math.PI / 4; // 45 degrees max tilt
+        
+        // Game stats
+        let startTime = 0;
+        let shotsBlocked = 0;
+        let enemyPanelsDestroyed = 0;
+        let playerPanelsDestroyed = 0;
+        
+        // Laser timing
+        let lastLaserTime = 0;
+        let laserInterval = 2000; // Start at 2 seconds
+        const minLaserInterval = 500; // Minimum 0.5 seconds
+
+        // Grid arrays
+        let playerPanels = [];
+        let enemyPanels = [];
 
         // Controller state
         const controllerState = {
-            left: {
-                position: new THREE.Vector3(),
-                trigger: false,
-                grip: false
-            },
-            right: {
-                position: new THREE.Vector3(),
-                trigger: false,
-                grip: false
-            }
+            left: { position: new THREE.Vector3(), connected: false },
+            right: { position: new THREE.Vector3(), connected: false }
         };
 
-        // Initialize the game
         function init() {
             // Create scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000011);
-            scene.fog = new THREE.FogExp2(0x000011, 0.003);
+            scene.background = new THREE.Color(0x001122);
 
             // Create camera
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-            camera.position.z = 0;
-            camera.rotation.y = Math.PI;
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.6, 0);
 
             // Create renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
             renderer.xr.enabled = true;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.getElementById('container').appendChild(renderer.domElement);
 
-            // VR button
+            // VR button handler
             const vrButton = document.getElementById('vrButton');
             vrButton.addEventListener('click', async () => {
                 showingVRButton = false;
                 vrButton.style.display = 'none';
-                gameStarted = true;
-                headTrackingEnabled = true;
-                setTimeout(() => {
-                    initialHeadPosition.copy(camera.position);
-                }, 1000);
-                resetGame();
+                startGame();
+                
                 if (navigator.xr) {
                     try {
-                        await renderer.xr.setSession(await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] }));
+                        await renderer.xr.setSession(await navigator.xr.requestSession('immersive-vr', { 
+                            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] 
+                        }));
                     } catch (e) {
-                        alert('Could not start VR session: ' + e.message);
+                        console.log('VR not available, continuing in desktop mode');
                     }
                 }
+            });
+
+            // Play again button
+            document.getElementById('playAgain').addEventListener('click', () => {
+                document.getElementById('gameOverScreen').style.display = 'none';
+                resetGame();
             });
 
             // Create clock
             clock = new THREE.Clock();
 
-            // Create lights
-            const ambientLight = new THREE.AmbientLight(0x666666, 0.8);
-            scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 10, 10);
-            scene.add(directionalLight);
-
-            // Create game objects
-            createTunnel();
-            createFinalTarget();
-            createCockpit();
-            setupControllers();
-            createSpeedParticles();
-            createPlayerHitbox();
+            // Create lighting
+            createLighting();
             
+            // Create environment
+            createEnvironment();
+            
+            // Setup controllers
+            setupControllers();
+            
+            // Create game objects
+            createPlayerGrid();
+            createEnemyGrid();
+            createEnemy();
+            createShields();
+            
+            // Handle window resize
             window.addEventListener('resize', onWindowResize);
-            simulateLoading();
+            
+            // Start animation loop
             renderer.setAnimationLoop(animate);
         }
 
-        function simulateLoading() {
-            const loadingBarFill = document.getElementById('loadingBarFill');
-            let progress = 0;
-            const loadingInterval = setInterval(() => {
-                progress += 5;
-                loadingBarFill.style.width = progress + '%';
-                if (progress >= 100) {
-                    clearInterval(loadingInterval);
-                    document.getElementById('loadingScreen').style.display = 'none';
-                }
-            }, 100);
+        function createLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            // Main directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            // Blue accent lighting
+            const blueLight = new THREE.PointLight(0x0088ff, 0.5, 20);
+            blueLight.position.set(-5, 3, -5);
+            scene.add(blueLight);
+
+            const orangeLight = new THREE.PointLight(0xff4400, 0.5, 20);
+            orangeLight.position.set(5, 3, -5);
+            scene.add(orangeLight);
         }
 
-        function createPlayerHitbox() {
-            const hitboxGeometry = new THREE.SphereGeometry(0.8, 8, 8);
-            const hitboxMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff0000, 
-                transparent: true, 
-                opacity: 0.0
-            });
-            playerHitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-            scene.add(playerHitbox);
-        }
-
-        function createSpeedParticles() {
-            const particleCount = 500;
-            const particleGeometry = new THREE.SphereGeometry(0.02, 4, 4);
-            const particleMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.6
-            });
-
-            for (let i = 0; i < particleCount; i++) {
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-                
-                const angle = Math.random() * Math.PI * 2;
-                const radius = Math.random() * (tunnelRadius - 1);
-                particle.position.x = Math.sin(angle) * radius;
-                particle.position.y = Math.cos(angle) * radius;
-                particle.position.z = Math.random() * tunnelLength - tunnelLength/2;
-                
-                particle.userData = {
-                    isSpeedParticle: true,
-                    speed: 2 + Math.random() * 3
-                };
-                
-                scene.add(particle);
-                speedParticles.push(particle);
-            }
-        }
-
-        function createTunnel() {
-            const tunnelGeometry = new THREE.CylinderGeometry(tunnelRadius, tunnelRadius, tunnelLength, 24, 20, true);
-            tunnelGeometry.rotateX(Math.PI / 2);
-            
-            const tunnelMaterial = new THREE.MeshStandardMaterial({
-                color: 0x444444,
-                side: THREE.BackSide,
+        function createEnvironment() {
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(20, 20);
+            const floorMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x222222,
                 roughness: 0.8,
-                metalness: 0.2,
+                metalness: 0.2
             });
-            
-            tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-            tunnel.position.z = -tunnelLength / 2;
-            scene.add(tunnel);
-            
-            // Add tunnel details
-            const tunnelDetailGeometry = new THREE.BoxGeometry(1, 1, 1);
-            const tunnelDetailMaterial = new THREE.MeshStandardMaterial({
-                color: 0x777777,
-                roughness: 0.7,
-                metalness: 0.3
-            });
-            
-            for (let i = 0; i < 200; i++) {
-                const detail = new THREE.Mesh(tunnelDetailGeometry, tunnelDetailMaterial);
-                const angle = Math.random() * Math.PI * 2;
-                const z = -Math.random() * (tunnelLength - 50) - 10;
-                const size = 0.5 + Math.random() * 1.5;
-                
-                detail.position.x = Math.sin(angle) * (tunnelRadius - 1);
-                detail.position.y = Math.cos(angle) * (tunnelRadius - 1);
-                detail.position.z = z;
-                detail.scale.set(size, size, 1 + Math.random() * 5);
-                detail.rotation.z = angle;
-                tunnel.add(detail);
-            }
-            
-            // Add enemies and turrets
-            for (let i = 0; i < 30; i++) {
-                createTurret(-100 - i * 60);
-            }
-            
-            for (let i = 0; i < 20; i++) {
-                createEnemy(-100 - i * 80);
-            }
-        }
-        
-        function createFinalTarget() {
-            const targetGeometry = new THREE.SphereGeometry(15, 32, 32);
-            const targetMaterial = new THREE.MeshStandardMaterial({
-                color: 0x888888,
-                roughness: 0.7,
-                metalness: 0.3
-            });
-            
-            const target = new THREE.Mesh(targetGeometry, targetMaterial);
-            target.position.z = -tunnelLength + 50;
-            target.userData = { 
-                isTarget: true,
-                health: 10
-            };
-            scene.add(target);
-            
-            // Add glow effect
-            const targetGlowGeometry = new THREE.SphereGeometry(16, 32, 32);
-            const targetGlowMaterial = new THREE.MeshBasicMaterial({
-                color: 0xff0000,
-                transparent: true,
-                opacity: 0.3
-            });
-            
-            const targetGlow = new THREE.Mesh(targetGlowGeometry, targetGlowMaterial);
-            target.add(targetGlow);
-            
-            // Exhaust port
-            const exhaustPortGeometry = new THREE.CylinderGeometry(2, 2, 4, 16);
-            const exhaustPortMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
-            const exhaustPort = new THREE.Mesh(exhaustPortGeometry, exhaustPortMaterial);
-            exhaustPort.position.y = 15;
-            exhaustPort.rotation.x = Math.PI / 2;
-            target.add(exhaustPort);
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Walls with grid pattern
+            createWalls();
         }
 
-        function createCockpit() {
-            cockpit = new THREE.Group();
-            
-            // Enhanced lighting
-            const cockpitLight = new THREE.PointLight(0xffffff, 2, 15);
-            cockpitLight.position.set(0, 1, -1);
-            cockpit.add(cockpitLight);
-            
-            const cockpitAmbient = new THREE.AmbientLight(0x606060, 1.2);
-            cockpit.add(cockpitAmbient);
-            
-            // Cockpit panels
-            const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-            
-            // Bottom panel
-            const bottomPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 1), panelMaterial);
-            bottomPanel.position.set(0, -0.6, -0.5);
-            cockpit.add(bottomPanel);
-            
-            // Top panel
-            const topPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 1), panelMaterial);
-            topPanel.position.set(0, 0.6, -0.5);
-            cockpit.add(topPanel);
-            
-            // Side panels
-            const leftPanel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 1), panelMaterial);
-            leftPanel.position.set(-1, 0, -0.5);
-            cockpit.add(leftPanel);
-            
-            const rightPanel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 1), panelMaterial);
-            rightPanel.position.set(1, 0, -0.5);
-            cockpit.add(rightPanel);
-            
-            // Create the airplane-style control stick
-            createControlStick();
-            
-            cockpit.position.set(0, -0.2, -0.4);
-            camera.add(cockpit);
+        function createWalls() {
+            const wallMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x333333,
+                roughness: 0.6,
+                metalness: 0.4
+            });
+
+            // Back wall
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 10), wallMaterial);
+            backWall.position.set(0, 5, -10);
+            scene.add(backWall);
+
+            // Side walls
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 10), wallMaterial);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.set(-10, 5, 0);
+            scene.add(leftWall);
+
+            const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 10), wallMaterial);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.set(10, 5, 0);
+            scene.add(rightWall);
         }
 
-        function createControlStick() {
-            controlStick = new THREE.Group();
+        function createPlayerGrid() {
+            playerGrid = new THREE.Group();
+            playerGrid.position.set(0, 1.6, -2);
+
+            // Create 3x3 grid of panels
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const panelGeometry = new THREE.PlaneGeometry(0.4, 0.4);
+                    const panelMaterial = new THREE.MeshStandardMaterial({ 
+                        color: 0x0088ff,
+                        transparent: true,
+                        opacity: 0.3,
+                        side: THREE.DoubleSide
+                    });
+                    
+                    const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+                    panel.position.set(
+                        (col - 1) * 0.5,
+                        (1 - row) * 0.5,
+                        0
+                    );
+                    
+                    panel.userData = {
+                        isPlayerPanel: true,
+                        row: row,
+                        col: col,
+                        destroyed: false
+                    };
+                    
+                    playerGrid.add(panel);
+                    playerPanels.push(panel);
+
+                    // Add border
+                    const borderGeometry = new THREE.EdgesGeometry(panelGeometry);
+                    const borderMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff });
+                    const border = new THREE.LineSegments(borderGeometry, borderMaterial);
+                    panel.add(border);
+                }
+            }
+
+            scene.add(playerGrid);
+        }
+
+        function createEnemyGrid() {
+            enemyGrid = new THREE.Group();
+            enemyGrid.position.set(0, 1.6, -8);
+
+            // Create 3x3 grid of panels
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const panelGeometry = new THREE.PlaneGeometry(0.4, 0.4);
+                    const panelMaterial = new THREE.MeshStandardMaterial({ 
+                        color: 0xff4400,
+                        transparent: true,
+                        opacity: 0.6,
+                        side: THREE.DoubleSide
+                    });
+                    
+                    const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+                    panel.position.set(
+                        (col - 1) * 0.5,
+                        (1 - row) * 0.5,
+                        0
+                    );
+                    
+                    panel.userData = {
+                        isEnemyPanel: true,
+                        row: row,
+                        col: col,
+                        destroyed: false
+                    };
+                    
+                    enemyGrid.add(panel);
+                    enemyPanels.push(panel);
+
+                    // Add border
+                    const borderGeometry = new THREE.EdgesGeometry(panelGeometry);
+                    const borderMaterial = new THREE.LineBasicMaterial({ color: 0xff8800 });
+                    const border = new THREE.LineSegments(borderGeometry, borderMaterial);
+                    panel.add(border);
+                }
+            }
+
+            scene.add(enemyGrid);
+        }
+
+        function createEnemy() {
+            const enemyGroup = new THREE.Group();
             
-            // Base mount (like airplane yoke base)
-            const baseGeometry = new THREE.CylinderGeometry(0.08, 0.12, 0.15, 16);
-            const baseMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x1a1a1a,
-                metalness: 0.9,
-                roughness: 0.1
-            });
-            stickBase = new THREE.Mesh(baseGeometry, baseMaterial);
-            stickBase.position.y = -0.45;
-            controlStick.add(stickBase);
-            
-            // Main stick shaft
-            const shaftGeometry = new THREE.CylinderGeometry(0.025, 0.03, 0.35, 12);
-            const shaftMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x444444,
+            // Enemy body
+            const bodyGeometry = new THREE.BoxGeometry(1, 1.5, 0.5);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x660000,
                 metalness: 0.7,
-                roughness: 0.2
+                roughness: 0.3
             });
-            const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-            shaft.position.y = -0.2;
-            controlStick.add(shaft);
-            
-            // Handle/grip at top (spherical like airplane yoke)
-            const handleGeometry = new THREE.SphereGeometry(0.06, 16, 16);
-            const handleMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x666666,
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.castShadow = true;
+            enemyGroup.add(body);
+
+            // Enemy head
+            const headGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const headMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x880000,
                 metalness: 0.5,
                 roughness: 0.4
             });
-            stickHandle = new THREE.Mesh(handleGeometry, handleMaterial);
-            stickHandle.position.y = 0.02;
-            controlStick.add(stickHandle);
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 1;
+            head.castShadow = true;
+            enemyGroup.add(head);
+
+            // Enemy eyes (glowing)
+            const eyeGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+            const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
             
-            // Position in center of cockpit
-            controlStick.position.set(0, 0, -0.2);
-            controlStick.userData = {
-                isControlStick: true,
-                baseRotation: new THREE.Euler(0, 0, 0),
-                currentRotation: new THREE.Euler(0, 0, 0)
-            };
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.1, 1, 0.25);
+            enemyGroup.add(leftEye);
             
-            cockpit.add(controlStick);
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.1, 1, 0.25);
+            enemyGroup.add(rightEye);
+
+            enemyGroup.position.set(0, 1, -8.5);
+            enemy = enemyGroup;
+            scene.add(enemy);
         }
 
-        function createHands() {
-            // Create more realistic hand models
-            const handGeometry = new THREE.BoxGeometry(0.06, 0.12, 0.03);
-            const handMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0xffdbac,
-                roughness: 0.8,
-                metalness: 0.1
+        function createShields() {
+            // Left shield (disk)
+            const shieldGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16);
+            const leftShieldMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x00ff00,
+                metalness: 0.8,
+                roughness: 0.2
             });
-            
-            leftHand = new THREE.Mesh(handGeometry, handMaterial);
-            leftHand.visible = false;
-            scene.add(leftHand);
-            
-            rightHand = new THREE.Mesh(handGeometry, handMaterial.clone());
-            rightHand.visible = false;
-            scene.add(rightHand);
+            leftShield = new THREE.Mesh(shieldGeometry, leftShieldMaterial);
+            leftShield.castShadow = true;
+            leftShield.userData = { isShield: true, hand: 'left' };
+            scene.add(leftShield);
+
+            // Right shield (disk)
+            const rightShieldMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x0088ff,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            rightShield = new THREE.Mesh(shieldGeometry, rightShieldMaterial);
+            rightShield.castShadow = true;
+            rightShield.userData = { isShield: true, hand: 'right' };
+            scene.add(rightShield);
         }
 
-        function createCrosshair() {
-            const crosshairGroup = new THREE.Group();
-            
-            const crosshairMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x00ff00, 
-                transparent: true,
-                opacity: 0.9
-            });
-            
-            // Horizontal line
-            const hLine = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.002, 0.002), crosshairMaterial);
-            crosshairGroup.add(hLine);
-            
-            // Vertical line
-            const vLine = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.06, 0.002), crosshairMaterial);
-            crosshairGroup.add(vLine);
-            
-            // Center dot
-            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), crosshairMaterial);
-            crosshairGroup.add(dot);
-            
-            crosshair = crosshairGroup;
-            crosshair.position.z = -5;
-            scene.add(crosshair);
-        }
-        
         function setupControllers() {
-            const controllerModelFactory = new XRControllerModelFactory();
-            
             for (let i = 0; i < 2; i++) {
                 const controller = renderer.xr.getController(i);
                 controller.addEventListener('connected', (event) => {
                     controller.userData.gamepad = event.data.gamepad;
                     controller.userData.controllerIndex = i;
+                    const hand = i === 0 ? 'left' : 'right';
+                    controllerState[hand].connected = true;
                 });
+                
+                controller.addEventListener('disconnected', () => {
+                    const hand = i === 0 ? 'left' : 'right';
+                    controllerState[hand].connected = false;
+                });
+                
                 scene.add(controller);
-                
-                // Hide the controller models and show hands instead
-                const grip = renderer.xr.getControllerGrip(i);
-                scene.add(grip);
-                
                 controllers.push(controller);
             }
-            
-            createHands();
-            createCrosshair();
         }
-        
+
         function updateControllerState() {
             controllers.forEach(controller => {
                 if (!controller.userData.gamepad) return;
                 
-                const gamepad = controller.userData.gamepad;
                 const index = controller.userData.controllerIndex;
                 const hand = index === 0 ? 'left' : 'right';
                 
                 controllerState[hand].position.copy(controller.position);
                 
-                if (gamepad.buttons.length > 0) {
-                    controllerState[hand].trigger = gamepad.buttons[0].pressed;
-                    controllerState[hand].grip = gamepad.buttons[1].pressed;
-                }
-                
-                // Update hand positions and visibility
+                // Update shield positions
                 if (hand === 'left') {
-                    leftHand.position.copy(controller.position);
-                    leftHand.quaternion.copy(controller.quaternion);
-                    leftHand.visible = gameStarted;
+                    leftShield.position.copy(controller.position);
+                    leftShield.quaternion.copy(controller.quaternion);
+                    leftShield.visible = gameStarted;
                 } else {
-                    rightHand.position.copy(controller.position);
-                    rightHand.quaternion.copy(controller.quaternion);
-                    rightHand.visible = gameStarted;
+                    rightShield.position.copy(controller.position);
+                    rightShield.quaternion.copy(controller.quaternion);
+                    rightShield.visible = gameStarted;
                 }
             });
         }
 
-        function handleControlStick() {
-            if (!gameStarted) return;
+        function startGame() {
+            gameStarted = true;
+            gameOver = false;
+            startTime = Date.now();
+            lastLaserTime = Date.now();
             
-            const stickWorldPos = new THREE.Vector3();
-            stickHandle.getWorldPosition(stickWorldPos);
+            // Reset stats
+            shotsBlocked = 0;
+            enemyPanelsDestroyed = 0;
+            playerPanelsDestroyed = 0;
             
-            if (!stickGrabbed) {
-                // Check for stick grabbing
-                ['left', 'right'].forEach(hand => {
-                    const controllerPos = controllerState[hand].position;
-                    const distance = controllerPos.distanceTo(stickWorldPos);
-                    
-                    if (distance < 0.12 && controllerState[hand].grip) {
-                        stickGrabbed = true;
-                        grabbingController = hand;
-                    }
-                });
-            } else {
-                if (!controllerState[grabbingController].grip) {
-                    // Release stick - return to neutral
-                    stickGrabbed = false;
-                    grabbingController = null;
-                    controlStick.rotation.x = 0;
-                    controlStick.rotation.z = 0;
-                    controlStick.userData.currentRotation.set(0, 0, 0);
-                } else {
-                    // Control stick with hand position (airplane-style)
-                    const controllerPos = controllerState[grabbingController].position;
-                    const offset = new THREE.Vector3().subVectors(controllerPos, stickWorldPos);
-                    
-                    // Convert to stick rotations (airplane controls)
-                    // X offset = roll (left/right banking)
-                    // Z offset = pitch (forward/back = dive/climb)
-                    const rollInput = THREE.MathUtils.clamp(offset.x * 8, -stickMaxTilt, stickMaxTilt);
-                    const pitchInput = THREE.MathUtils.clamp(offset.z * 8, -stickMaxTilt, stickMaxTilt);
-                    
-                    controlStick.rotation.z = rollInput;  // Roll
-                    controlStick.rotation.x = pitchInput; // Pitch
-                    
-                    controlStick.userData.currentRotation.set(pitchInput, 0, rollInput);
-                }
-            }
-        }
-        
-        function handleControls(delta) {
-            if (!gameStarted) return;
-            
-            handleControlStick();
-            
-            // Airplane-style movement based on stick position
-            if (stickGrabbed) {
-                const rotation = controlStick.userData.currentRotation;
-                const moveSpeed = 0.08;
-                const pitchSpeed = 0.06;
-                
-                // Roll (banking left/right) - Z rotation controls X movement
-                camera.position.x += rotation.z * moveSpeed;
-                
-                // Pitch (dive/climb) - X rotation controls Y movement
-                // Forward stick (positive X) = dive (negative Y)
-                // Back stick (negative X) = climb (positive Y)
-                camera.position.y -= rotation.x * pitchSpeed;
-                
-                // Keep player inside tunnel
-                const maxRadius = tunnelRadius - 2;
-                const currentRadius = Math.sqrt(camera.position.x ** 2 + camera.position.y ** 2);
-                if (currentRadius > maxRadius) {
-                    const angle = Math.atan2(camera.position.y, camera.position.x);
-                    camera.position.x = Math.cos(angle) * maxRadius;
-                    camera.position.y = Math.sin(angle) * maxRadius;
-                }
-            }
-            
-            // Update crosshair
-            crosshair.position.x = camera.position.x;
-            crosshair.position.y = camera.position.y;
-            crosshair.position.z = camera.position.z - 5;
-            
-            playerHitbox.position.copy(camera.position);
-            
-            // Fire with trigger
-            const canFire = controllerState.left.trigger || controllerState.right.trigger;
-            if (canFire) {
-                const cooldown = 0.15;
-                if (!camera.userData.lastShotTime || clock.getElapsedTime() - camera.userData.lastShotTime > cooldown) {
-                    const laserPosition = new THREE.Vector3(
-                        camera.position.x, 
-                        camera.position.y, 
-                        camera.position.z - 1
-                    );
-                    
-                    fireLaser(laserPosition, new THREE.Vector3(0, 0, -1), true);
-                    camera.userData.lastShotTime = clock.getElapsedTime();
-                }
-            }
+            updateUI();
         }
 
-        // Rest of the functions remain the same as before...
-        function createEnemy(zPosition) {
-            const enemyGroup = new THREE.Group();
+        function resetGame() {
+            // Reset all panels
+            playerPanels.forEach(panel => {
+                panel.userData.destroyed = false;
+                panel.visible = true;
+                panel.material.opacity = 0.3;
+            });
             
-            const bodyGeometry = new THREE.ConeGeometry(0.8, 2, 8);
-            const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
-            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.rotation.x = Math.PI / 2;
-            enemyGroup.add(body);
+            enemyPanels.forEach(panel => {
+                panel.userData.destroyed = false;
+                panel.visible = true;
+                panel.material.opacity = 0.6;
+            });
             
-            const wingGeometry = new THREE.BoxGeometry(2.5, 0.1, 0.8);
-            const wingMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-            const wings = new THREE.Mesh(wingGeometry, wingMaterial);
-            enemyGroup.add(wings);
+            // Clear lasers
+            lasers.forEach(laser => scene.remove(laser));
+            lasers = [];
             
-            const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * (tunnelRadius - 5);
-            enemyGroup.position.x = Math.sin(angle) * radius;
-            enemyGroup.position.y = Math.cos(angle) * radius;
-            enemyGroup.position.z = zPosition;
+            // Reset timing
+            laserInterval = 2000;
             
-            enemyGroup.userData = {
-                isEnemy: true,
-                health: 2,
-                speed: 0.1 + Math.random() * 0.2,
-                direction: new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.05,
-                    (Math.random() - 0.5) * 0.05,
-                    0
-                ),
-                timeSinceShot: 0
-            };
-            
-            scene.add(enemyGroup);
-            enemies.push(enemyGroup);
+            startGame();
         }
-        
-        function createTurret(zPosition) {
-            const turretGroup = new THREE.Group();
+
+        function fireLaser() {
+            if (!gameStarted || gameOver) return;
             
-            const baseGeometry = new THREE.BoxGeometry(2, 2, 2);
-            const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-            const base = new THREE.Mesh(baseGeometry, baseMaterial);
-            turretGroup.add(base);
+            // Random target on player grid
+            const targetRow = Math.floor(Math.random() * 3);
+            const targetCol = Math.floor(Math.random() * 3);
             
-            const cannonGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
-            const cannonMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            const cannon = new THREE.Mesh(cannonGeometry, cannonMaterial);
-            cannon.rotation.x = Math.PI / 2;
-            cannon.position.z = 1;
-            turretGroup.add(cannon);
+            const targetPosition = new THREE.Vector3(
+                (targetCol - 1) * 0.5,
+                (1 - targetRow) * 0.5 + 1.6,
+                -2
+            );
             
-            const angle = Math.random() * Math.PI * 2;
-            turretGroup.position.x = Math.sin(angle) * (tunnelRadius - 1);
-            turretGroup.position.y = Math.cos(angle) * (tunnelRadius - 1);
-            turretGroup.position.z = zPosition;
-            turretGroup.rotation.z = angle;
+            const startPosition = enemy.position.clone();
+            startPosition.y += 1; // From enemy head
             
-            turretGroup.userData = {
-                isTurret: true,
-                health: 3,
-                timeToNextShot: 2 + Math.random() * 3,
-                angle
-            };
+            const direction = new THREE.Vector3().subVectors(targetPosition, startPosition).normalize();
             
-            scene.add(turretGroup);
-            turrets.push(turretGroup);
-        }
-        
-        function fireLaser(position, direction, isFromPlayer) {
-            const laserGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4, 8);
+            // Create laser
+            const laserGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1, 8);
             const laserMaterial = new THREE.MeshBasicMaterial({ 
-                color: isFromPlayer ? 0x00ff00 : 0xff4444,
+                color: 0xff0000,
                 transparent: true,
                 opacity: 0.8
             });
             
             const laser = new THREE.Mesh(laserGeometry, laserMaterial);
-            laser.position.copy(position);
-            
-            if (direction.z > 0) {
-                laser.rotation.x = Math.PI / 2;
-            } else {
-                laser.rotation.x = -Math.PI / 2;
-            }
+            laser.position.copy(startPosition);
+            laser.lookAt(targetPosition);
+            laser.rotateX(Math.PI / 2);
             
             laser.userData = {
                 isLaser: true,
                 direction: direction,
-                speed: isFromPlayer ? 4 : 1.5,
-                fromPlayer: isFromPlayer
+                speed: 8,
+                startPos: startPosition.clone(),
+                fromEnemy: true,
+                reflected: false
             };
             
             scene.add(laser);
             lasers.push(laser);
         }
-        
-        function createExplosion(position, size = 1, particleCount = 100) {
-            const explosionGroup = new THREE.Group();
-            explosionGroup.position.copy(position);
+
+        function updateLasers(delta) {
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                const laser = lasers[i];
+                const userData = laser.userData;
+                
+                // Move laser
+                laser.position.add(userData.direction.clone().multiplyScalar(userData.speed * delta));
+                
+                // Check collision with shields (only if not reflected yet)
+                if (userData.fromEnemy && !userData.reflected) {
+                    if (checkShieldCollision(laser)) {
+                        // Reflect laser toward enemy grid
+                        userData.reflected = true;
+                        userData.fromEnemy = false;
+                        shotsBlocked++;
+                        
+                        // Change color to indicate reflection
+                        laser.material.color.setHex(0x00ff00);
+                        
+                        // Calculate reflection direction toward enemy grid
+                        const enemyGridCenter = new THREE.Vector3(0, 1.6, -8);
+                        userData.direction = new THREE.Vector3().subVectors(enemyGridCenter, laser.position).normalize();
+                        
+                        updateUI();
+                    }
+                }
+                
+                // Check collision with grids
+                if (userData.reflected) {
+                    checkEnemyGridCollision(laser, i);
+                } else if (userData.fromEnemy) {
+                    checkPlayerGridCollision(laser, i);
+                }
+                
+                // Remove laser if it's too far
+                if (laser.position.distanceTo(userData.startPos) > 20) {
+                    scene.remove(laser);
+                    lasers.splice(i, 1);
+                }
+            }
+        }
+
+        function checkShieldCollision(laser) {
+            const shields = [leftShield, rightShield];
             
-            for (let i = 0; i < particleCount; i++) {
-                const particleGeometry = new THREE.SphereGeometry(0.1 * size * Math.random());
-                const particleMaterial = new THREE.MeshBasicMaterial({ 
-                    color: new THREE.Color(
-                        0.8 + Math.random() * 0.2,
-                        0.3 * Math.random(),
-                        0.1 * Math.random()
-                    ) 
-                });
+            for (const shield of shields) {
+                if (shield.visible && laser.position.distanceTo(shield.position) < 0.3) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function checkPlayerGridCollision(laser, laserIndex) {
+            for (const panel of playerPanels) {
+                if (panel.userData.destroyed) continue;
                 
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                if (laser.position.distanceTo(panel.getWorldPosition(new THREE.Vector3())) < 0.3) {
+                    // Destroy panel
+                    panel.userData.destroyed = true;
+                    panel.visible = false;
+                    playerPanelsDestroyed++;
+                    
+                    // Remove laser
+                    scene.remove(laser);
+                    lasers.splice(laserIndex, 1);
+                    
+                    updateUI();
+                    checkGameEnd();
+                    return;
+                }
+            }
+        }
+
+        function checkEnemyGridCollision(laser, laserIndex) {
+            for (const panel of enemyPanels) {
+                if (panel.userData.destroyed) continue;
                 
-                const angle1 = Math.random() * Math.PI * 2;
-                const angle2 = Math.random() * Math.PI * 2;
-                const radius = Math.random() * 0.1 * size;
-                
-                particle.position.set(
-                    radius * Math.cos(angle1) * Math.sin(angle2),
-                    radius * Math.sin(angle1) * Math.sin(angle2),
-                    radius * Math.cos(angle2)
-                );
-                
-                particle.userData = {
-                    velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 0.2 * size,
-                        (Math.random() - 0.5) * 0.2 * size,
-                        (Math.random() - 0.5) * 0.2 * size
-                    ),
-                    lifespan: 1 + Math.random()
-                };
-                
-                explosionGroup.add(particle);
+                if (laser.position.distanceTo(panel.getWorldPosition(new THREE.Vector3())) < 0.3) {
+                    // Destroy panel
+                    panel.userData.destroyed = true;
+                    panel.visible = false;
+                    enemyPanelsDestroyed++;
+                    
+                    // Remove laser
+                    scene.remove(laser);
+                    lasers.splice(laserIndex, 1);
+                    
+                    updateUI();
+                    checkGameEnd();
+                    return;
+                }
+            }
+        }
+
+        function checkGameEnd() {
+            if (enemyPanelsDestroyed >= 9) {
+                // Player wins
+                endGame(true);
+            } else if (playerPanelsDestroyed >= 9) {
+                // Player loses
+                endGame(false);
+            }
+        }
+
+        function endGame(victory) {
+            gameOver = true;
+            
+            const endTime = Date.now();
+            const gameTime = Math.floor((endTime - startTime) / 1000);
+            const minutes = Math.floor(gameTime / 60);
+            const seconds = gameTime % 60;
+            
+            const playerPanelsSaved = 9 - playerPanelsDestroyed;
+            let score = 0;
+            
+            if (victory) {
+                score = (playerPanelsSaved * 1000) + (shotsBlocked * 100) + Math.max(0, 300 - gameTime);
+                document.getElementById('gameResult').textContent = 'VICTORY!';
+                document.getElementById('gameResult').style.color = '#00ff00';
+            } else {
+                score = (shotsBlocked * 50) + (enemyPanelsDestroyed * 200);
+                document.getElementById('gameResult').textContent = 'DEFEAT!';
+                document.getElementById('gameResult').style.color = '#ff0000';
             }
             
-            explosionGroup.userData = {
-                isExplosion: true,
-                age: 0
-            };
+            document.getElementById('finalStats').innerHTML = `
+                <div>Time: ${minutes}:${seconds.toString().padStart(2, '0')}</div>
+                <div>Shots Blocked: ${shotsBlocked}</div>
+                <div>Enemy Panels Destroyed: ${enemyPanelsDestroyed}/9</div>
+                <div>Your Panels Saved: ${playerPanelsSaved}/9</div>
+                <div style="font-size: 24px; margin-top: 20px;">FINAL SCORE: ${score}</div>
+            `;
             
-            scene.add(explosionGroup);
-            explosions.push(explosionGroup);
+            document.getElementById('gameOverScreen').style.display = 'flex';
         }
-        
-        function resetGame() {
-            for (const enemy of enemies) scene.remove(enemy);
-            for (const turret of turrets) scene.remove(turret);
-            for (const laser of lasers) scene.remove(laser);
-            for (const explosion of explosions) scene.remove(explosion);
+
+        function updateUI() {
+            const currentTime = Date.now();
+            const gameTime = Math.floor((currentTime - startTime) / 1000);
+            const minutes = Math.floor(gameTime / 60);
+            const seconds = gameTime % 60;
             
-            enemies = [];
-            turrets = [];
-            lasers = [];
-            explosions = [];
-            
-            score = 0;
-            gameOver = false;
-            targetDestroyed = false;
-            
-            camera.position.set(0, 0, 0);
-            camera.rotation.set(0, Math.PI, 0);
-            
-            scene.remove(tunnel);
-            createTunnel();
-            createFinalTarget();
-            
-            document.getElementById('score').innerText = `SCORE: ${score}`;
+            document.getElementById('time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('blocked').textContent = shotsBlocked;
+            document.getElementById('enemyPanels').textContent = 9 - enemyPanelsDestroyed;
+            document.getElementById('playerPanels').textContent = 9 - playerPanelsDestroyed;
         }
-        
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
-        function updateSpeedParticles(delta) {
-            for (let i = speedParticles.length - 1; i >= 0; i--) {
-                const particle = speedParticles[i];
-                
-                particle.position.z += particle.userData.speed;
-                
-                if (particle.position.z > camera.position.z + 10) {
-                    particle.position.z = camera.position.z - 100;
-                    
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = Math.random() * (tunnelRadius - 1);
-                    particle.position.x = Math.sin(angle) * radius;
-                    particle.position.y = Math.cos(angle) * radius;
-                }
-            }
-        }
-        
-        function updateLasers(delta) {
-            for (let i = lasers.length - 1; i >= 0; i--) {
-                const laser = lasers[i];
-                const direction = laser.userData.direction;
-                const speed = laser.userData.speed;
-                
-                laser.position.x += direction.x * speed;
-                laser.position.y += direction.y * speed;
-                laser.position.z += direction.z * speed;
-                
-                if (Math.abs(laser.position.z - camera.position.z) > 100) {
-                    scene.remove(laser);
-                    lasers.splice(i, 1);
-                    continue;
-                }
-                
-                if (laser.userData.fromPlayer) {
-                    // Check enemy collisions
-                    for (let j = enemies.length - 1; j >= 0; j--) {
-                        const enemy = enemies[j];
-                        if (enemy.position.distanceTo(laser.position) < 1.5) {
-                            enemy.userData.health--;
-                            
-                            if (enemy.userData.health <= 0) {
-                                createExplosion(enemy.position, 1);
-                                scene.remove(enemy);
-                                enemies.splice(j, 1);
-                                score += 100;
-                                document.getElementById('score').innerText = `SCORE: ${score}`;
-                            }
-                            
-                            scene.remove(laser);
-                            lasers.splice(i, 1);
-                            break;
-                        }
-                    }
-                    
-                    // Check turret collisions
-                    for (let j = turrets.length - 1; j >= 0; j--) {
-                        const turret = turrets[j];
-                        if (turret.position.distanceTo(laser.position) < 1.5) {
-                            turret.userData.health--;
-                            
-                            if (turret.userData.health <= 0) {
-                                createExplosion(turret.position, 1);
-                                scene.remove(turret);
-                                turrets.splice(j, 1);
-                                score += 150;
-                                document.getElementById('score').innerText = `SCORE: ${score}`;
-                            }
-                            
-                            scene.remove(laser);
-                            lasers.splice(i, 1);
-                            break;
-                        }
-                    }
-                    
-                    // Check final target collision
-                    const finalTarget = scene.children.find(child => child.userData && child.userData.isTarget);
-                    if (finalTarget && laser.position.distanceTo(finalTarget.position) < 16) {
-                        finalTarget.userData.health--;
-                        
-                        scene.remove(laser);
-                        lasers.splice(i, 1);
-                        
-                        if (finalTarget.userData.health <= 0 && !targetDestroyed) {
-                            targetDestroyed = true;
-                            createExplosion(finalTarget.position, 10, 1000);
-                            scene.remove(finalTarget);
-                            score += 10000;
-                            document.getElementById('score').innerText = `SCORE: ${score}`;
-                        }
-                    }
-                } else {
-                    // Enemy laser hitting player
-                    if (laser.position.distanceTo(playerHitbox.position) < 1.2 && !gameOver) {
-                        gameOver = true;
-                        createExplosion(playerHitbox.position, 2);
-                        
-                        setTimeout(() => {
-                            resetGame();
-                        }, 3000);
-                        
-                        scene.remove(laser);
-                        lasers.splice(i, 1);
-                    }
-                }
-            }
-        }
-        
-        function updateEnemies(delta) {
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                
-                enemy.position.x += enemy.userData.direction.x;
-                enemy.position.y += enemy.userData.direction.y;
-                
-                if (enemy.position.z < camera.position.z + 100) {
-                    enemy.lookAt(playerHitbox.position);
-                    
-                    enemy.userData.timeSinceShot += delta;
-                    if (enemy.userData.timeSinceShot > 2) {
-                        enemy.userData.timeSinceShot = 0;
-                        
-                        const laserDirection = new THREE.Vector3(
-                            playerHitbox.position.x - enemy.position.x,
-                            playerHitbox.position.y - enemy.position.y,
-                            playerHitbox.position.z - enemy.position.z
-                        ).normalize();
-                        
-                        fireLaser(enemy.position.clone(), laserDirection, false);
-                    }
-                }
-                
-                if (enemy.position.distanceTo(playerHitbox.position) < 1.5 && !gameOver) {
-                    gameOver = true;
-                    createExplosion(playerHitbox.position, 2);
-                    
-                    setTimeout(() => {
-                        resetGame();
-                    }, 3000);
-                }
-                
-                if (enemy.position.z > camera.position.z + 50) {
-                    scene.remove(enemy);
-                    enemies.splice(i, 1);
-                }
-            }
-        }
-        
-        function updateTurrets(delta) {
-            for (let i = turrets.length - 1; i >= 0; i--) {
-                const turret = turrets[i];
-                
-                if (turret.position.z < camera.position.z + 50 && turret.position.z > camera.position.z - 50) {
-                    turret.lookAt(playerHitbox.position);
-                    
-                    turret.userData.timeToNextShot -= delta;
-                    if (turret.userData.timeToNextShot <= 0) {
-                        turret.userData.timeToNextShot = 2 + Math.random() * 2;
-                        
-                        const laserDirection = new THREE.Vector3(
-                            playerHitbox.position.x - turret.position.x,
-                            playerHitbox.position.y - turret.position.y,
-                            playerHitbox.position.z - turret.position.z
-                        ).normalize();
-                        
-                        fireLaser(turret.position.clone(), laserDirection, false);
-                    }
-                }
-            }
-        }
-        
-        function updateExplosions(delta) {
-            for (let i = explosions.length - 1; i >= 0; i--) {
-                const explosion = explosions[i];
-                explosion.userData.age += delta;
-                
-                explosion.children.forEach(particle => {
-                    particle.position.add(particle.userData.velocity);
-                    particle.userData.lifespan -= delta;
-                    
-                    if (particle.userData.lifespan <= 0) {
-                        particle.scale.multiplyScalar(0.9);
-                    }
-                });
-                
-                if (explosion.userData.age > 2) {
-                    scene.remove(explosion);
-                    explosions.splice(i, 1);
-                }
-            }
-        }
-        
+
         function animate() {
             if (showingVRButton) {
                 renderer.render(scene, camera);
@@ -995,23 +702,26 @@
             const delta = clock.getDelta();
             
             updateControllerState();
-            handleControls(delta);
             
             if (gameStarted && !gameOver) {
-                camera.position.z -= playerSpeed;
-                crosshair.position.z = camera.position.z - 5;
-                playerHitbox.position.z = camera.position.z;
+                updateUI();
+                updateLasers(delta);
+                
+                // Fire lasers at increasing frequency
+                const currentTime = Date.now();
+                if (currentTime - lastLaserTime > laserInterval) {
+                    fireLaser();
+                    lastLaserTime = currentTime;
+                    
+                    // Increase frequency (decrease interval)
+                    laserInterval = Math.max(minLaserInterval, laserInterval - 50);
+                }
             }
-            
-            updateSpeedParticles(delta);
-            updateLasers(delta);
-            updateEnemies(delta);
-            updateTurrets(delta);
-            updateExplosions(delta);
             
             renderer.render(scene, camera);
         }
-        
+
+        // Start the game
         init();
     </script>
 </body>
