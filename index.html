@@ -1,1216 +1,2669 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shroom Cat</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #222;
-            color: white;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-        }
-        
-        #ui {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 100;
-        }
-        
-        #enterVR {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 20px 40px;
-            font-size: 24px;
-            border-radius: 10px;
-            cursor: pointer;
-            margin: 10px;
-        }
-        
-        #enterVR:hover {
-            background: #45a049;
-        }
-        
-        #timer {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            font-size: 24px;
-            z-index: 50;
-        }
-        
-        #stats {
-            position: absolute;
-            top: 60px;
-            left: 20px;
-            font-size: 18px;
-            z-index: 50;
-        }
-        
-        canvas {
-            display: block;
-        }
-    </style>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+<meta name='mobile-web-app-capable' content='yes'>
+<meta name='apple-mobile-web-app-capable' content='yes'>
+<link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+<link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+<title>Ring Ring</title>
+<style>
+    
+  body { 
+  margin: 0; 
+  display: flex; 
+  flex-direction: column;
+  justify-content: center; 
+  align-items: center; 
+  min-height: 100vh;
+  height: auto;
+  font-family: Arial, sans-serif;
+  color: white;
+  overflow: hidden;
+  padding: 0;
+  background-color: transparent; 
+}
+
+canvas { 
+  display: block; 
+  position: fixed; 
+  top: 0;
+  left: 0;
+  z-index: -1; 
+}
+
+#loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; 
+  width: 100%;
+  max-width: 800px;
+  padding: 20px;
+  box-sizing: border-box;
+  position: absolute; 
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); 
+}
+
+#monthsContainer {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  margin: 0 auto 40px auto;
+}
+
+#titleContainer {
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+#gameTitle {
+  font-size: 60px;
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  margin: 0;
+}
+
+#gameSubtitle {
+  font-size: 24px;
+  margin-top: 10px;
+  color: #ff00ff;
+}
+
+.monthButton {
+  padding: 20px 40px;
+  font-size: 24px;
+  background-color: #00468e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative; 
+}
+
+.monthButton:hover { 
+  background-color: #005bb5; 
+  transform: scale(1.05);
+}
+
+.monthButton .monthName {
+  font-weight: bold;
+  font-size: 28px;
+  margin-bottom: 5px;
+}
+
+.monthButton .monthTheme {
+  font-size: 18px;
+  color: #00ffff;
+}
+
+.newBadge {
+  background-color: #ff00ff;
+  color: white;
+  font-size: 14px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  position: absolute;
+  top: -10px;
+  right: -10px;
+}
+
+.leaderboardTooltip {
+  position: absolute;
+  background-color: rgba(0, 60, 120, 0.9);
+  border: 2px solid #00ffff;
+  border-radius: 10px;
+  padding: 15px;
+  width: 250px;
+  max-height: 300px;
+  overflow-y: auto;
+  color: white;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.leaderboardTooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.leaderboardTooltip h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #00ffff;
+  text-align: center;
+  font-size: 18px;
+  border-bottom: 1px solid #00ffff;
+  padding-bottom: 5px;
+}
+
+.leaderboardPlayer {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.leaderboardRank {
+  color: #ffff00;
+  font-weight: bold;
+  width: 30px;
+}
+
+.leaderboardName {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 5px;
+}
+
+.leaderboardTime {
+  color: #00ffff;
+}
+
+.noRecords {
+  text-align: center;
+  color: #888888;
+  font-style: italic;
+  margin: 15px 0;
+}
+
+.monthButton.placeholder {
+  background-image: linear-gradient(to right, #003366, #004488, #003366);
+  background-size: 200% 100%;
+  animation: loadingPulse 1.5s infinite;
+}
+
+@keyframes loadingPulse {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.comingSoonRibbon {
+  position: absolute;
+  top: 30px;
+  right: -65px;
+  width: 220px;
+  transform: rotate(45deg);
+  background: linear-gradient(45deg, #ff8800, #ffaa00);
+  color: white;
+  padding: 5px 0;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  z-index: 1;
+}
+
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
 </head>
 <body>
-    <div id="ui">
-        <div id="menu">
-            <h1>🐱 Shroom Cat 🍄</h1>
-            <p><strong>VR Game:</strong> Protect the sleeping cat from the rain!</p>
-            <p>Use your mushroom umbrellas to shield it.</p>
-            <p><em>VR Headset Required</em></p>
-            <button id="enterVR">Start VR Game</button>
-        </div>
-    </div>
-    
-    <div id="timer" style="display: none;">Time: 0s</div>
-    <div id="stats" style="display: none;">
-        <div>Drops blocked: <span id="dropsBlocked">0</span></div>
-    </div>
+<!--  Levelsio Vibe Jam link  -->
+<a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script>
-        let scene, camera, renderer, dolly;
-        let leftMushroom, rightMushroom, cat;
-        let raindrops = [];
-        let gameStarted = false, gameOver = false;
-        let startTime, gameTime = 0;
-        let controller1, controller2;
-        let particles = [];
-        
-        // VR UI variables
-        let vrUI, vrPlayAgainButton, vrQuitButton;
-        let hoveredButton = null;
-        let lastButtonPressTime = 0; // Prevent button spam
-        
-        // Scoring variables
-        let raindropsBlocked = 0;
-        let finalScore = 0;
-        
-        // Audio variables
-        let audioListener, backgroundRain, howlSound, catPurrSound, thunderSound;
-        
-        // Game settings - scaled up for better VR accuracy
-        const DROP_SPAWN_RATE = 800; // ms between drops initially
-        let currentSpawnRate = DROP_SPAWN_RATE;
-        let lastDropTime = 0;
-        const SCALE_FACTOR = 0.5; // Scale everything up 2x for better VR accuracy
+<div id="loadingContainer">
+  <div id="titleContainer">
+    <h1 id="gameTitle">RING RING</h1>
+    <div id="gameSubtitle">VR GAME</div>
+  </div>
+  
+  <div id="monthsContainer" style="display: flex; flex-direction: column; gap: 20px;">
+    <!-- Month buttons will be generated here -->
+  </div>
+</div>
 
-        let puddles = [];
-        let isInVRMode = false;
-        
-        // GLB Loader
-        const loader = new THREE.GLTFLoader();
-        
-        init();
-        
-    function init() {
-    
- // Scene setup
-scene = new THREE.Scene();
-scene.background = new THREE.Color(0x888888); // Grey sky
-
-// Camera with narrower FOV to make player feel bigger - changed from 75 to 50
-camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-// Create dolly - scaled up
-dolly = new THREE.Group();
-dolly.position.set(0, 0, 1.0 * SCALE_FACTOR); // Scaled up position
-dolly.add(camera);
-scene.add(dolly);
-
-// Position camera to look down at cat for menu view - scaled up
-camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
-camera.lookAt(0, 0, 0);
-    
-    // Audio setup
-    audioListener = new THREE.AudioListener();
-    camera.add(audioListener);
-    
-    // Renderer with VR support - no shadows
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-    
-    // Lighting - no shadows
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-    scene.add(ambientLight);
-    
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(0, 30 * SCALE_FACTOR, 0); // Scaled up
-    scene.add(directionalLight);
-    
-    // Ground - scaled up
-    const groundGeometry = new THREE.PlaneGeometry(40 * SCALE_FACTOR, 40 * SCALE_FACTOR);
-    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x355c32 }); // Darker green
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    scene.add(ground);
-    
-    // VR Controllers
-    controller1 = renderer.xr.getController(0);
-    dolly.add(controller1);
-    
-    controller2 = renderer.xr.getController(1);
-    dolly.add(controller2);
-    
-    // Create VR UI
-    createVRUI();
-    
-    // Load audio and models
-    loadAudio();
-    loadModels();
-    
-    // Event listeners - FIXED: removed the orphaned playAgain listener
-    document.getElementById('enterVR').addEventListener('click', startGameAndTryVR);
-    // REMOVED: document.getElementById('playAgain').addEventListener('click', resetGame);
-    
-    // Start render loop
-    renderer.setAnimationLoop(animate);
+<script type="importmap">
+{
+"imports": {
+"three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+"three/examples/jsm/webxr/VRButton.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/VRButton.js",
+"three/examples/jsm/webxr/XRControllerModelFactory.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRControllerModelFactory.js",
+"three-mesh-ui": "https://cdn.jsdelivr.net/npm/three-mesh-ui@6.5.4/build/three-mesh-ui.module.js"
 }
-        
-  function createVRUI() {
-    // Create VR UI group
-    vrUI = new THREE.Group();
-    vrUI.visible = false;
-    
-   
-    
-    // Create text using canvas texture
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    
-    // FIXED: Proper canvas clearing and texture updating
-    function updateVRUIText(timeInSeconds, dropsBlocked, score) {
-        console.log('VR UI updateText called with:', { timeInSeconds, dropsBlocked, score });
-        
-        // PROPERLY clear the entire canvas with solid background
-        ctx.clearRect(0, 0, 512, 512);
-        ctx.fillStyle = 'rgba(0, 0, 0, 1)';  // Solid black background
-        ctx.fillRect(0, 0, 512, 512);
-        
-        // Text styling
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 48px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';  // Better text alignment
-        
-        // Game Over text
-        ctx.fillText('Game Over!', 256, 100);
-        
-        // Cat emoji
-        ctx.font = '60px Arial';
-        ctx.fillText('😿', 256, 170);
-        
-        // Score info - using PASSED parameters, not globals
-        ctx.font = '24px Arial';
-        ctx.fillStyle = 'white';  // Reset color
-        ctx.fillText('The cat got wet!', 256, 220);
-        ctx.fillText(`Time: ${timeInSeconds}s`, 256, 260);
-        ctx.fillText(`Drops blocked: ${dropsBlocked}`, 256, 290);
-        
-        // Final score
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 32px Arial';
-        ctx.fillText(`Score: ${score}`, 256, 340);
-        
-        // FORCE texture update
-        texture.needsUpdate = true;
-        console.log('Canvas updated and texture marked for update');
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.minFilter = THREE.LinearFilter;  // Better text quality
-    texture.magFilter = THREE.LinearFilter;
-    
-    const textMaterial = new THREE.MeshBasicMaterial({ 
-        map: texture, 
-        transparent: true 
-    });
-    const textMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.0 * SCALE_FACTOR, 1.0 * SCALE_FACTOR),
-        textMaterial
-    );
-    textMesh.position.z = 0.02 * SCALE_FACTOR;
-    vrUI.add(textMesh);
-    
-    // Store reference to update function
-    vrUI.updateText = updateVRUIText;
-    vrUI.textTexture = texture;
-    
-    // Create Play Again button - scaled down to half size
-    const buttonGeometry = new THREE.BoxGeometry(0.4 * SCALE_FACTOR, 0.12 * SCALE_FACTOR, 0.04 * SCALE_FACTOR);
-    const playAgainMaterial = new THREE.MeshBasicMaterial({ color: 0x4CAF50 });
-    vrPlayAgainButton = new THREE.Mesh(buttonGeometry, playAgainMaterial);
-    vrPlayAgainButton.position.set(-0.3 * SCALE_FACTOR, -0.35 * SCALE_FACTOR, 0.03 * SCALE_FACTOR);
-    
-    // Add bounding box for precise collision detection
-    vrPlayAgainButton.geometry.computeBoundingBox();
-    
-    vrUI.add(vrPlayAgainButton);
-    
-    // Play Again button text - scaled down to half size
-    const playCanvas = document.createElement('canvas');
-    playCanvas.width = 256;
-    playCanvas.height = 64;
-    const playCtx = playCanvas.getContext('2d');
-    playCtx.fillStyle = 'white';
-    playCtx.font = 'bold 24px Arial';
-    playCtx.textAlign = 'center';
-    playCtx.fillText('Play Again', 128, 40);
-    
-    const playTexture = new THREE.CanvasTexture(playCanvas);
-    const playTextMaterial = new THREE.MeshBasicMaterial({ 
-        map: playTexture, 
-        transparent: true 
-    });
-    const playTextMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.35 * SCALE_FACTOR, 0.1 * SCALE_FACTOR),
-        playTextMaterial
-    );
-    playTextMesh.position.set(-0.3 * SCALE_FACTOR, -0.35 * SCALE_FACTOR, 0.0505 * SCALE_FACTOR); // Very slight offset
-    vrUI.add(playTextMesh);
-    
-    // Create Quit button - scaled down to half size
-    const quitMaterial = new THREE.MeshBasicMaterial({ color: 0xf44336 });
-    vrQuitButton = new THREE.Mesh(buttonGeometry, quitMaterial);
-    vrQuitButton.position.set(0.3 * SCALE_FACTOR, -0.35 * SCALE_FACTOR, 0.03 * SCALE_FACTOR);
-    
-    // Add bounding box for precise collision detection
-    vrQuitButton.geometry.computeBoundingBox();
-    
-    vrUI.add(vrQuitButton);
-    
-    // Quit button text - scaled down to half size
-    const quitCanvas = document.createElement('canvas');
-    quitCanvas.width = 256;
-    quitCanvas.height = 64;
-    const quitCtx = quitCanvas.getContext('2d');
-    quitCtx.fillStyle = 'white';
-    quitCtx.font = 'bold 24px Arial';
-    quitCtx.textAlign = 'center';
-    quitCtx.fillText('Quit', 128, 40);
-    
-    const quitTexture = new THREE.CanvasTexture(quitCanvas);
-    const quitTextMaterial = new THREE.MeshBasicMaterial({ 
-        map: quitTexture, 
-        transparent: true 
-    });
-    const quitTextMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.35 * SCALE_FACTOR, 0.1 * SCALE_FACTOR),
-        quitTextMaterial
-    );
-    quitTextMesh.position.set(0.3 * SCALE_FACTOR, -0.35 * SCALE_FACTOR, 0.0505 * SCALE_FACTOR); // Very slight offset
-    vrUI.add(quitTextMesh);
-    
-    // Position VR UI closer to player and at arm's reach - scaled up
-    vrUI.position.set(0, 2.8 * SCALE_FACTOR, -1.6 * SCALE_FACTOR);
-    dolly.add(vrUI);
 }
+</script>
 
+<script type="module">
+import * as THREE from 'three';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-        
- function checkVRUIInteraction() {
-    if (!vrUI.visible) return;
-    
-    const mushrooms = [leftMushroom, rightMushroom].filter(m => m);
-    const currentTime = Date.now();
-    
-    // Get mushroom positions (same as in checkCollisions)
-    const mushroomPositions = [];
-    if (leftMushroom) {
-        const leftPos = new THREE.Vector3();
-        leftMushroom.getWorldPosition(leftPos);
-        mushroomPositions.push(leftPos);
+let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, textMesh, timerMesh;
+let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
+let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
+const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
+let currentLevel = 1;
+let levelTimes = [];
+
+let explosionFragments = [];
+let explosionStartTime = null;
+let isExploding = false;
+let confettiParticles = [];
+let confettiStartTime = null;
+let gameCompletionMeshes = [];
+
+let transitionImmunity = false;
+let xrInputSources = [];
+
+let levelCompleted = false;
+let gameCompleted = false;
+let scoreSummaryMeshes = []; 
+let keyboardMeshes = [];
+let initialsDisplayMesh;
+let nameEntered = false;
+let playerName = "";
+let maxNameLength = 10;
+let hoveredButton = null;
+let keyboardActive = false;
+let controllerRays = [];
+const keyboardRaycaster = new THREE.Raycaster();
+const tempVector = new THREE.Vector3();
+let timerCenterOffset = 0;
+
+let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
+let isFlashing = false;
+let levelMusic = [];
+let currentMusic = null;
+let endGameMusic;
+
+let selectedMonth = null;
+let monthlyLevels = [];
+let cachedMonths = {};
+let isQuitting = false;
+
+// VR MENU SYSTEM VARIABLES
+let monthMenuItems = [];
+let hoveredMenuItem = null;
+let menuTooltip = null;
+let isInMenuMode = false;
+let menuFont;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCvzAS8zXYraoP-a10eAMFAZX7u1TQNY-M",
+  databaseURL: "https://ring-ring-vr-game-default-rtdb.firebaseio.com/",
+  projectId: "ring-ring-vr-game"
+};
+firebase.initializeApp(firebaseConfig);
+
+const levelsRef = firebase.database().ref('levels/months');
+const leaderboardRef = firebase.database().ref('leaderboard');
+
+loadAvailableMonths();
+
+function loadAvailableMonths() {
+  console.log("Loading available months...");
+  
+  const placeholderMonths = [
+    {
+      id: "2025-03",
+      name: "March 2025",
+      theme: "Loading..."
+    },
+    {
+      id: "2025-04", 
+      name: "April 2025",
+      theme: "Loading..."
     }
-    if (rightMushroom) {
-        const rightPos = new THREE.Vector3();
-        rightMushroom.getWorldPosition(rightPos);
-        mushroomPositions.push(rightPos);
-    }
+  ];
+  
+  generateMonthButtons(placeholderMonths, true);
+  
+  Promise.all([
+    levelsRef.once('value'),
+    firebase.database().ref('monthlyWires').once('value')
+  ])
+  .then(([legacySnapshot, newFormatSnapshot]) => {
+    const availableMonths = [];
     
-    // Check Play Again button collision (using exact same method as raindrops)
-    const playAgainPos = new THREE.Vector3();
-    vrPlayAgainButton.getWorldPosition(playAgainPos);
-    
-    let playAgainHit = false;
-    for (const mushroomPos of mushroomPositions) {
-        const distance = playAgainPos.distanceTo(mushroomPos);
+    legacySnapshot.forEach(monthSnapshot => {
+      const monthId = monthSnapshot.key;
+      const monthData = monthSnapshot.val();
+      if (monthData) {
+        const [year, month] = monthId.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
         
-        // Use same collision detection as raindrops - just check simple distance
-        if (distance < 0.8 * SCALE_FACTOR) {
-            if (hoveredButton !== 'playAgain') {
-                vrPlayAgainButton.material.color.setHex(0x66bb6a);
-                hoveredButton = 'playAgain';
-                console.log('Hovering Play Again button - distance:', distance);
-            }
-            
-            // Trigger on very close collision with debouncing
-            if (distance < 0.4 * SCALE_FACTOR && currentTime - lastButtonPressTime > 1000) {
-                console.log('Play Again button triggered! Distance:', distance);
-                lastButtonPressTime = currentTime;
-                
-                // Visual feedback for activation
-                vrPlayAgainButton.material.color.setHex(0x00ff00);
-                setTimeout(() => {
-                    vrPlayAgainButton.material.color.setHex(0x4CAF50);
-                }, 200);
-                
-                // FIXED: Restart game directly in VR without going through menu
-                restartGameInVR();
-            }
-            playAgainHit = true;
-            break;
-        }
-    }
-    
-    if (!playAgainHit && hoveredButton === 'playAgain') {
-        vrPlayAgainButton.material.color.setHex(0x4CAF50);
-        hoveredButton = null;
-        console.log('Stopped hovering Play Again button');
-    }
-    
-    // Check Quit button collision (using exact same method as raindrops)
-    const quitPos = new THREE.Vector3();
-    vrQuitButton.getWorldPosition(quitPos);
-    
-    let quitHit = false;
-    for (const mushroomPos of mushroomPositions) {
-        const distance = quitPos.distanceTo(mushroomPos);
-        
-        // Use same collision detection as raindrops - just check simple distance
-        if (distance < 0.8 * SCALE_FACTOR) {
-            if (hoveredButton !== 'quit') {
-                vrQuitButton.material.color.setHex(0xef5350);
-                hoveredButton = 'quit';
-                console.log('Hovering Quit button - distance:', distance);
-            }
-            
-            // Trigger on very close collision with debouncing
-            if (distance < 0.4 * SCALE_FACTOR && currentTime - lastButtonPressTime > 1000) {
-                console.log('Quit button triggered! Distance:', distance);
-                lastButtonPressTime = currentTime;
-                
-                // Visual feedback for activation
-                vrQuitButton.material.color.setHex(0xff0000);
-                setTimeout(() => {
-                    vrQuitButton.material.color.setHex(0xf44336);
-                }, 200);
-                
-                // Exit VR and return to menu
-                if (renderer.xr.getSession()) {
-                    renderer.xr.getSession().end();
-                }
-                resetGame();
-            }
-            quitHit = true;
-            break;
-        }
-    }
-    
-    if (!quitHit && hoveredButton === 'quit') {
-        vrQuitButton.material.color.setHex(0xf44336);
-        hoveredButton = null;
-        console.log('Stopped hovering Quit button');
-    }
-}
-
-function restartGameInVR() {
-    // Reset game state without showing menu
-    gameStarted = false;
-    gameOver = false;
-
-    // Hide VR UI
-    vrUI.visible = false;
-
-    // Remove all raindrops
-    raindrops.forEach(drop => scene.remove(drop));
-    raindrops = [];
-
-    // Remove all particles
-    particles.forEach(particle => scene.remove(particle));
-    particles = [];
-
-    // Remove all puddles
-    puddles.forEach(puddle => scene.remove(puddle));
-    puddles = [];
-
-    // Reset cat
-    if (cat) {
-        cat.visible = true;
-    }
-
-    // Reset scoring and time
-    raindropsBlocked = 0;
-    finalScore = 0;
-    gameTime = 0;
-    startTime = undefined;
-
-    // Reset button states
-    hoveredButton = null;
-    lastButtonPressTime = 0;
-
-    // Stop all sounds
-    try {
-        if (howlSound && howlSound.isPlaying) {
-            howlSound.stop();
-        }
-        if (backgroundRain && backgroundRain.isPlaying) {
-            backgroundRain.stop();
-        }
-        if (thunderSound && thunderSound.isPlaying) {
-            thunderSound.stop();
-        }
-        if (catPurrSound && catPurrSound.isPlaying) {
-            catPurrSound.stop();
-        }
-    } catch (error) {
-        console.log('Error stopping sounds:', error);
-    }
-
-    // Start new game immediately
-    startGame();
-}
-
-
-        
-        function loadAudio() {
-            const audioLoader = new THREE.AudioLoader();
-            
-            // Load rain sound
-            audioLoader.load('rain.mp3', (buffer) => {
-                try {
-                    backgroundRain = new THREE.Audio(audioListener);
-                    backgroundRain.setBuffer(buffer);
-                    backgroundRain.setLoop(true);
-                    backgroundRain.setVolume(0.3);
-                    console.log('Rain sound loaded');
-                } catch (error) {
-                    console.log('Error creating rain sound:', error);
-                }
-            }, undefined, (error) => {
-                console.log('Error loading rain.mp3:', error);
-                backgroundRain = null;
-            });
-            
-            // Load howl sound
-            audioLoader.load('howl.mp3', (buffer) => {
-                try {
-                    howlSound = new THREE.Audio(audioListener);
-                    howlSound.setBuffer(buffer);
-                    howlSound.setVolume(0.8);
-                    console.log('Howl sound loaded');
-                } catch (error) {
-                    console.log('Error creating howl sound:', error);
-                }
-            }, undefined, (error) => {
-                console.log('Error loading howl.mp3:', error);
-                howlSound = null;
-            });
-            
-            // Load thunder sound
-            audioLoader.load('thunder.mp3', (buffer) => {
-                try {
-                    thunderSound = new THREE.Audio(audioListener);
-                    thunderSound.setBuffer(buffer);
-                    thunderSound.setVolume(0.6);
-                    console.log('Thunder sound loaded');
-                } catch (error) {
-                    console.log('Error creating thunder sound:', error);
-                }
-            }, undefined, (error) => {
-                console.log('Error loading thunder.mp3:', error);
-                thunderSound = null;
-            });
-            
-            // Load purr sound for the single cat - louder volume
-            audioLoader.load('purr.mp3', (buffer) => {
-                try {
-                    catPurrSound = new THREE.PositionalAudio(audioListener);
-                    catPurrSound.setBuffer(buffer);
-                    catPurrSound.setRefDistance(2 * SCALE_FACTOR); // Scaled up reference distance
-                    catPurrSound.setRolloffFactor(1); // Reduced rolloff for louder sound
-                    catPurrSound.setDistanceModel('exponential');
-                    catPurrSound.setLoop(true);
-                    catPurrSound.setVolume(0.8); // Increased from 0.4 to 0.8
-                    console.log('Cat purr sound loaded');
-                } catch (error) {
-                    console.log('Error creating cat purr sound:', error);
-                }
-            }, undefined, (error) => {
-                console.log('Error loading purr.mp3:', error);
-                catPurrSound = null;
-            });
-        }
-        
-        function loadModels() {
-            // Load single cat - scaled up
-            loader.load('cat.glb', (gltf) => {
-                const catModel = gltf.scene;
-                catModel.scale.set(0.315 * SCALE_FACTOR, 0.315 * SCALE_FACTOR, 0.315 * SCALE_FACTOR); // Scaled up
-                createCat(catModel);
-            }, undefined, (error) => {
-                console.log('Error loading cat.glb, using fallback geometry');
-                createFallbackCat();
-            });
-            
-            // Load mushroom umbrellas for both hands - scaled up
-            loader.load('shroom.glb', (gltf) => {
-                const mushroomModel = gltf.scene;
-                
-                // Left hand mushroom umbrella
-                leftMushroom = mushroomModel.clone();
-                leftMushroom.scale.set(0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR);
-                controller1.add(leftMushroom);
-                leftMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
-                
-                // Right hand mushroom umbrella
-                rightMushroom = mushroomModel.clone();
-                rightMushroom.scale.set(0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR, 0.3 * SCALE_FACTOR);
-                controller2.add(rightMushroom);
-                rightMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
-            }, undefined, (error) => {
-                console.log('Error loading shroom.glb, using fallback geometry');
-                createFallbackMushrooms();
-            });
-        }
-        
-        function createCat(catModel) {
-            cat = catModel.clone();
-            cat.position.set(0, 0, 0); // Fixed position at origin
-            cat.rotation.y = Math.PI / 2; // Rotate 90 degrees to face sideways
-            
-            // Add purr sound to cat
-            if (catPurrSound) {
-                cat.add(catPurrSound);
-            }
-            
-            scene.add(cat);
-        }
-        
-        function createFallbackCat() {
-            const catGroup = new THREE.Group();
-            
-            // Simple sphere for cat body - scaled up
-            const bodyGeometry = new THREE.SphereGeometry(0.315 * SCALE_FACTOR, 16, 12);
-            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
-            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.position.y = 0.189 * SCALE_FACTOR;
-            catGroup.add(body);
-            
-            // Simple ears - scaled up
-            const earGeometry = new THREE.ConeGeometry(0.063 * SCALE_FACTOR, 0.126 * SCALE_FACTOR, 8);
-            const earMaterial = new THREE.MeshLambertMaterial({ color: 0xFF8C42 });
-            
-            const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-            leftEar.position.set(-0.126 * SCALE_FACTOR, 0.378 * SCALE_FACTOR, 0.126 * SCALE_FACTOR);
-            catGroup.add(leftEar);
-            
-            const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-            rightEar.position.set(0.126 * SCALE_FACTOR, 0.378 * SCALE_FACTOR, 0.126 * SCALE_FACTOR);
-            catGroup.add(rightEar);
-            
-            catGroup.position.set(0, 0, 0); // Fixed position at origin
-            catGroup.rotation.y = Math.PI / 2; // Rotate 90 degrees to face sideways
-            
-            // Add purr sound to cat
-            if (catPurrSound) {
-                catGroup.add(catPurrSound);
-            }
-            
-            cat = catGroup;
-            scene.add(cat);
-        }
-        
-        function createFallbackMushrooms() {
-            // Create left mushroom umbrella - scaled up
-            const leftMushroomGroup = new THREE.Group();
-            
-            // Mushroom cap
-            const capGeometry = new THREE.SphereGeometry(0.4 * SCALE_FACTOR, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-            const capMaterial = new THREE.MeshLambertMaterial({ 
-                color: 0xFF0000,
-                side: THREE.DoubleSide 
-            });
-            const leftCap = new THREE.Mesh(capGeometry, capMaterial);
-            leftCap.position.y = 0.2 * SCALE_FACTOR;
-            leftMushroomGroup.add(leftCap);
-            
-            // Mushroom stem
-            const stemGeometry = new THREE.CylinderGeometry(0.04 * SCALE_FACTOR, 0.04 * SCALE_FACTOR, 0.4 * SCALE_FACTOR, 8);
-            const stemMaterial = new THREE.MeshLambertMaterial({ color: 0xFFF8DC });
-            const leftStem = new THREE.Mesh(stemGeometry, stemMaterial);
-            leftMushroomGroup.add(leftStem);
-            
-            leftMushroom = leftMushroomGroup;
-            controller1.add(leftMushroom);
-            leftMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
-            
-            // Create right mushroom umbrella (clone of left)
-            rightMushroom = leftMushroomGroup.clone();
-            controller2.add(rightMushroom);
-            rightMushroom.position.set(0, 0, -0.1 * SCALE_FACTOR);
-        }
-        
-        function startGameAndTryVR() {
-    // Resume audio context
-    if (audioListener && audioListener.context.state === 'suspended') {
-        audioListener.context.resume().then(() => {
-            console.log('Audio context resumed');
-        }).catch(error => {
-            console.log('Failed to resume audio context:', error);
+        availableMonths.push({
+          id: monthId,
+          name: `${monthName} ${year}`,
+          theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
         });
-    }
+      }
+    });
     
-    // Start the game first
-    document.getElementById('ui').style.display = 'none';
-    document.getElementById('timer').style.display = 'block';
-    document.getElementById('stats').style.display = 'block';
-    
-    // Reset camera position for VR/game mode - scaled up
-    camera.position.set(0, 3.4 * SCALE_FACTOR, 0);
-    camera.lookAt(0, 0, -1);
-    
-    startGame();
-    
-    // Try to enter VR
-    if (navigator.xr) {
-        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            if (supported) {
-                navigator.xr.requestSession('immersive-vr', {
-                    requiredFeatures: ['local'],
-                    optionalFeatures: ['local-floor', 'bounded-floor']
-                }).then(session => {
-                    renderer.xr.setSession(session);
-                    
-                    // Set our manual VR flag
-                    isInVRMode = true;
-                    console.log('VR session started, isInVRMode =', isInVRMode);
-                    
-                    // Listen for session end to reset flag
-                    session.addEventListener('end', () => {
-                        isInVRMode = false;
-                        console.log('VR session ended, isInVRMode =', isInVRMode);
-                        // When VR ends, go back to menu
-                        resetGame();
-                    });
-                    
-                    session.requestReferenceSpace('local').then(refSpace => {
-                        console.log('Using local reference space');
-                    }).catch(err => {
-                        console.log('Local reference space not supported, trying viewer');
-                        session.requestReferenceSpace('viewer').then(refSpace => {
-                            console.log('Using viewer reference space');
-                        }).catch(err2 => {
-                            console.log('Viewer reference space also failed:', err2);
-                        });
-                    });
-                }).catch(err => {
-                    console.log('VR session request failed:', err);
-                    console.log('VR required - returning to menu');
-                    // If VR fails, show error message and stay at menu
-                    alert('VR headset required to play this game!');
-                    document.getElementById('ui').style.display = 'block';
-                    document.getElementById('timer').style.display = 'none';
-                    document.getElementById('stats').style.display = 'none';
-                    resetGame();
-                });
-            } else {
-                console.log('VR not supported');
-                alert('VR headset required to play this game!');
-                document.getElementById('ui').style.display = 'block';
-                document.getElementById('timer').style.display = 'none';
-                document.getElementById('stats').style.display = 'none';
-                resetGame();
-            }
+    newFormatSnapshot.forEach(monthSnapshot => {
+      const monthId = monthSnapshot.key;
+      if (!availableMonths.some(m => m.id === monthId)) {
+        const [year, month] = monthId.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
+        
+        availableMonths.push({
+          id: monthId,
+          name: `${monthName} ${year}`,
+          theme: `Levels 1-5`
         });
+      }
+    });
+    
+    if (availableMonths.length > 0) {
+      generateMonthButtons(availableMonths);
     } else {
-        console.log('WebXR not available');
-        alert('VR headset required to play this game!');
-        document.getElementById('ui').style.display = 'block';
-        document.getElementById('timer').style.display = 'none';
-        document.getElementById('stats').style.display = 'none';
-        resetGame();
+      console.warn("No months found in Firebase, using defaults");
+      const defaultMonths = [
+        {
+          id: "2025-04",
+          name: "April 2025",
+          theme: "Levels 1-5"
+        },
+        {
+          id: "2025-03",
+          name: "March 2025",
+          theme: "Levels 6-10"
+        }
+      ];
+      
+      generateMonthButtons(defaultMonths);
     }
-}
-        
-        function startGame() {
-            gameStarted = true;
-            gameOver = false;
-            startTime = Date.now();
-            gameTime = 0;
-            raindrops = [];
-            particles = [];
-            currentSpawnRate = DROP_SPAWN_RATE;
-            lastDropTime = 0;
-            
-            // Reset scoring
-            raindropsBlocked = 0;
-            finalScore = 0;
-            updateStatsDisplay();
-            
-            // Hide VR UI
-            vrUI.visible = false;
-            
-            // Make cat visible
-            if (cat) {
-                cat.visible = true;
-            }
-            
-            // Play thunder sound first
-            try {
-                if (thunderSound && !thunderSound.isPlaying) {
-                    thunderSound.play().catch(error => {
-                        console.log('Failed to play thunder sound:', error);
-                    });
-                }
-            } catch (error) {
-                console.log('Error with thunder sound:', error);
-            }
-            
-            // Start rain sound after a short delay
-            setTimeout(() => {
-                try {
-                    if (backgroundRain && !backgroundRain.isPlaying) {
-                        backgroundRain.play().catch(error => {
-                            console.log('Failed to play rain sound:', error);
-                        });
-                    }
-                } catch (error) {
-                    console.log('Error with rain sound:', error);
-                }
-            }, 1000); // 1 second delay after thunder
-            
-            // Start cat purr sound
-            try {
-                if (catPurrSound && !catPurrSound.isPlaying) {
-                    catPurrSound.play().catch(error => {
-                        console.log('Failed to play purr sound:', error);
-                    });
-                }
-            } catch (error) {
-                console.log('Error with purr sound:', error);
-            }
-        }
-        
-        function updateStatsDisplay() {
-            document.getElementById('dropsBlocked').textContent = raindropsBlocked;
-        }
-        
-        function calculateScore(timeInSeconds, dropsBlocked) {
-            // Scoring algorithm:
-            // Base points: 10 points per second survived
-            // Bonus points: 50 points per raindrop blocked
-            // Multiplier for longer survival: bonus multiplier increases with time
-            
-            const baseTimePoints = timeInSeconds * 10;
-            const dropPoints = dropsBlocked * 50;
-            
-            // Survival bonus: extra points for lasting longer
-            let survivalBonus = 0;
-            if (timeInSeconds >= 60) survivalBonus += 1000; // 1 minute bonus
-            if (timeInSeconds >= 120) survivalBonus += 2000; // 2 minute bonus
-            if (timeInSeconds >= 180) survivalBonus += 3000; // 3 minute bonus
-            
-            // Efficiency bonus: reward for blocking many drops relative to time
-            const dropsPerSecond = dropsBlocked / Math.max(timeInSeconds, 1);
-            const efficiencyBonus = Math.floor(dropsPerSecond * 100);
-            
-            return baseTimePoints + dropPoints + survivalBonus + efficiencyBonus;
-        }
-
-
-
-        
- function resetGame() {
-    console.log('=== RESET GAME ===');
-    
-    // Show menu only if not in VR
-    if (!isInVRMode) {
-        document.getElementById('gameOver').style.display = 'none';
-        document.getElementById('menu').style.display = 'block';
-        document.getElementById('ui').style.display = 'block';
-        document.getElementById('timer').style.display = 'none';
-        document.getElementById('stats').style.display = 'none';
-    }
-    
-    gameStarted = false;
-    gameOver = false;
-
-    // Reset camera to look down at cat for menu - scaled up
-    camera.position.set(0, 6 * SCALE_FACTOR, 4 * SCALE_FACTOR);
-    camera.lookAt(0, 0, 0);
-
-    // Hide VR UI
-    vrUI.visible = false;
-
-    // Remove all raindrops
-    raindrops.forEach(drop => scene.remove(drop));
-    raindrops = [];
-
-    // Remove all particles
-    particles.forEach(particle => scene.remove(particle));
-    particles = [];
-
-    // Remove all puddles
-    puddles.forEach(puddle => scene.remove(puddle));
-    puddles = [];
-
-    // Reset cat
-    if (cat) {
-        cat.visible = true;
-    }
-
-    // Reset scoring and time
-    raindropsBlocked = 0;
-    finalScore = 0;
-    gameTime = 0;
-    startTime = undefined;
-
-    // Reset UI displays
-    document.getElementById('timer').textContent = 'Time: 0s';
-    document.getElementById('dropsBlocked').textContent = '0';
-
-    // Reset button states
-    hoveredButton = null;
-    lastButtonPressTime = 0;
-
-    // Reset VR flag when returning to menu
-    isInVRMode = false;
-
-    // Stop all sounds
-    try {
-        if (howlSound && howlSound.isPlaying) {
-            howlSound.stop();
-        }
-        if (backgroundRain && backgroundRain.isPlaying) {
-            backgroundRain.stop();
-        }
-        if (thunderSound && thunderSound.isPlaying) {
-            thunderSound.stop();
-        }
-    } catch (error) {
-        console.log('Error stopping sounds:', error);
-    }
-    
-    console.log('=== END RESET ===');
-}
-        
-        function spawnRaindrop() {
-            const dropGroup = new THREE.Group();
-
-            // Make raindrop half as big as before (multiply by 0.5)
-    const dropRadius = 0.06 * 0.5 * SCALE_FACTOR;
-    const dropHeight = 0.12 * 0.5 * SCALE_FACTOR;
-            
-            // Main sphere body - scaled up
-            const dropGeometry = new THREE.SphereGeometry(0.06 * SCALE_FACTOR, 8, 8);
-            const dropMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
-            const dropSphere = new THREE.Mesh(dropGeometry, dropMaterial);
-            dropGroup.add(dropSphere);
-            
-            // Add teardrop cone that starts from sphere's equator - scaled up
-            const tipGeometry = new THREE.ConeGeometry(0.06 * SCALE_FACTOR, 0.12 * SCALE_FACTOR, 6);
-            const tipMaterial = new THREE.MeshLambertMaterial({ color: 0x0077be });
-            const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-            tip.position.y = 0.06 * SCALE_FACTOR;
-            dropGroup.add(tip);
-            
-            // Always target the cat area since there's only one
-            if (cat && cat.visible) {
-                const catPosition = new THREE.Vector3();
-                cat.getWorldPosition(catPosition);
-                
-                // Spawn above the cat with some random offset - scaled up
-                dropGroup.position.set(
-                    catPosition.x + (Math.random() - 0.5) * 4 * SCALE_FACTOR,
-                    16 * SCALE_FACTOR + Math.random() * 6 * SCALE_FACTOR,
-                    catPosition.z + (Math.random() - 0.5) * 4 * SCALE_FACTOR
-                );
-            } else {
-                // Fallback to center spawn - scaled up
-                dropGroup.position.set(
-                    (Math.random() - 0.5) * 8 * SCALE_FACTOR,
-                    16 * SCALE_FACTOR + Math.random() * 6 * SCALE_FACTOR,
-                    (Math.random() - 0.5) * 8 * SCALE_FACTOR
-                );
-            }
-            
-            dropGroup.velocity = (0.02 + (gameTime / 120000) * 0.08) * SCALE_FACTOR;
-            
-            scene.add(dropGroup);
-            raindrops.push(dropGroup);
-        }
-        
-        function createParticleBurst(position) {
-            // Water blue color palette
-            const waterColors = [
-                0x0077be, // Deep blue
-                0x1e90ff, // Dodger blue
-                0x4169e1, // Royal blue
-                0x6495ed, // Cornflower blue
-                0x87ceeb, // Sky blue
-                0xa2cdf0, // Light blue
-                0xb0e0e6, // Powder blue
-                0xadd8e6  // Light blue
-            ];
-            
-            for (let i = 0; i < 20; i++) {
-                const particleGeometry = new THREE.SphereGeometry(0.02 * SCALE_FACTOR, 4, 4);
-                const particleMaterial = new THREE.MeshBasicMaterial({ 
-                    color: waterColors[Math.floor(Math.random() * waterColors.length)]
-                });
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-                
-                particle.position.copy(position);
-                particle.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.1 * SCALE_FACTOR,
-                    (Math.random() - 0.5) * 0.1 * SCALE_FACTOR,
-                    (Math.random() - 0.5) * 0.1 * SCALE_FACTOR
-                );
-                particle.life = 1.0;
-                
-                scene.add(particle);
-                particles.push(particle);
-            }
-        }
-
-       
-
-function createPuddle(position) {
-    // Puddle geometry and material
-    const puddleRadius = 0.25 * SCALE_FACTOR + Math.random() * 0.15 * SCALE_FACTOR;
-    const puddleGeometry = new THREE.CircleGeometry(puddleRadius, 24);
-    const puddleMaterial = new THREE.MeshBasicMaterial({
-        color: 0x3399ff,
-        transparent: true,
-        opacity: 0.35
-    });
-    const puddle = new THREE.Mesh(puddleGeometry, puddleMaterial);
-
-    // Place puddle at ground level + small random offset to avoid Z-fighting
-    puddle.position.set(position.x, 0.01 + Math.random() * 0.01, position.z);
-    puddle.rotation.x = -Math.PI / 2;
-
-    scene.add(puddle);
-    puddles.push(puddle);
-
-    // Optional: fade out and remove puddle after some time
-    setTimeout(() => {
-        scene.remove(puddle);
-        puddles = puddles.filter(p => p !== puddle);
-    }, 20000); // 20 seconds
+  });
 }
 
-        
-        
-                
-                
-    function checkCollisions() {
-    const mushroomPositions = [];
-    if (leftMushroom) {
-        const leftPos = new THREE.Vector3();
-        leftMushroom.getWorldPosition(leftPos);
-        mushroomPositions.push(leftPos);
+function generateMonthButtons(monthsArray) {
+  const monthsContainer = document.getElementById('monthsContainer');
+  monthsContainer.innerHTML = '';
+
+  const currentDate = new Date();
+  const latestMonth = [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
+  
+  monthsArray.sort((a, b) => a.id.localeCompare(b.id));
+  
+  monthsArray.forEach(month => {
+    if (month.id === "2025-03") {
+      month.theme = "Levels 1-5";
+    } else if (month.id === "2025-04") {
+      month.theme = "Levels 6-10";
+    } else {
+      const monthNum = parseInt(month.id.split('-')[1]);
+      
+      if (!isNaN(monthNum)) {
+        const monthIndex = monthNum - 3;
+        const startLevel = (monthIndex * 5) + 1;
+        const endLevel = startLevel + 4;
+        month.theme = `Levels ${startLevel}-${endLevel}`;
+      }
     }
-    if (rightMushroom) {
-        const rightPos = new THREE.Vector3();
-        rightMushroom.getWorldPosition(rightPos);
-        mushroomPositions.push(rightPos);
+  });
+  
+  monthsArray.forEach((month, index) => {
+    const button = createMonthButton(month, index, latestMonth);
+    monthsContainer.appendChild(button);
+  });
+  
+  const mostRecentMonth = monthsArray.length > 0 ? 
+    [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
+  let latestYearMonth = mostRecentMonth ? 
+    mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
+    
+  let [nextYear, nextMonth] = latestYearMonth;
+  nextMonth++;
+  if (nextMonth > 12) {
+    nextYear++;
+    nextMonth = 1;
+  }
+  
+  const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
+  
+  if (!monthsArray.some(m => m.id === nextMonthId)) {
+    let nextMonthTheme = "Coming Soon";
+    
+    const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
+    if (!isNaN(nextMonthNum)) {
+      const nextMonthIndex = nextMonthNum - 3;
+      const startLevel = (nextMonthIndex * 5) + 1;
+      const endLevel = startLevel + 4;
+      nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
     }
-
-    for (let i = raindrops.length - 1; i >= 0; i--) {
-        const drop = raindrops[i];
-        let removed = false;
-
-        // Check collision with either mushroom umbrella
-        for (const mushroomPos of mushroomPositions) {
-            const distance = drop.position.distanceTo(mushroomPos);
-            if (distance < 0.8 * SCALE_FACTOR && drop.position.y > mushroomPos.y - 0.4 * SCALE_FACTOR) {
-                createParticleBurst(drop.position);
-                raindropsBlocked++;
-                updateStatsDisplay();
-
-                // Haptic feedback
-                if (controller1.gamepad && controller1.gamepad.hapticActuators) {
-                    controller1.gamepad.hapticActuators[0].pulse(0.5, 100);
-                }
-                if (controller2.gamepad && controller2.gamepad.hapticActuators) {
-                    controller2.gamepad.hapticActuators[0].pulse(0.5, 100);
-                }
-
-                scene.remove(drop);
-                raindrops.splice(i, 1);
-                removed = true;
-                break;
-            }
-        }
-        if (removed) continue;
-
-        // Check if raindrop hits the cat
-        if (cat && cat.visible) {
-            const catPosition = new THREE.Vector3();
-            cat.getWorldPosition(catPosition);
-            const catDistance = drop.position.distanceTo(catPosition);
-
-            if (catDistance < 0.7 * SCALE_FACTOR && drop.position.y < catPosition.y + 0.7 * SCALE_FACTOR) {
-                // Remove the drop that hit the cat
-                scene.remove(drop);
-                raindrops.splice(i, 1);
-                endGame();
-                return;
-            }
-        }
-
-        // Remove drops that fall too low and create puddle
-        if (drop.position.y < -2 * SCALE_FACTOR) {
-            createPuddle(drop.position);
-            scene.remove(drop);
-            raindrops.splice(i, 1);
-            continue;
-        }
-    }
+    
+    const comingSoonButton = document.createElement('div');
+    comingSoonButton.className = 'monthButton';
+    comingSoonButton.style.opacity = '0.75';
+    comingSoonButton.style.transform = 'scale(0.9)';
+    comingSoonButton.style.pointerEvents = 'none';
+    comingSoonButton.style.position = 'relative';
+    comingSoonButton.style.overflow = 'hidden';
+    
+    comingSoonButton.innerHTML = `
+      <div class="comingSoonRibbon">COMING SOON</div>
+      <div class="monthName">${nextMonthName} ${nextYear}</div>
+      <div class="monthTheme">${nextMonthTheme}</div>
+    `;
+    monthsContainer.appendChild(comingSoonButton);
+  }
 }
 
-
-
-        
-        
-function endGame() {
-    // Prevent multiple calls to endGame
-    if (gameOver) {
-        console.log('endGame called but game already over, ignoring');
-        return;
-    }
-    
-    console.log('=== ENDGAME CALLED ===');
-    
-    // Set game over IMMEDIATELY to prevent race conditions
-    gameOver = true;
-    gameStarted = false;
-    
-    // Calculate final score ONCE and store in variables
-    const timeInSeconds = Math.floor(gameTime / 1000);
-    const currentRaindropsBlocked = raindropsBlocked;
-    finalScore = calculateScore(timeInSeconds, currentRaindropsBlocked);
-    
-    console.log('Final scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
-
-    // Hide cat
-    if (cat) {
-        cat.visible = false;
-    }
-
-    // Remove all raindrops
-    raindrops.forEach(drop => scene.remove(drop));
-    raindrops = [];
-
-    // Remove all puddles
-    puddles.forEach(puddle => scene.remove(puddle));
-    puddles = [];
-
-    // Stop rain sound
-    try {
-        if (backgroundRain && backgroundRain.isPlaying) {
-            backgroundRain.stop();
-        }
-    } catch (error) {
-        console.log('Error stopping rain sound:', error);
-    }
-
-    // Stop cat purr sound
-    try {
-        if (catPurrSound && catPurrSound.isPlaying) {
-            catPurrSound.stop();
-        }
-    } catch (error) {
-        console.log('Error stopping purr sound:', error);
-    }
-
-    // Play howl sound
-    try {
-        if (howlSound && !howlSound.isPlaying) {
-            howlSound.play().catch(error => {
-                console.log('Failed to play howl sound:', error);
-            });
-        }
-    } catch (error) {
-        console.log('Error with howl sound:', error);
-    }
-
-    // SIMPLIFIED: Only show VR UI - no desktop fallback
-    console.log('Game ended - showing VR UI only');
-    vrUI.updateText(timeInSeconds, currentRaindropsBlocked, finalScore);
-    // REMOVED: vrUI.textTexture.needsUpdate = true; (now handled in updateText function)
-    vrUI.visible = true;
-    console.log('Showing VR UI with scores:', { timeInSeconds, currentRaindropsBlocked, finalScore });
-    
-    console.log('=== ENDGAME COMPLETE ===');
-}
-        
-
-        function animate() {
-            if (gameStarted && !gameOver) {
-                gameTime = Date.now() - startTime;
-                document.getElementById('timer').textContent = `Time: ${Math.floor(gameTime / 1000)}s`;
-                
-                // Spawn raindrops
-                if (Date.now() - lastDropTime > currentSpawnRate / 3) {
-                    spawnRaindrop();
-                    lastDropTime = Date.now();
-                    
-                    // Increase difficulty over time
-                    currentSpawnRate = Math.max(50, DROP_SPAWN_RATE - (gameTime / 100));
-                }
-                
-                // Update raindrops
-                raindrops.forEach(drop => {
-                    drop.position.y -= drop.velocity;
-                });
-                
-                // Check collisions
-                checkCollisions();
-            }
-            
-            // Check VR UI interactions when game is over
-            if (gameOver && renderer.xr.isPresenting) {
-                checkVRUIInteraction();
-            }
-            
-            // Update particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const particle = particles[i];
-                particle.position.add(particle.velocity);
-                particle.life -= 0.02;
-                particle.material.opacity = particle.life;
-                
-                if (particle.life <= 0) {
-                    scene.remove(particle);
-                    particles.splice(i, 1);
-                }
-            }
-            
-            renderer.render(scene, camera);
-        }
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+function fetchLeaderboardForTooltip(monthId, tooltipElement) {
+  const leaderboardContent = tooltipElement.querySelector('.leaderboardContent');
+  
+  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
+  
+  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
+    .then(snapshot => {
+      const leaderboardData = [];
+      
+      snapshot.forEach(childSnapshot => {
+        leaderboardData.push({
+          name: childSnapshot.val().playerName || 'Anonymous',
+          time: childSnapshot.val().totalTime || 0
         });
-    </script>
+      });
+      
+      leaderboardData.sort((a, b) => a.time - b.time);
+      
+      if (leaderboardData.length > 0) {
+        let html = '';
+        leaderboardData.forEach((player, index) => {
+          html += `
+            <div class="leaderboardPlayer">
+              <span class="leaderboardRank">#${index + 1}</span>
+              <span class="leaderboardName">${player.name}</span>
+              <span class="leaderboardTime">${formatTime(player.time)}</span>
+            </div>
+          `;
+        });
+        leaderboardContent.innerHTML = html;
+      } else {
+        leaderboardContent.innerHTML = '<div class="noRecords">No records yet.<br>Be the first!</div>';
+      }
+    })
+    .catch(error => {
+      console.error("Error fetching leaderboard:", error);
+      leaderboardContent.innerHTML = '<div class="noRecords">Could not load leaderboard</div>';
+    });
+}
+
+function cleanupVisualEffects() {
+  for (let i = 0; i < explosionFragments.length; i++) {
+    if (explosionFragments[i]) {
+      scene.remove(explosionFragments[i]);
+      if (explosionFragments[i].geometry) explosionFragments[i].geometry.dispose();
+      if (explosionFragments[i].material) explosionFragments[i].material.dispose();
+    }
+  }
+  explosionFragments = [];
+  explosionStartTime = null;
+  
+  for (let i = 0; i < confettiParticles.length; i++) {
+    if (confettiParticles[i]) {
+      scene.remove(confettiParticles[i]);
+      if (confettiParticles[i].material) confettiParticles[i].material.dispose();
+    }
+  }
+  confettiParticles = [];
+  confettiStartTime = null;
+}
+
+function createMonthButton(month, index, latestMonth) {
+  const button = document.createElement('div');
+  button.className = 'monthButton';
+  
+  button.dataset.monthId = month.id;
+  
+  button.innerHTML = `
+    <div class="monthName">${month.name}</div>
+    <div class="monthTheme">${month.theme}</div>
+    ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
+  `;
+  
+  button.onclick = function(event) {
+    event.stopPropagation();
+    
+    const monthId = this.dataset.monthId;
+    
+    this.style.backgroundColor = '#00ffff';
+    
+    isQuitting = false;
+    gameCompleted = false;
+    isExploding = false;
+    isFlashing = false;
+    
+    cleanupVisualEffects();
+    
+    enterVRWithMenu(monthId);
+    
+    setTimeout(() => this.style.backgroundColor = '', 300);
+  };
+  
+  const tooltip = document.createElement('div');
+  tooltip.className = 'leaderboardTooltip';
+  tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
+  document.body.appendChild(tooltip);
+  
+  button.addEventListener('mouseenter', (event) => {
+    const rect = button.getBoundingClientRect();
+    tooltip.style.left = `${rect.right + 10}px`;
+    tooltip.style.top = `${rect.top + window.scrollY}px`;
+    tooltip.classList.add('visible');
+    fetchLeaderboardForTooltip(button.dataset.monthId, tooltip);
+  });
+  
+  button.addEventListener('mouseleave', () => {
+    tooltip.classList.remove('visible');
+  });
+  
+  return button;
+}
+
+async function enterVRWithMenu(monthId) {
+  selectedMonth = monthId;
+  
+  if (!navigator.xr) {
+    alert('WebXR not supported by your browser. Please try with a VR-compatible browser.');
+    return;
+  }
+  
+  try {
+    const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
+    if (!isSessionSupported) {
+      alert('VR is not supported or no VR headset is connected. Connect your headset and try again.');
+      return;
+    }
+    
+    const session = await navigator.xr.requestSession('immersive-vr', {
+      optionalFeatures: ['local-floor', 'hand-tracking']
+    });
+    
+    document.getElementById('loadingContainer').style.display = 'none';
+    
+    if (!renderer) {
+      init();
+    }
+    
+    renderer.xr.setSession(session);
+    
+    isInMenuMode = true;
+    showVRMenu();
+    
+    session.addEventListener('end', () => {
+      document.getElementById('loadingContainer').style.display = 'flex';
+      cleanupGameScene();
+      cleanupVRMenu();
+    });
+    
+  } catch (error) {
+    console.error("Failed to enter VR:", error);
+    alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
+  }
+}
+
+function showVRMenu() {
+  isInMenuMode = true;
+  
+  monthMenuItems.forEach(item => {
+    scene.remove(item.group);
+  });
+  monthMenuItems = [];
+  
+  createMenuTitle();
+  createMonthMenuItems();
+}
+
+function createMenuTitle() {
+  if (!font) return;
+  
+  const titleGeometry = new THREE.TextGeometry('RING RING', {
+    font: font,
+    size: 0.15,
+    height: 0.02
+  });
+  
+  const titleMaterial = new THREE.MeshStandardMaterial({
+    color: 0x00ffff,
+    emissive: 0x00ffff,
+    emissiveIntensity: 0.5
+  });
+  
+  const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
+  titleGeometry.computeBoundingBox();
+  titleMesh.position.set(
+    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
+    2.0,
+    -1.5
+  );
+  
+  scene.add(titleMesh);
+  monthMenuItems.push({ group: titleMesh, type: 'title' });
+
+  const subtitleGeometry = new THREE.TextGeometry('Select Month', {
+    font: font,
+    size: 0.06,
+    height: 0.01
+  });
+  
+  const subtitleMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff00ff,
+    emissive: 0xff00ff,
+    emissiveIntensity: 0.3
+  });
+  
+  const subtitleMesh = new THREE.Mesh(subtitleGeometry, subtitleMaterial);
+  subtitleGeometry.computeBoundingBox();
+  subtitleMesh.position.set(
+    -(subtitleGeometry.boundingBox.max.x - subtitleGeometry.boundingBox.min.x) / 2,
+    1.8,
+    -1.5
+  );
+  
+  scene.add(subtitleMesh);
+  monthMenuItems.push({ group: subtitleMesh, type: 'subtitle' });
+}
+
+function createMonthMenuItems() {
+  if (!font) return;
+  
+  const months = Object.keys(cachedMonths).length > 0 ? 
+    Object.keys(cachedMonths).map(id => ({ id, ...getMonthDisplayInfo(id) })) :
+    getDefaultMenuMonths();
+  
+  const radius = 1.5;
+  const centerY = 1.2;
+  const angleStep = (Math.PI * 2) / months.length;
+  
+  months.forEach((month, index) => {
+    const angle = index * angleStep;
+    const x = Math.sin(angle) * radius;
+    const z = Math.cos(angle) * radius - 2.0;
+    
+    const menuItem = createMonthMenuItem(month, x, centerY, z, index === 0);
+    monthMenuItems.push(menuItem);
+  });
+}
+
+function createMonthMenuItem(month, x, y, z, isNewest) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  
+  const panelGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.02);
+  const panelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x003366,
+    transparent: true,
+    opacity: 0.9
+  });
+  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+  group.add(panel);
+  
+  const nameGeometry = new THREE.TextGeometry(month.name, {
+    font: font,
+    size: 0.05,
+    height: 0.005
+  });
+  const nameMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
+  nameGeometry.computeBoundingBox();
+  nameMesh.position.set(
+    -(nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x) / 2,
+    0.1,
+    0.015
+  );
+  group.add(nameMesh);
+  
+  const themeGeometry = new THREE.TextGeometry(month.theme, {
+    font: font,
+    size: 0.03,
+    height: 0.003
+  });
+  const themeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+  const themeMesh = new THREE.Mesh(themeGeometry, themeMaterial);
+  themeGeometry.computeBoundingBox();
+  themeMesh.position.set(
+    -(themeGeometry.boundingBox.max.x - themeGeometry.boundingBox.min.x) / 2,
+    -0.05,
+    0.015
+  );
+  group.add(themeMesh);
+  
+  if (isNewest) {
+    const badgeGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.01);
+    const badgeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff00ff,
+      emissive: 0xff00ff,
+      emissiveIntensity: 0.5
+    });
+    const badge = new THREE.Mesh(badgeGeometry, badgeMaterial);
+    badge.position.set(0.25, 0.2, 0.02);
+    group.add(badge);
+    
+    const badgeTextGeometry = new THREE.TextGeometry('NEW', {
+      font: font,
+      size: 0.025,
+      height: 0.002
+    });
+    const badgeTextMesh = new THREE.Mesh(badgeTextGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    badgeTextGeometry.computeBoundingBox();
+    badgeTextMesh.position.set(
+      0.25 - (badgeTextGeometry.boundingBox.max.x - badgeTextGeometry.boundingBox.min.x) / 2,
+      0.2 - (badgeTextGeometry.boundingBox.max.y - badgeTextGeometry.boundingBox.min.y) / 2,
+      0.025
+    );
+    group.add(badgeTextMesh);
+  }
+  
+  group.lookAt(0, y, 0);
+  
+  scene.add(group);
+  
+  return {
+    group: group,
+    panel: panel,
+    month: month,
+    type: 'month',
+    originalColor: 0x003366,
+    hoverColor: 0x005599,
+    selectColor: 0x0088cc
+  };
+}
+
+function getDefaultMenuMonths() {
+  return [
+    { id: "2025-04", name: "April 2025", theme: "Levels 6-10" },
+    { id: "2025-03", name: "March 2025", theme: "Levels 1-5" }
+  ];
+}
+
+function getMonthDisplayInfo(monthId) {
+  const [year, month] = monthId.split('-');
+  const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+  const monthName = monthDate.toLocaleString('default', { month: 'long' });
+  
+  const monthNum = parseInt(month);
+  if (monthId === "2025-03") {
+    return { name: `${monthName} ${year}`, theme: "Levels 1-5" };
+  } else if (monthId === "2025-04") {
+    return { name: `${monthName} ${year}`, theme: "Levels 6-10" };
+  } else {
+    const monthIndex = monthNum - 3;
+    const startLevel = (monthIndex * 5) + 1;
+    const endLevel = startLevel + 4;
+    return { name: `${monthName} ${year}`, theme: `Levels ${startLevel}-${endLevel}` };
+  }
+}
+
+async function loadMonthLevels(monthId) {
+  if (monthId === "2025-03") {
+    console.log("Using hardcoded parameters for March 2025");
+    
+    const marchLevels = [
+      {
+        name: "Level 1",
+        difficulty: 1,
+        params: {
+          frequencies: [8, 6, 6],
+          amplitudes: [0.05, 0.05, 0.05],
+          rotationOffset: 0
+        }
+      },
+      {
+        name: "Level 2",
+        difficulty: 2,
+        params: {
+          frequencies: [7, 5, 6],
+          amplitudes: [0.07, 0.08, 0.07],
+          rotationOffset: Math.PI / 5.3
+        }
+      },
+      {
+        name: "Level 3",
+        difficulty: 3,
+        params: {
+          frequencies: [9, 7, 6],
+          amplitudes: [0.07, 0.08, 0.07],
+          rotationOffset: 0
+        }
+      },
+      {
+        name: "Level 4",
+        difficulty: 4,
+        params: {
+          frequencies: [11, 7, 17],
+          amplitudes: [0.07, 0.09, 0.06],
+          rotationOffset: Math.PI / 6.3
+        }
+      },
+      {
+        name: "Level 5",
+        difficulty: 5,
+        params: {
+          frequencies: [10, 8, 12],
+          amplitudes: [0.08, 0.08, 0.06],
+          rotationOffset: Math.PI / 1.6
+        }
+      }
+    ];
+    
+    cachedMonths[monthId] = marchLevels;
+    monthlyLevels = marchLevels;
+    return;
+  }
+
+  if (cachedMonths[monthId]) {
+    monthlyLevels = cachedMonths[monthId];
+    console.log(`Loaded cached month data for ${monthId}`);
+    return;
+  }
+  
+  try {
+    const newPathRef = firebase.database().ref(`monthlyWires/${monthId}`);
+    const newPathSnapshot = await newPathRef.once('value');
+    const newPathData = newPathSnapshot.val();
+    
+    if (newPathData) {
+      const levelsArray = [];
+      for (let i = 1; i <= 5; i++) {
+        if (newPathData[`level${i}`]) {
+          levelsArray.push({
+            name: `Level ${i}`,
+            difficulty: i,
+            params: newPathData[`level${i}`].params,
+            color: newPathData[`level${i}`].color
+          });
+        }
+      }
+      
+      if (levelsArray.length > 0) {
+        cachedMonths[monthId] = levelsArray;
+        monthlyLevels = levelsArray;
+        console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
+        return;
+      }
+    }
+  
+    console.error(`No levels found for month ${monthId}, falling back to March 2025`);
+    monthlyLevels = [];
+    await loadMonthLevels("2025-03");
+  
+  } catch (error) {
+    console.error(`Error loading data for ${monthId}:`, error);
+    console.log(`Falling back to March 2025`);
+    monthlyLevels = [];
+    await loadMonthLevels("2025-03");
+  }
+}
+
+function resetGameForNewMonth() {
+  currentLevel = 1;
+  levelTimes = [];
+  startTime = null;
+  elapsedTime = 0;
+  levelCompleted = false;
+  gameCompleted = false;
+  
+  ring.position.copy(ringStartPosition);
+  ring.rotation.set(0, Math.PI / 2, 0);
+  ring.visible = true;
+  
+  wire = createWire(currentLevel);
+  
+  updateLevelText();
+  resetTimerDisplay();
+}
+
+function updateLevelText() {
+  if (textMesh && font) {
+    if (textMesh.geometry) textMesh.geometry.dispose();
+    
+    let baseLevel = 1;
+    let endLevel = 5;
+    
+    if (selectedMonth) {
+      const monthNum = parseInt(selectedMonth.split('-')[1]);
+      if (!isNaN(monthNum)) {
+        const monthIndex = monthNum - 3;
+        baseLevel = (monthIndex * 5) + 1;
+        endLevel = baseLevel + 4;
+      }
+    }
+    
+    const absoluteLevel = baseLevel + (currentLevel - 1);
+    
+    const textGeometry = new THREE.TextGeometry(`LEVEL ${absoluteLevel}/${endLevel}`, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.005 
+    });
+    
+    textGeometry.computeBoundingBox();
+    
+    textGeometry.translate(
+      -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+      -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+      0
+    );
+    
+    if (!textMesh.material) {
+      textMesh.material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    }
+    
+    textMesh.geometry = textGeometry;
+    textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+    textMesh.visible = true;
+  }
+}
+
+function resetTimerDisplay() {
+  if (timerMesh && timerFont) {
+    timerMesh.geometry.dispose();
+    timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+      font: timerFont,
+      size: 0.02,
+      height: 0.005,
+    });
+    timerMesh.geometry.computeBoundingBox();
+    timerMesh.geometry.translate(
+      -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+      -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+      0
+    );
+    timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+    timerMesh.visible = true;
+  }
+}
+
+init();
+animate();
+
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+  document.body.appendChild(renderer.domElement);
+
+  const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+  light.position.set(0.5, 1, 0.25);
+  scene.add(light);
+
+  const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
+  const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1.0, metalness: 1.0, roughness: 0.0 });
+  ring = new THREE.Mesh(ringGeometry, ringMaterial);
+  ring.position.copy(ringStartPosition);
+  ring.rotation.y = Math.PI / 2;
+  scene.add(ring);
+
+  for (let i = 1; i <= 5; i++) {
+    const music = new Audio(`music_${i}.mp3`);
+    music.loop = true;
+    music.addEventListener('timeupdate', function() {
+      if (this.duration - this.currentTime < 0.5) {
+        this.currentTime = 0;
+      }
+    });
+   
+    levelMusic.push(music);
+  }
+
+  const loader = new THREE.FontLoader();
+  loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+    font = loadedFont;
+    console.log('Font loaded successfully!', font);
+    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
+    textGeometry.computeBoundingBox();
+    const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+    textGeometry.translate(
+      -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+      -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+      0
+    );
+    const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textMesh.position.set(centerOffset, 2.0, -0.75);
+    textMesh.visible = true;
+    scene.add(textMesh);
+
+    const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json';
+    loader.load(timerFontURL, function (loadedTimerFont) {
+      timerFont = loadedTimerFont;
+
+      const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
+      timerGeometry.computeBoundingBox();
+      const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+      timerGeometry.translate(
+        -(timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x) / 2,
+        -(timerGeometry.boundingBox.max.y - timerGeometry.boundingBox.min.y) / 2,
+        0
+      );
+      const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+      timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
+      timerMesh.visible = true;
+      scene.add(timerMesh);
+    });
+  });
+
+  const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
+  sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+  scene.add(sphere1);
+  sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+  scene.add(sphere2);
+
+  controller1 = renderer.xr.getController(0);
+  controller1.addEventListener('selectstart', onSelectStart);
+  controller1.addEventListener('selectend', onSelectEnd);
+  controller1.addEventListener('squeezestart', onSelectStart);
+  controller1.addEventListener('squeezeend', onSelectEnd);
+  scene.add(controller1);
+
+  controller2 = renderer.xr.getController(1);
+  controller2.addEventListener('selectstart', onSelectStart);
+  controller2.addEventListener('selectend', onSelectEnd);
+  controller2.addEventListener('squeezestart', onSelectStart);
+  controller2.addEventListener('squeezeend', onSelectEnd);
+  scene.add(controller2);
+
+  window.addEventListener('resize', onWindowResize, false);
+
+  const vrButton = document.getElementById('vrButton');
+  if (vrButton) {
+    vrButton.addEventListener('click', async () => {
+      try {
+        chimeSound.play().catch(error => console.log('Chime sound play error:', error));
+        const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
+        renderer.xr.setSession(session);
+        vrButton.style.display = 'none';
+
+        let firstFrameRendered = false;
+
+        session.requestAnimationFrame(() => {
+          console.log('First XR frame rendered');
+          if (!firstFrameRendered) {
+            firstFrameRendered = true;
+            console.log('Waiting for controllers to initialize...');
+            setTimeout(() => {
+              initControllerHaptics();
+            }, 1000);           
+          }
+        });
+        
+        session.addEventListener('inputsourceschange', (event) => {
+          console.log('Input sources changed:', event);
+          setTimeout(initControllerHaptics, 500);
+        });
+
+      } catch (error) {
+        console.error('Failed to enter VR:', error);
+      }
+    });
+  }
+
+  const particlesGeometry = new THREE.BufferGeometry();
+  const particlesCount = 3000;
+  const posArray = new Float32Array(particlesCount * 3);
+  const minDistance = 5.0;
+  for (let i = 0; i < particlesCount * 3; i += 3) {
+    let x = (Math.random() - 0.5) * 100;
+    let y = (Math.random() - 0.5) * 100;
+    let z = (Math.random() - 0.5) * 100;
+
+    const distance = Math.sqrt(x*x + y*y + z*z);
+
+    if (distance < minDistance) {
+      const scale = minDistance / distance;
+      x *= scale;
+      y *= scale;
+      z *= scale;
+    }
+
+    posArray[i] = x;
+    posArray[i + 1] = y;
+    posArray[i + 2] = z;
+  }
+  particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+  const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+  const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+  scene.add(particlesMesh);
+
+  wire = createWire(currentLevel);
+
+  victorySound = new Audio('short_horns.mp3');
+  contactSound = new Audio('contact.mp3');
+  applauseSound = new Audio('short_applause.mp3');
+  longApplauseSound = new Audio('long_applause.mp3');
+  longHornsSound = new Audio('long_horns.mp3');
+  chimeSound = new Audio('chime.mp3');
+  endGameMusic = new Audio('music_end.mp3');
+}
+
+function initControllerHaptics() {
+  console.log('Initializing haptic feedback system');
+  
+  xrInputSources = [];
+  
+  const session = renderer.xr.getSession();
+  if (!session) {
+    console.warn('No XR session available for haptics');
+    return;
+  }
+
+  xrInputSources = Array.from(session.inputSources || []);
+  console.log('Found input sources:', xrInputSources.length);
+  
+  xrInputSources.forEach((inputSource, index) => {
+    console.log(`Input source ${index}:`, {
+      handedness: inputSource.handedness,
+      profiles: inputSource.profiles,
+      hasGamepad: !!inputSource.gamepad
+    });
+  });
+  
+  session.addEventListener('inputsourceschange', (event) => {
+    console.log('Input sources changed:', event);
+    
+    xrInputSources = Array.from(session.inputSources || []);
+    console.log('Updated input sources count:', xrInputSources.length);
+    
+    if (event.added && event.added.length > 0) {
+      event.added.forEach(source => {
+        console.log('Testing new input source:', source.handedness);
+        setTimeout(() => {
+          triggerHapticFeedbackByHandedness(source.handedness, 0.7, 300);
+        }, 500);
+      });
+    }
+  });
+}
+
+function forceShowKeyboard() {
+  if (keyboardMeshes.length > 0) {
+    return;
+  }
+  
+  console.log("Force showing keyboard");
+  
+  playerName = "";
+  nameEntered = false;
+  keyboardActive = true;
+  
+  const keyboard = createImprovedVirtualKeyboard();
+  
+  if (keyboard) {
+    keyboard.position.set(0, 1.2, -0.75);
+    keyboard.visible = true;
+    
+    gameCompletionMeshes.push(keyboard);
+    
+    createControllerRays();
+  }
+  return keyboard;
+}
+
+console.log('Testing Firebase connection...');
+leaderboardRef.once('value')
+  .then(snapshot => {
+    console.log('Firebase connection successful!');
+    console.log('Current leaderboard data:', snapshot.val());
+  })
+  .catch(error => {
+    console.error('Firebase connection error:', error);
+  });
+
+function createImprovedVirtualKeyboard() {
+  keyboardActive = true;
+  createControllerRays();
+
+  keyboardMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  keyboardMeshes = [];
+
+  if (!font) {
+    console.error("Font not loaded, cannot create keyboard");
+    setTimeout(createImprovedVirtualKeyboard, 1000);
+    return null;
+  }
+  
+  const keyboardContainer = new THREE.Group();
+  keyboardContainer.name = "keyboardContainer"; 
+  keyboardContainer.position.set(0, 1.3, -0.75);
+  keyboardContainer.scale.set(0.4, 0.4, 0.4);
+  scene.add(keyboardContainer);
+  gameCompletionMeshes.push(keyboardContainer);
+  keyboardMeshes.push(keyboardContainer);
+  
+  const panelGeometry = new THREE.BoxGeometry(0.8, 0.65, 0.01);
+  const panelMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x222222, 
+    transparent: true, 
+    opacity: 0.8 
+  });
+  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+  panel.position.set(0, -0.08, -0.01);
+  keyboardContainer.add(panel);
+  keyboardMeshes.push(panel);
+  
+  const displayGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.01);
+  const displayMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x333333, 
+    transparent: true, 
+    opacity: 0.9 
+  });
+  const displayPanel = new THREE.Mesh(displayGeometry, displayMaterial);
+  displayPanel.position.set(0, 0.15, 0);
+  keyboardContainer.add(displayPanel);
+  keyboardMeshes.push(displayPanel);
+  
+  updateNameDisplay(keyboardContainer);
+  
+  const rows = [
+    "1234567890",
+    "QWERTYUIOP",
+    "ASDFGHJKL",
+    "ZXCVBNM"
+  ];
+  
+  const keySize = 0.06;
+  const keyMargin = 0.01;
+  const keyHeight = 0.06;
+  const startY = 0.05;
+  
+  rows.forEach((row, rowIndex) => {
+    const rowWidth = row.length * (keySize + keyMargin) - keyMargin;
+    const startX = -rowWidth / 2;
+    
+    row.split('').forEach((letter, colIndex) => {
+      const x = startX + colIndex * (keySize + keyMargin) + keySize/2;
+      const y = startY - rowIndex * (keyHeight + keyMargin);
+      
+      const keyGeometry = new THREE.BoxGeometry(keySize, keyHeight, 0.01);
+      const keyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x444444,
+        emissive: 0x222222,
+        emissiveIntensity: 0.2
+      });
+      const key = new THREE.Mesh(keyGeometry, keyMaterial);
+      key.position.set(x, y, 0);
+      keyboardContainer.add(key);
+      keyboardMeshes.push(key);
+      
+      const textGeometry = new THREE.TextGeometry(letter, { 
+        font: font, 
+        size: 0.025, 
+        height: 0.001 
+      });
+      const textMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffffff 
+      });
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textGeometry.computeBoundingBox();
+      const textOffset = new THREE.Vector3(
+        -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+        -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+        0
+      );
+      textMesh.position.copy(textOffset);
+      textMesh.position.z = 0.006;
+      key.add(textMesh);
+      
+      key.userData.isButton = true;
+      key.userData.buttonType = 'letter';
+      key.userData.letter = letter;
+      key.userData.defaultColor = 0x444444;
+      key.userData.hoverColor = 0x666666;
+      key.userData.pressColor = 0x888888;
+    });
+  });
+  
+  const specialRow = [
+    { label: "Space", width: 0.25, action: 'space', x: -0.15 },
+    { label: "Back", width: 0.15, action: 'backspace', x: 0.15, color: 0x884444 }
+  ];
+  
+  const specialY = startY - 4 * (keyHeight + keyMargin);
+  
+  specialRow.forEach(key => {
+    const keyGeometry = new THREE.BoxGeometry(key.width, keyHeight, 0.01);
+    const keyMaterial = new THREE.MeshStandardMaterial({ 
+      color: key.color || 0x444444,
+      emissive: key.color ? 0x220000 : 0x222222,
+      emissiveIntensity: 0.2
+    });
+    const keyMesh = new THREE.Mesh(keyGeometry, keyMaterial);
+    keyMesh.position.set(key.x, specialY, 0);
+    keyboardContainer.add(keyMesh);
+    keyboardMeshes.push(keyMesh);
+    
+    const textGeometry = new THREE.TextGeometry(key.label, { 
+      font: font, 
+      size: 0.02, 
+      height: 0.001 
+    });
+    const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textGeometry.computeBoundingBox();
+    const textOffset = new THREE.Vector3(
+      -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+      -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+      0
+    );
+    textMesh.position.copy(textOffset);
+    textMesh.position.z = 0.006;
+    keyMesh.add(textMesh);
+    
+    keyMesh.userData.isButton = true;
+    keyMesh.userData.buttonType = key.action;
+    keyMesh.userData.defaultColor = key.color || 0x444444;
+    keyMesh.userData.hoverColor = key.color ? 0xbb5555 : 0x666666;
+    keyMesh.userData.pressColor = key.color ? 0xff6666 : 0x888888;
+  });
+  
+  const submitGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.01);
+  const submitMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x008800,
+    emissive: 0x004400,
+    emissiveIntensity: 0.3
+  });
+  const submitButton = new THREE.Mesh(submitGeometry, submitMaterial);
+  submitButton.position.set(0, specialY - keyHeight - keyMargin*2, 0);
+  keyboardContainer.add(submitButton);
+  keyboardMeshes.push(submitButton);
+  
+  const submitTextGeometry = new THREE.TextGeometry("SUBMIT NAME", { 
+    font: font, 
+    size: 0.03, 
+    height: 0.001 
+  });
+  const submitTextMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const submitTextMesh = new THREE.Mesh(submitTextGeometry, submitTextMaterial);
+  submitTextGeometry.computeBoundingBox();
+  const submitTextOffset = new THREE.Vector3(
+    -(submitTextGeometry.boundingBox.max.x - submitTextGeometry.boundingBox.min.x) / 2,
+    -(submitTextGeometry.boundingBox.max.y - submitTextGeometry.boundingBox.min.y) / 2,
+    0
+  );
+
+  submitTextMesh.userData.isNonInteractive = true;
+  submitTextMesh.raycast = function() {}; 
+  submitTextMesh.position.copy(submitTextOffset);
+  submitTextMesh.position.z = 0.008;
+  submitButton.add(submitTextMesh);
+  
+  submitButton.userData.isButton = true;
+  submitButton.userData.buttonType = 'submit';
+  submitButton.userData.defaultColor = 0x008800;
+  submitButton.userData.hoverColor = 0x00aa00;
+  submitButton.userData.pressColor = 0x00cc00;
+  
+  return keyboardContainer;
+}
+
+function updateNameDisplay(container) {
+  if (initialsDisplayMesh) {
+    if (container) {
+      container.remove(initialsDisplayMesh);
+    } else {
+      scene.remove(initialsDisplayMesh);
+    }
+    
+    if (initialsDisplayMesh.geometry) {
+      initialsDisplayMesh.geometry.dispose();
+    }
+  }
+  
+  if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
+    clearInterval(initialsDisplayMesh.userData.blinkInterval);
+  }
+  
+  const textGroup = new THREE.Group();
+  
+  const nameGeometry = new THREE.TextGeometry(playerName, { 
+    font: font, 
+    size: 0.04, 
+    height: 0.001 
+  });
+  
+  const nameMesh = new THREE.Mesh(
+    nameGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0x00ffff })
+  );
+  
+  nameGeometry.computeBoundingBox();
+  const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
+  
+  nameMesh.position.set(0, 0, 0.006);
+  textGroup.add(nameMesh);
+  
+  let cursorMesh = null;
+  if (playerName.length < maxNameLength) {
+    const cursorGeometry = new THREE.TextGeometry("|", { 
+      font: font, 
+      size: 0.04, 
+      height: 0.001 
+    });
+    
+    cursorMesh = new THREE.Mesh(
+      cursorGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0x00ffff })
+    );
+    
+    cursorMesh.position.set(nameWidth, 0, 0.006);
+    textGroup.add(cursorMesh);
+    
+    const blinkInterval = setInterval(() => {
+      if (cursorMesh && cursorMesh.parent) {
+        cursorMesh.visible = !cursorMesh.visible;
+      } else {
+        clearInterval(blinkInterval);
+      }
+    }, 500);
+    
+    textGroup.userData.blinkInterval = blinkInterval;
+  }
+  
+  textGroup.position.set(-nameWidth/2, 0, 0);
+  
+  if (container) {
+    textGroup.position.y = 0.13;
+    container.add(textGroup);
+  } else {
+    textGroup.position.set(-nameWidth/2, 1.05, -0.75);
+    scene.add(textGroup);
+    gameCompletionMeshes.push(textGroup);
+  }
+  
+  initialsDisplayMesh = textGroup;
+}
+
+function updateRecordHolderDisplays() {
+  if (!window.recordHolderMeshes || !window.recordHolderMeshes.length) return;
+  
+  const displayName = playerName || "...";
+  
+  for (let i = 0; i < window.recordHolderMeshes.length; i++) {
+    if (window.recordHolderMeshes[i]) {
+      if (window.recordHolderMeshes[i].geometry) {
+        window.recordHolderMeshes[i].geometry.dispose();
+      }
+      
+      const newGeometry = new THREE.TextGeometry(
+        `${formatTime(levelTimes[i] || 0)} - ${displayName}`,  
+        { font: font, size: 0.018, height: 0.005 }
+      );
+      
+      newGeometry.computeBoundingBox();
+      newGeometry.translate(
+        -(newGeometry.boundingBox.max.x - newGeometry.boundingBox.min.x) / 2,
+        -(newGeometry.boundingBox.max.y - newGeometry.boundingBox.min.y) / 2,
+        0
+      );
+      
+      const originalPosition = window.recordHolderMeshes[i].position.clone();
+      
+      window.recordHolderMeshes[i].geometry = newGeometry;
+      
+      if (window.recordHolderMeshes[i].material) {
+        window.recordHolderMeshes[i].material.color.set(0xff8000);
+        window.recordHolderMeshes[i].material.emissive.set(0xff8000);
+        window.recordHolderMeshes[i].material.emissiveIntensity = 0.3;
+      } 
+    }
+  }
+}
+       
+function showGameCompletionScores() {
+  // Clear existing game completion meshes first
+  gameCompletionMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  gameCompletionMeshes = [];
+  
+  scoreSummaryMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  scoreSummaryMeshes = [];
+
+  if (!font) {
+    console.error("Font not loaded, cannot create score display");
+    return;
+  }
+
+  // Fetch best times for this month
+  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${selectedMonth}`);
+  
+  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(1).once('value')
+    .then(snapshot => {
+      const bestTimes = {
+        levels: Array(5).fill(null).map(() => ({ time: null, name: null })),
+        total: { time: null, name: null }
+      };
+      
+      // Get the fastest overall completion
+      snapshot.forEach(childSnapshot => {
+        const data = childSnapshot.val();
+        if (data.totalTime && data.playerName) {
+          bestTimes.total = { time: data.totalTime, name: data.playerName };
+          
+          // Also get individual level times if available
+          if (data.levelTimes && Array.isArray(data.levelTimes)) {
+            data.levelTimes.forEach((time, index) => {
+              if (index < 5 && time > 0) {
+                if (!bestTimes.levels[index].time || time < bestTimes.levels[index].time) {
+                  bestTimes.levels[index] = { time: time, name: data.playerName };
+                }
+              }
+            });
+          }
+        }
+      });
+      
+      // Now get individual level records
+      Promise.all(
+        Array.from({ length: 5 }, (_, i) => 
+          firebase.database().ref(`leaderboard/${selectedMonth}`)
+            .orderByChild(`levelTimes/${i}`)
+            .limitToFirst(1)
+            .once('value')
+        )
+      ).then(levelSnapshots => {
+        levelSnapshots.forEach((snapshot, levelIndex) => {
+          snapshot.forEach(childSnapshot => {
+            const data = childSnapshot.val();
+            if (data.levelTimes && data.levelTimes[levelIndex] > 0) {
+              if (!bestTimes.levels[levelIndex].time || 
+                  data.levelTimes[levelIndex] < bestTimes.levels[levelIndex].time) {
+                bestTimes.levels[levelIndex] = {
+                  time: data.levelTimes[levelIndex],
+                  name: data.playerName || 'Anonymous'
+                };
+              }
+            }
+          });
+        });
+        
+        // Display the scores
+        displayScoresWithRecords(bestTimes);
+      });
+    })
+    .catch(error => {
+      console.error("Error fetching leaderboard data:", error);
+      // Display scores without records
+      const bestTimes = {
+        levels: Array(5).fill({ time: null, name: null }),
+        total: { time: null, name: null }
+      };
+      displayScoresWithRecords(bestTimes);
+    });
+}
+
+function displayScoresWithRecords(bestTimes) {
+  // Title
+  const titleGeometry = new THREE.TextGeometry("LEVEL COMPLETE!", { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  const titleMesh = new THREE.Mesh(
+    titleGeometry, 
+    new THREE.MeshStandardMaterial({ 
+      color: 0x00ff00,
+      emissive: 0x00ff00,
+      emissiveIntensity: 0.5 
+    })
+  );
+  titleGeometry.computeBoundingBox();
+  titleMesh.position.set(
+    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
+    1.8,
+    -0.75
+  );
+  scene.add(titleMesh);
+  gameCompletionMeshes.push(titleMesh);
+  scoreSummaryMeshes.push(titleMesh);
+
+  // Headers
+  const headerLabels = ["Level", "Your Time", "Record"];
+  headerLabels.forEach((label, index) => {
+    const headerGeometry = new THREE.TextGeometry(label, { 
+      font: font, 
+      size: 0.015, 
+      height: 0.003 
+    });
+    const headerMesh = new THREE.Mesh(
+      headerGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0xffff00 })
+    );
+    headerMesh.position.set(-0.25 + (index * 0.2), 1.65, -0.75);
+    scene.add(headerMesh);
+    gameCompletionMeshes.push(headerMesh);
+    scoreSummaryMeshes.push(headerMesh);
+  });
+
+  // Level scores
+  let hasNewRecord = false;
+  const newRecordMeshes = [];
+
+  for (let i = 0; i < 5; i++) {
+    const levelTime = levelTimes[i] || 0;
+    const recordTime = bestTimes.levels[i];
+    const recordHolder = bestTimes.levels[i].name;
+    const isNewRecord = levelTime > 0 && (!recordTime || !recordTime.time || levelTime <= recordTime.time);
+    
+    if (isNewRecord) hasNewRecord = true;
+
+    // Level number
+    let baseLevel = 1;
+    if (selectedMonth) {
+      const monthNum = parseInt(selectedMonth.split('-')[1]);
+      if (!isNaN(monthNum)) {
+        const monthIndex = monthNum - 3;
+        baseLevel = (monthIndex * 5) + 1;
+      }
+    }
+    const absoluteLevel = baseLevel + i;
+    
+    const levelGeometry = new THREE.TextGeometry(`${absoluteLevel}`, { 
+      font: font, 
+      size: 0.018, 
+      height: 0.005 
+    });
+    const levelMesh = new THREE.Mesh(
+      levelGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0xffffff })
+    );
+    levelMesh.position.set(-0.25, 1.6 - (i * 0.035), -0.75);
+    scene.add(levelMesh);
+    gameCompletionMeshes.push(levelMesh);
+    scoreSummaryMeshes.push(levelMesh);
+
+    // Player time
+    const playerTimeGeometry = new THREE.TextGeometry(formatTime(levelTime), { 
+      font: font, 
+      size: 0.018, 
+      height: 0.005 
+    });
+    const playerTimeMesh = new THREE.Mesh(
+      playerTimeGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: 0x00ffff,
+        emissive: 0x00ffff,
+        emissiveIntensity: 0.3
+      })
+    );
+    playerTimeMesh.position.set(-0.05, 1.6 - (i * 0.035), -0.75);
+    scene.add(playerTimeMesh);
+    gameCompletionMeshes.push(playerTimeMesh);
+    scoreSummaryMeshes.push(playerTimeMesh);
+
+    // Record time and holder
+    const recordTimeFormatted = recordTime && recordTime.time ? 
+      formatTime(recordTime.time) : "N/A";
+    const displayRecordHolder = recordHolder ? 
+      (recordHolder.length > 10 ? recordHolder.substring(0, 10) : recordHolder) : "N/A";
+    const combinedRecordText = recordTime && recordTime.time ? 
+      `${recordTimeFormatted} - ${displayRecordHolder}` : "N/A";
+
+    const combinedRecordGeometry = new THREE.TextGeometry(
+      isNewRecord ? `${formatTime(levelTime)} - ${playerName || "..."}` : combinedRecordText, { 
+      font: font, 
+      size: 0.018, 
+      height: 0.005 
+    });
+    const combinedRecordMesh = new THREE.Mesh(
+      combinedRecordGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: isNewRecord ? 0xff00ff : 0xff8000,
+        emissive: isNewRecord ? 0xff00ff : 0xff8000,
+        emissiveIntensity: 0.3
+      })
+    );
+    combinedRecordMesh.position.set(0.15, 1.6 - (i * 0.035), -0.75);
+    scene.add(combinedRecordMesh);
+    gameCompletionMeshes.push(combinedRecordMesh);
+    scoreSummaryMeshes.push(combinedRecordMesh);
+
+    if (isNewRecord) {
+      newRecordMeshes.push(combinedRecordMesh);
+      // Store in global array for later updates as player types
+      if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
+      window.recordHolderMeshes[i] = combinedRecordMesh;
+    }
+  }
+
+
+
+
+
+    const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+    const totalRecordTime = bestTimes.total;
+    const totalRecordHolder = bestTimes.total.name;
+    const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
+
+    // Total label
+    const totalLabelGeometry = new THREE.TextGeometry("Total:", { 
+      font: font, 
+      size: 0.018, 
+      height: 0.005 
+    });
+    const totalLabelMesh = new THREE.Mesh(
+      totalLabelGeometry, 
+      new THREE.MeshStandardMaterial({ color: 0xffffff })
+    );
+    totalLabelMesh.position.set(-0.25, 1.46 - (5 * 0.035), -0.75);
+    scene.add(totalLabelMesh);
+    gameCompletionMeshes.push(totalLabelMesh);
+    scoreSummaryMeshes.push(totalLabelMesh);
+
+    // Player total time
+    const playerTotalTimeGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
+      font: font, 
+      size: 0.018, 
+      height: 0.005 
+    });
+    const playerTotalMesh = new THREE.Mesh(
+      playerTotalTimeGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: 0x00ffff,
+        emissive: 0x00ffff,
+        emissiveIntensity: 0.3
+      })
+    );
+    playerTotalMesh.position.set(-0.05, 1.46 - (5 * 0.035), -0.75);
+    scene.add(playerTotalMesh);
+    gameCompletionMeshes.push(playerTotalMesh);
+    scoreSummaryMeshes.push(playerTotalMesh);
+
+    // Format combined total record
+    const totalRecordTimeFormatted = totalRecordTime && totalRecordTime.time ? 
+      formatTime(totalRecordTime.time) : "N/A";
+    const displayTotalHolder = totalRecordHolder ? 
+      (totalRecordHolder.length > 10 ? totalRecordHolder.substring(0, 10) : totalRecordHolder) : "N/A";
+    const combinedTotalRecordText = totalRecordTime && totalRecordTime.time ? 
+      `${totalRecordTimeFormatted} - ${displayTotalHolder}` : "N/A";
+
+    const combinedTotalRecordGeometry = new THREE.TextGeometry(
+      isNewRecord ? `${formatTime(totalTime)} - ${playerName || "..."}` : combinedTotalRecordText, { 
+      font: font, 
+      size: 0.018, 
+      height: 0.005 
+    });
+    const combinedTotalRecordMesh = new THREE.Mesh(
+      combinedTotalRecordGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: 0xff8000,
+        emissive: 0xff8000,
+        emissiveIntensity: 0.3
+      })
+    );
+    combinedTotalRecordMesh.position.set(0.15, 1.46 - (5 * 0.035), -0.75);
+    scene.add(combinedTotalRecordMesh);
+    gameCompletionMeshes.push(combinedTotalRecordMesh);
+    scoreSummaryMeshes.push(combinedTotalRecordMesh);
+
+    if (isNewRecord) {
+      // Store in global array for later updates as player types
+      if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
+      window.recordHolderMeshes[5] = combinedTotalRecordMesh; // Use index 5 for total row
+    }
+
+    // Only show keyboard if it's a new record
+    if (!isNewRecord) {
+        // Just show the restart/quit buttons without any additional text
+        createControllerRays();
+        
+        // add restart and quit buttons
+        addGameControlButtons();
+    }
+  }
+   
+  // Function to make new record meshes blink
+  function blinkNewRecords(meshes, times = 5) {
+    if (!meshes || meshes.length === 0) return;
+    
+    let count = 0;
+    const interval = setInterval(function() {
+      // Toggle visibility using traditional for loop instead of forEach
+      for (let i = 0; i < meshes.length; i++) {
+        if (meshes[i] && meshes[i].material) {
+          meshes[i].visible = !meshes[i].visible;
+        }
+      }
+      
+      count++;
+      if (count >= times * 2) {
+        clearInterval(interval);
+        // Make sure all are visible at the end
+        for (let i = 0; i < meshes.length; i++) {
+          if (meshes[i] && meshes[i].material) {
+            meshes[i].visible = true;
+          }
+        }
+      }
+    }, 250);
+  }
+
+
+
+
+// Enhanced enterVR function with VR menu support
+async function enterVRWithMenu(monthId) {
+  selectedMonth = monthId;
+  
+  if (!navigator.xr) {
+    alert('WebXR not supported by your browser. Please try with a VR-compatible browser.');
+    return;
+  }
+  
+  try {
+    const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
+    if (!isSessionSupported) {
+      alert('VR is not supported or no VR headset is connected. Connect your headset and try again.');
+      return;
+    }
+    
+    const session = await navigator.xr.requestSession('immersive-vr', {
+      optionalFeatures: ['local-floor', 'hand-tracking']
+    });
+    
+    // Hide the 2D UI
+    document.getElementById('loadingContainer').style.display = 'none';
+    
+    // Initialize renderer if needed
+    if (!renderer) {
+      init();
+    }
+    
+    // Set up the session
+    renderer.xr.setSession(session);
+    
+    // Start in VR menu mode
+    isInMenuMode = true;
+    showVRMenu();
+    
+    // Session event listeners
+    session.addEventListener('end', () => {
+      document.getElementById('loadingContainer').style.display = 'flex';
+      cleanupGameScene();
+      cleanupVRMenu();
+    });
+    
+  } catch (error) {
+    console.error("Failed to enter VR:", error);
+    alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
+  }
+}
+
+function showVRMenu() {
+  isInMenuMode = true;
+  
+  // Clear any existing menu items
+  monthMenuItems.forEach(item => {
+    scene.remove(item.group);
+  });
+  monthMenuItems = [];
+  
+  // Create title
+  createMenuTitle();
+  
+  // Create month selection items in a circle
+  createMonthMenuItems();
+}
+
+function createMenuTitle() {
+  if (!font) return;
+  
+  const titleGeometry = new THREE.TextGeometry('RING RING', {
+    font: font,
+    size: 0.15,
+    height: 0.02
+  });
+  
+  const titleMaterial = new THREE.MeshStandardMaterial({
+    color: 0x00ffff,
+    emissive: 0x00ffff,
+    emissiveIntensity: 0.5
+  });
+  
+  const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
+  titleGeometry.computeBoundingBox();
+  titleMesh.position.set(
+    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
+    2.0,
+    -1.5
+  );
+  
+  scene.add(titleMesh);
+  monthMenuItems.push({ group: titleMesh, type: 'title' });
+
+  // Subtitle
+  const subtitleGeometry = new THREE.TextGeometry('Select Month', {
+    font: font,
+    size: 0.06,
+    height: 0.01
+  });
+  
+  const subtitleMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff00ff,
+    emissive: 0xff00ff,
+    emissiveIntensity: 0.3
+  });
+  
+  const subtitleMesh = new THREE.Mesh(subtitleGeometry, subtitleMaterial);
+  subtitleGeometry.computeBoundingBox();
+  subtitleMesh.position.set(
+    -(subtitleGeometry.boundingBox.max.x - subtitleGeometry.boundingBox.min.x) / 2,
+    1.8,
+    -1.5
+  );
+  
+  scene.add(subtitleMesh);
+  monthMenuItems.push({ group: subtitleMesh, type: 'subtitle' });
+}
+
+function createMonthMenuItems() {
+  if (!font) return;
+  
+  // Get months from cache
+  const months = Object.keys(cachedMonths).length > 0 ? 
+    Object.keys(cachedMonths).map(id => ({ id, ...getMonthDisplayInfo(id) })) :
+    getDefaultMenuMonths();
+  
+  const radius = 1.5;
+  const centerY = 1.2;
+  const angleStep = (Math.PI * 2) / months.length;
+  
+  months.forEach((month, index) => {
+    const angle = index * angleStep;
+    const x = Math.sin(angle) * radius;
+    const z = Math.cos(angle) * radius - 2.0;
+    
+    const menuItem = createMonthMenuItem(month, x, centerY, z, index === 0);
+    monthMenuItems.push(menuItem);
+  });
+}
+
+function createMonthMenuItem(month, x, y, z, isNewest) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  
+  // Background panel
+  const panelGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.02);
+  const panelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x003366,
+    transparent: true,
+    opacity: 0.9
+  });
+  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+  group.add(panel);
+  
+  // Month name text
+  const nameGeometry = new THREE.TextGeometry(month.name, {
+    font: font,
+    size: 0.05,
+    height: 0.005
+  });
+  const nameMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
+  nameGeometry.computeBoundingBox();
+  nameMesh.position.set(
+    -(nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x) / 2,
+    0.1,
+    0.015
+  );
+  group.add(nameMesh);
+  
+  // Theme text
+  const themeGeometry = new THREE.TextGeometry(month.theme, {
+    font: font,
+    size: 0.03,
+    height: 0.003
+  });
+  const themeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+  const themeMesh = new THREE.Mesh(themeGeometry, themeMaterial);
+  themeGeometry.computeBoundingBox();
+  themeMesh.position.set(
+    -(themeGeometry.boundingBox.max.x - themeGeometry.boundingBox.min.x) / 2,
+    -0.05,
+    0.015
+  );
+  group.add(themeMesh);
+  
+  // "NEW" badge if it's the newest month
+  if (isNewest) {
+    const badgeGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.01);
+    const badgeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff00ff,
+      emissive: 0xff00ff,
+      emissiveIntensity: 0.5
+    });
+    const badge = new THREE.Mesh(badgeGeometry, badgeMaterial);
+    badge.position.set(0.25, 0.2, 0.02);
+    group.add(badge);
+    
+    const badgeTextGeometry = new THREE.TextGeometry('NEW', {
+      font: font,
+      size: 0.025,
+      height: 0.002
+    });
+    const badgeTextMesh = new THREE.Mesh(badgeTextGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    badgeTextGeometry.computeBoundingBox();
+    badgeTextMesh.position.set(
+      0.25 - (badgeTextGeometry.boundingBox.max.x - badgeTextGeometry.boundingBox.min.x) / 2,
+      0.2 - (badgeTextGeometry.boundingBox.max.y - badgeTextGeometry.boundingBox.min.y) / 2,
+      0.025
+    );
+    group.add(badgeTextMesh);
+  }
+  
+  // Make the group face the center
+  group.lookAt(0, y, 0);
+  
+  scene.add(group);
+  
+  return {
+    group: group,
+    panel: panel,
+    month: month,
+    type: 'month',
+    originalColor: 0x003366,
+    hoverColor: 0x005599,
+    selectColor: 0x0088cc
+  };
+}
+
+function getDefaultMenuMonths() {
+  return [
+    { id: "2025-04", name: "April 2025", theme: "Levels 6-10" },
+    { id: "2025-03", name: "March 2025", theme: "Levels 1-5" }
+  ];
+}
+
+function getMonthDisplayInfo(monthId) {
+  const [year, month] = monthId.split('-');
+  const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+  const monthName = monthDate.toLocaleString('default', { month: 'long' });
+  
+  const monthNum = parseInt(month);
+  if (monthId === "2025-03") {
+    return { name: `${monthName} ${year}`, theme: "Levels 1-5" };
+  } else if (monthId === "2025-04") {
+    return { name: `${monthName} ${year}`, theme: "Levels 6-10" };
+  } else {
+    const monthIndex = monthNum - 3;
+    const startLevel = (monthIndex * 5) + 1;
+    const endLevel = startLevel + 4;
+    return { name: `${monthName} ${year}`, theme: `Levels ${startLevel}-${endLevel}` };
+  }
+}
+
+// Enhanced onSelectStart to handle both menu and game interactions
+function onSelectStart(event) {
+  if (isInMenuMode) {
+    handleMenuSelection(event);
+  } else {
+    handleGameSelection(event);
+  }
+}
+
+function handleMenuSelection(event) {
+  const raycaster = new THREE.Raycaster();
+  const direction = new THREE.Vector3(0, 0, -1);
+  direction.applyQuaternion(event.target.quaternion);
+  raycaster.set(event.target.position, direction);
+  
+  const menuGroups = monthMenuItems.filter(item => item.type === 'month').map(item => item.group);
+  const intersects = raycaster.intersectObjects(menuGroups, true);
+  
+  if (intersects.length > 0) {
+    const selectedGroup = intersects[0].object.parent;
+    const menuItem = monthMenuItems.find(item => item.group === selectedGroup);
+    
+    if (menuItem && menuItem.type === 'month') {
+      // Play selection sound
+      if (chimeSound) {
+        chimeSound.play().catch(error => {});
+      }
+      
+      // Visual feedback
+      menuItem.panel.material.color.setHex(menuItem.selectColor);
+      
+      // Start game with selected month
+      setTimeout(() => {
+        startGameWithMonth(menuItem.month.id);
+      }, 300);
+    }
+  }
+}
+
+function startGameWithMonth(monthId) {
+  selectedMonth = monthId;
+  isInMenuMode = false;
+  
+  // Clear menu items
+  monthMenuItems.forEach(item => {
+    scene.remove(item.group);
+  });
+  monthMenuItems = [];
+  
+  // Initialize game
+  loadMonthLevels(monthId).then(() => {
+    initializeGameScene();
+    resetGameForNewMonth();
+  });
+}
+
+function initializeGameScene() {
+  // Create ring if it doesn't exist
+  if (!ring) {
+    const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
+    const ringMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ff00, 
+      emissive: 0x00ff00, 
+      emissiveIntensity: 1.0, 
+      metalness: 1.0, 
+      roughness: 0.0 
+    });
+    ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    scene.add(ring);
+  }
+  
+  ring.position.copy(ringStartPosition);
+  ring.rotation.y = Math.PI / 2;
+  ring.visible = true;
+
+  // Create spheres if they don't exist
+  if (!sphere1) {
+    const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+    const sphereMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x0078d7, 
+      transparent: true, 
+      opacity: 0.5 
+    });
+    sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    scene.add(sphere1);
+    sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    scene.add(sphere2);
+  }
+}
+
+// Enhanced render function for VR menu support
+function render() {
+  // Update controller spheres
+  if (controller1 && controller2 && !isInMenuMode) {
+    sphere1.position.copy(controller1.position);
+    sphere2.position.copy(controller2.position);
+  }
+  
+  // Menu hover effects
+  if (isInMenuMode) {
+    updateMenuHover();
+  }
+  
+  // Game render logic (your existing code)
+  if (!isInMenuMode) {
+    // Check for collisions
+    if (!isExploding && !transitionImmunity && !gameCompleted && !isQuitting && checkCollision()) {
+      handleCollision();
+    }
+
+    // Move ring with the grabbing controller while maintaining the offset
+    if (grabbed && grabbingController) {
+      ring.position.copy(grabbingController.position).add(grabOffset);
+      ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset);
+      sphere1.visible = false;
+      sphere2.visible = false;
+    } else {
+      sphere1.visible = true;
+      sphere2.visible = true;
+    }
+
+    if (!gameCompleted) {
+      // Keep the text and timer above the ring and billboarded to face the player
+      if (textMesh) {
+        textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+        textMesh.lookAt(camera.position);
+      }
+
+      // Update timer
+      if (startTime !== null && font) {
+        elapsedTime = Date.now() - startTime;
+        const minutes = Math.floor(elapsedTime / 60000);
+        const seconds = Math.floor((elapsedTime % 60000) / 1000);
+        const milliseconds = Math.floor(elapsedTime % 1000);
+        const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+
+        if (timerMesh && timerMesh.geometry) {
+          timerMesh.geometry.dispose();
+          timerMesh.geometry = new THREE.TextGeometry(timerText, {
+            font: font,
+            size: 0.02,
+            height: 0.005,
+          });
+          timerMesh.geometry.computeBoundingBox();
+          timerMesh.geometry.translate(
+            -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+            -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+            0
+          );
+        }
+      }
+
+      if (timerMesh) {
+        timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+        timerMesh.lookAt(camera.position);
+      }
+    }
+
+    updateWireColor();
+
+    // Handle confetti animation
+    if (confettiStartTime !== null) {
+      const elapsed = Date.now() - confettiStartTime;
+      
+      if (elapsed < 10000) {
+        for (let i = 0; i < confettiParticles.length; i++) {
+          const confetti = confettiParticles[i];
+          confetti.userData.velocity.y -= 0.0003;
+          confetti.position.add(confetti.userData.velocity);
+          confetti.rotation.x += confetti.userData.rotationSpeed.x;
+          confetti.rotation.y += confetti.userData.rotationSpeed.y;
+          confetti.rotation.z += confetti.userData.rotationSpeed.z;
+          confetti.userData.velocity.x += Math.sin(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
+          confetti.userData.velocity.z += Math.cos(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
+        }
+      } else {
+        for (let i = 0; i < confettiParticles.length; i++) {
+          scene.remove(confettiParticles[i]);
+          confettiParticles[i].material.dispose();
+        }
+        confettiParticles = [];
+        confettiStartTime = null;
+      }
+    }
+
+    // Handle explosion animation
+    if (isExploding) {
+      const explosionElapsed = Date.now() - explosionStartTime;
+      const explosionDuration = 2000;
+      
+      if (explosionElapsed < explosionDuration) {
+        for (let i = 0; i < explosionFragments.length; i++) {
+          const fragment = explosionFragments[i];
+          fragment.position.add(fragment.userData.velocity);
+          fragment.rotation.x += fragment.userData.rotationSpeed.x;
+          fragment.rotation.y += fragment.userData.rotationSpeed.y;
+          fragment.rotation.z += fragment.userData.rotationSpeed.z;
+          fragment.userData.velocity.y -= 0.0005;
+        }
+      } else {
+        for (let i = 0; i < explosionFragments.length; i++) {
+          const fragment = explosionFragments[i];
+          scene.remove(fragment);
+          if (fragment.geometry) fragment.geometry.dispose();
+          if (fragment.material) fragment.material.dispose();
+        }
+        
+        explosionFragments = [];
+        isExploding = false;
+        
+        if (!gameCompleted) {
+          ring.visible = true;
+          ring.position.copy(ringStartPosition);
+          ring.rotation.set(0, Math.PI / 2, 0);
+          
+          if (timerMesh && font) {
+            timerMesh.geometry.dispose();
+            timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+              font: font,
+              size: 0.02,
+              height: 0.005,
+            });
+            timerMesh.geometry.computeBoundingBox();
+            timerMesh.geometry.translate(
+              -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+              -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+              0
+            );
+            timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+            timerMesh.lookAt(camera.position);
+          }
+        }
+      }
+    }
+
+    if (gameCompleted) {
+      updateKeyboardHoverState();
+    }
+
+    if (keyboardActive) {
+      updateKeyboardHoverState();
+    }
+  }
+  
+  renderer.render(scene, camera);
+}
+
+function updateMenuHover() {
+  // Reset previous hover
+  if (hoveredMenuItem) {
+    hoveredMenuItem.panel.material.color.setHex(hoveredMenuItem.originalColor);
+    hoveredMenuItem = null;
+  }
+  
+  // Remove existing tooltip
+  if (menuTooltip) {
+    scene.remove(menuTooltip);
+    menuTooltip = null;
+  }
+  
+  // Check for new hover
+  [controller1, controller2].forEach(controller => {
+    if (!controller) return;
+    
+    const raycaster = new THREE.Raycaster();
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(controller.quaternion);
+    raycaster.set(controller.position, direction);
+    
+    const menuGroups = monthMenuItems.filter(item => item.type === 'month').map(item => item.group);
+    const intersects = raycaster.intersectObjects(menuGroups, true);
+    
+    if (intersects.length > 0) {
+      const hoveredGroup = intersects[0].object.parent;
+      const menuItem = monthMenuItems.find(item => item.group === hoveredGroup);
+      
+      if (menuItem && menuItem.type === 'month') {
+        hoveredMenuItem = menuItem;
+        menuItem.panel.material.color.setHex(menuItem.hoverColor);
+        
+        // Show leaderboard tooltip
+        showMenuTooltip(menuItem.month.id, hoveredGroup.position);
+      }
+    }
+  });
+}
+
+function showMenuTooltip(monthId, position) {
+  if (!font) return;
+  
+  const tooltipGroup = new THREE.Group();
+  
+  // Background
+  const bgGeometry = new THREE.BoxGeometry(0.5, 0.4, 0.01);
+  const bgMaterial = new THREE.MeshStandardMaterial({
+    color: 0x001122,
+    transparent: true,
+    opacity: 0.9
+  });
+  const bg = new THREE.Mesh(bgGeometry, bgMaterial);
+  tooltipGroup.add(bg);
+  
+  // Title
+  const titleGeometry = new THREE.TextGeometry('Fastest Times', {
+    font: font,
+    size: 0.03,
+    height: 0.002
+  });
+  const titleMesh = new THREE.Mesh(titleGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+  titleGeometry.computeBoundingBox();
+  titleMesh.position.set(
+    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
+    0.15,
+    0.015
+  );
+  tooltipGroup.add(titleMesh);
+  
+  // Loading text
+  const loadingGeometry = new THREE.TextGeometry('Loading...', {
+    font: font,
+    size: 0.025,
+    height: 0.002
+  });
+  const loadingMesh = new THREE.Mesh(loadingGeometry, new THREE.MeshStandardMaterial({ color: 0xaaaaaa }));
+  loadingGeometry.computeBoundingBox();
+  loadingMesh.position.set(
+    -(loadingGeometry.boundingBox.max.x - loadingGeometry.boundingBox.min.x) / 2,
+    0.05,
+    0.015
+  );
+  tooltipGroup.add(loadingMesh);
+  
+  tooltipGroup.position.copy(position);
+  tooltipGroup.position.x += 0.6;
+  tooltipGroup.lookAt(camera.position);
+  
+  scene.add(tooltipGroup);
+  menuTooltip = tooltipGroup;
+  
+  // Load actual leaderboard data
+  fetchLeaderboardForVRTooltip(monthId, tooltipGroup);
+}
+
+function fetchLeaderboardForVRTooltip(monthId, tooltipGroup) {
+  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
+  
+  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
+    .then(snapshot => {
+      const leaderboardData = [];
+      
+      snapshot.forEach(childSnapshot => {
+        leaderboardData.push({
+          name: childSnapshot.val().playerName || 'Anonymous',
+          time: childSnapshot.val().totalTime || 0
+        });
+      });
+      
+      leaderboardData.sort((a, b) => a.time - b.time);
+      
+      // Clear loading text and add real data
+      tooltipGroup.children = tooltipGroup.children.slice(0, 2); // Keep background and title
+      
+      if (leaderboardData.length > 0) {
+        leaderboardData.forEach((player, index) => {
+          const entryText = `#${index + 1} ${player.name} ${formatTime(player.time)}`;
+          const entryGeometry = new THREE.TextGeometry(entryText, {
+            font: font,
+            size: 0.02,
+            height: 0.001
+          });
+          const entryMesh = new THREE.Mesh(entryGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+          entryGeometry.computeBoundingBox();
+          entryMesh.position.set(
+            -(entryGeometry.boundingBox.max.x - entryGeometry.boundingBox.min.x) / 2,
+            0.08 - (index * 0.04),
+            0.015
+          );
+          tooltipGroup.add(entryMesh);
+        });
+      } else {
+        const noDataGeometry = new THREE.TextGeometry('No records yet', {
+          font: font,
+          size: 0.02,
+          height: 0.001
+        });
+        const noDataMesh = new THREE.Mesh(noDataGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }));
+        noDataGeometry.computeBoundingBox();
+        noDataMesh.position.set(
+          -(noDataGeometry.boundingBox.max.x - noDataGeometry.boundingBox.min.x) / 2,
+          0.05,
+          0.015
+        );
+        tooltipGroup.add(noDataMesh);
+      }
+    })
+    .catch(error => {
+      console.error("Error fetching leaderboard:", error);
+    });
+}
+
+function cleanupVRMenu() {
+  monthMenuItems.forEach(item => {
+    scene.remove(item.group);
+  });
+  monthMenuItems = [];
+  
+  if (menuTooltip) {
+    scene.remove(menuTooltip);
+    menuTooltip = null;
+  }
+  
+  hoveredMenuItem = null;
+  isInMenuMode = false;
+}
+
+// Enhanced handleGameSelection to include quit-to-menu functionality
+function handleGameSelection(event) {
+  const controllerPosition = event.target.position;
+  
+  if (gameCompletionMeshes.length > 0 || keyboardActive) {
+    const raycaster = new THREE.Raycaster();
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(event.target.quaternion);
+    raycaster.set(controllerPosition, direction);
+    
+    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes, true);
+    
+    if (buttonIntersects.length > 0) {
+      let intersectedObj = buttonIntersects[0].object;
+  
+      if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
+        if (buttonIntersects.length > 1) {
+          intersectedObj = buttonIntersects[1].object;
+        } else {
+          let parent = intersectedObj.parent;
+          if (parent && parent.userData && parent.userData.isButton) {
+            intersectedObj = parent;
+          }
+        }
+      }
+      
+      let button = null;
+      
+      if (intersectedObj.userData && intersectedObj.userData.isButton) {
+        button = intersectedObj;
+      } else {
+        let parent = intersectedObj.parent;
+        while (parent && !button) {
+          if (parent.userData && parent.userData.isButton) {
+            button = parent;
+          }
+          parent = parent.parent;
+        }
+      }
+      
+      if (button) {
+        if (button.userData.buttonType === 'letter' || 
+            button.userData.buttonType === 'space' || 
+            button.userData.buttonType === 'backspace' || 
+            button.userData.buttonType === 'submit') {
+          handleKeyPress(button);
+          return;
+        }
+        else if (button.userData.buttonType === 'restart') {
+          if (endGameMusic) {
+            endGameMusic.pause();
+          }
+          restartGame();
+          return;
+        }
+        else if (button.userData.buttonType === 'quit') {
+          isQuitting = true;
+          
+          if (endGameMusic) endGameMusic.pause();
+          if (currentMusic) currentMusic.pause();
+          
+          isFlashing = false;
+          isExploding = false;
+          
+          cleanupVisualEffects();
+          cleanupGameScene();
+          
+          if (chimeSound) {
+            chimeSound.play().catch(error => {});
+          }
+          
+          // Return to VR menu instead of exiting VR
+          setTimeout(() => {
+            showVRMenu();
+          }, 300);
+          
+          return;
+        }
+      }
+    }
+  }
+ 
+  // Ring grabbing logic (existing code)
+  if (!gameCompleted) {
+    const ringBox = new THREE.Box3().setFromObject(ring);
+    const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
+    const sphereBox2 = new THREE.Sphere(sphere2.position, 0.05);
+
+    if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
+      grabbed = true;
+      if (grabbed) {
+        const levelMusicTrack = levelMusic[currentLevel - 1];
+        if (!currentMusic || currentMusic !== levelMusicTrack) {
+          if (currentMusic) currentMusic.pause();
+          currentMusic = levelMusicTrack;
+          currentMusic.currentTime = 0;
+          currentMusic.play().catch(error => console.log('Music play error:', error));
+        }
+      }
+      grabbingController = controller1;
+      grabOffset.copy(ring.position).sub(controller1.position);
+      grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
+      if (startTime === null) {
+        startTime = Date.now() - elapsedTime;
+      }
+    } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
+      grabbed = true;
+      if (grabbed) {
+        const levelMusicTrack = levelMusic[currentLevel - 1];
+        if (!currentMusic || currentMusic !== levelMusicTrack) {
+          if (currentMusic) currentMusic.pause();
+          currentMusic = levelMusicTrack;
+          currentMusic.currentTime = 0;
+          currentMusic.play().catch(error => console.log('Music play error:', error));
+        }
+      }
+      grabbingController = controller2;
+      grabOffset.copy(ring.position).sub(controller2.position);
+      grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
+      if (startTime === null) {
+        startTime = Date.now() - elapsedTime;
+      }
+    }
+  }
+}
+
+</script>
 </body>
 </html>
