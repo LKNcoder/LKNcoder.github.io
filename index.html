@@ -280,33 +280,25 @@ const levelsRef = firebase.database().ref('levels/months');
 const leaderboardRef = firebase.database().ref('leaderboard');
 
 
-
 // Auto-enter VR when page loads
 window.addEventListener('load', function() {
-  console.log("Page loaded, initializing game...");
-  
-  // First initialize the game normally - this loads resources properly
-  init();
-  
-  // IMPORTANT: Wait for resources to load before attempting VR
-  const resourceCheckInterval = setInterval(function() {
-    // Check if essential elements like font are loaded
-    if (font && wire) {
-      console.log("Essential resources loaded, can enter VR now");
-      clearInterval(resourceCheckInterval);
-      
-      // Check if WebXR is supported
-      if (navigator.xr) {
-        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-          if (supported) {
-            console.log("VR supported, requesting session...");
+  // Check if WebXR is supported
+  if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      if (supported) {
+        // Initialize first (needed for VR)
+        init();
+        
+        // Wait for essential resources to load
+        const resourceCheckInterval = setInterval(function() {
+          if (font && renderer) {
+            clearInterval(resourceCheckInterval);
+            console.log("Resources loaded, entering VR");
             
             // Request VR session
             navigator.xr.requestSession('immersive-vr', {
               optionalFeatures: ['local-floor', 'hand-tracking']
             }).then(session => {
-              console.log("VR session started successfully");
-              
               // Hide 2D UI once VR session starts
               document.getElementById('loadingContainer').style.display = 'none';
               
@@ -315,33 +307,25 @@ window.addEventListener('load', function() {
               
               // Set up session end handling
               session.addEventListener('end', () => {
-                console.log("VR session ended");
                 // Show 2D UI again when exiting VR
                 document.getElementById('loadingContainer').style.display = 'flex';
                 cleanupGameScene();
               });
               
               // Create 3D month selection UI in VR
-              console.log("Creating VR month menu...");
               createVRMonthMenu();
             }).catch(error => {
               console.error('Failed to enter VR:', error);
               // Fall back to 2D interface
             });
-          } else {
-            console.log("VR not supported, using 2D interface");
           }
-        });
+        }, 100);
       }
-    }
-  }, 500); // Check every 500ms
-});
+    });
+  }
+})
 
-
-// create a 3D version of the month menu in VR
 function createVRMonthMenu() {
-  console.log("Creating VR Month Menu");
-  
   // Create a container for the menu
   const menuContainer = new THREE.Group();
   menuContainer.position.set(0, 1.6, -1.0); // Position in front of user
@@ -419,22 +403,6 @@ function createVRMonthMenu() {
       }
     });
     
-    // Use default months if none found
-    if (availableMonths.length === 0) {
-      availableMonths.push(
-        {
-          id: "2025-04",
-          name: "April 2025",
-          theme: "Levels 1-5"
-        },
-        {
-          id: "2025-03",
-          name: "March 2025",
-          theme: "Levels 6-10"
-        }
-      );
-    }
-    
     // Sort months
     availableMonths.sort((a, b) => a.id.localeCompare(b.id));
     
@@ -455,7 +423,7 @@ function createVRMonthMenu() {
     const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
     const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
     
-    // Add "Coming Soon" month if it doesn't exist
+    // Add "Coming Soon" month
     if (!availableMonths.some(m => m.id === nextMonthId)) {
       createVRComingSoonButton({
         id: nextMonthId,
@@ -467,8 +435,6 @@ function createVRMonthMenu() {
     // Create ray-based interaction system
     createControllerRays();
   });
-  
-  return menuContainer;
 }
 
 function createVRMonthButton(month, index, container) {
@@ -590,7 +556,6 @@ function createVRComingSoonButton(month, index, container) {
   
   return button;
 }
-
 
 
 loadAvailableMonths();
@@ -2355,6 +2320,8 @@ function onSelectStart(event) {
         else if (button.userData.buttonType === 'quit') {
   console.log('Quitting game...');
   isQuitting = true;
+
+  
   
   // Stop all sounds and music immediately
   if (endGameMusic) endGameMusic.pause();
@@ -2373,7 +2340,7 @@ function onSelectStart(event) {
   for (let i = 0; i < highestTimeoutId; i++) {
     clearTimeout(i);
   }
-  
+ 
   // Clean up visual effects
   cleanupVisualEffects();
   
@@ -2437,6 +2404,10 @@ else if (button.userData.buttonType === 'monthSelect') {
   }
   return;
 }
+
+
+
+
       }
     }
   }
