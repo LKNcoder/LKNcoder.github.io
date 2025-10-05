@@ -280,42 +280,298 @@ const levelsRef = firebase.database().ref('levels/months');
 const leaderboardRef = firebase.database().ref('leaderboard');
 
 
-// Auto-enter VR when page loads
+
+// Add this code right before the existing loadAvailableMonths() call around line 438
 window.addEventListener('load', function() {
+  // Check if WebXR is supported
   if (navigator.xr) {
     navigator.xr.isSessionSupported('immersive-vr').then(supported => {
       if (supported) {
-        // Initialize three.js first
+        // Initialize first (needed for VR)
         init();
-        
-        // Position the 2D menu in VR space
-        const menuTexture = new THREE.CanvasTexture(document.getElementById('loadingContainer'));
-        const menuGeometry = new THREE.PlaneGeometry(1.5, 1);
-        const menuMaterial = new THREE.MeshBasicMaterial({ 
-          map: menuTexture,
-          transparent: true 
-        });
-        const menuMesh = new THREE.Mesh(menuGeometry, menuMaterial);
-        menuMesh.position.set(0, 1.6, -1.5);
-        scene.add(menuMesh);
         
         // Request VR session
         navigator.xr.requestSession('immersive-vr', {
           optionalFeatures: ['local-floor', 'hand-tracking']
         }).then(session => {
+          // Hide 2D UI once VR session starts
+          document.getElementById('loadingContainer').style.display = 'none';
+          
+          // Set up XR session
           renderer.xr.setSession(session);
           
-          // Update menu texture on every frame
-          function updateMenuTexture() {
-            menuTexture.needsUpdate = true;
-            session.requestAnimationFrame(updateMenuTexture);
-          }
-          session.requestAnimationFrame(updateMenuTexture);
+          // Set up session end handling
+          session.addEventListener('end', () => {
+            // Show 2D UI again when exiting VR
+            document.getElementById('loadingContainer').style.display = 'flex';
+            cleanupGameScene();
+          });
+          
+          // Create 3D month selection UI in VR
+          createVRMonthMenu();
+        }).catch(error => {
+          console.error('Failed to enter VR:', error);
+          // Fall back to 2D interface
         });
       }
     });
   }
 });
+
+
+// create a 3D version of the month menu in VR
+function createVRMonthMenu() {
+  console.log("Creating VR Month Menu");
+  
+  // Create a container for the menu
+  const menuContainer = new THREE.Group();
+  menuContainer.position.set(0, 1.6, -1.0); // Position in front of user
+  scene.add(menuContainer);
+  
+  // Create title
+  if (font) {
+    const titleGeometry = new THREE.TextGeometry("RING RING", { 
+      font: font, 
+      size: 0.08, 
+      height: 0.01 
+    });
+    const titleMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ffff,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.5 
+    });
+    const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
+    titleGeometry.computeBoundingBox();
+    const titleWidth = titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x;
+    titleMesh.position.set(-titleWidth/2, 0.3, 0);
+    menuContainer.add(titleMesh);
+    
+    // Subtitle
+    const subtitleGeometry = new THREE.TextGeometry("SELECT MONTH", { 
+      font: font, 
+      size: 0.04, 
+      height: 0.005 
+    });
+    const subtitleMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+    const subtitleMesh = new THREE.Mesh(subtitleGeometry, subtitleMaterial);
+    subtitleGeometry.computeBoundingBox();
+    const subtitleWidth = subtitleGeometry.boundingBox.max.x - subtitleGeometry.boundingBox.min.x;
+    subtitleMesh.position.set(-subtitleWidth/2, 0.2, 0);
+    menuContainer.add(subtitleMesh);
+  }
+  
+  // Fetch available months and create buttons
+  Promise.all([
+    levelsRef.once('value'),
+    firebase.database().ref('monthlyWires').once('value')
+  ]).then(([legacySnapshot, newFormatSnapshot]) => {
+    const availableMonths = [];
+    
+    // Process legacy format data
+    legacySnapshot.forEach(monthSnapshot => {
+      const monthId = monthSnapshot.key;
+      const monthData = monthSnapshot.val();
+      if (monthData) {
+        const [year, month] = monthId.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
+        
+        availableMonths.push({
+          id: monthId,
+          name: `${monthName} ${year}`,
+          theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
+        });
+      }
+    });
+    
+    // Process new format data
+    newFormatSnapshot.forEach(monthSnapshot => {
+      const monthId = monthSnapshot.key;
+      if (!availableMonths.some(m => m.id === monthId)) {
+        const [year, month] = monthId.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
+        
+        availableMonths.push({
+          id: monthId,
+          name: `${monthName} ${year}`,
+          theme: `Levels 1-5`
+        });
+      }
+    });
+    
+    // Use default months if none found
+    if (availableMonths.length === 0) {
+      availableMonths.push(
+        {
+          id: "2025-04",
+          name: "April 2025",
+          theme: "Levels 1-5"
+        },
+        {
+          id: "2025-03",
+          name: "March 2025",
+          theme: "Levels 6-10"
+        }
+      );
+    }
+    
+    // Sort months
+    availableMonths.sort((a, b) => a.id.localeCompare(b.id));
+    
+    // Create 3D buttons for each month
+    availableMonths.forEach((month, index) => {
+      createVRMonthButton(month, index, menuContainer);
+    });
+    
+    // Add "Coming Soon" button
+    const latestMonth = availableMonths[availableMonths.length - 1];
+    const [year, month] = latestMonth.id.split('-').map(Number);
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear++;
+    }
+    const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
+    
+    // Add "Coming Soon" month if it doesn't exist
+    if (!availableMonths.some(m => m.id === nextMonthId)) {
+      createVRComingSoonButton({
+        id: nextMonthId,
+        name: `${nextMonthName} ${nextYear}`,
+        theme: "Coming Soon"
+      }, availableMonths.length, menuContainer);
+    }
+    
+    // Create ray-based interaction system
+    createControllerRays();
+  });
+  
+  return menuContainer;
+}
+
+function createVRMonthButton(month, index, container) {
+  // Set up button material and geometry
+  const buttonWidth = 0.4;
+  const buttonHeight = 0.1;
+  const buttonGeometry = new THREE.BoxGeometry(buttonWidth, buttonHeight, 0.01);
+  const buttonMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00468e,
+    emissive: 0x002244,
+    emissiveIntensity: 0.3
+  });
+  
+  // Create button mesh
+  const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
+  button.position.set(0, 0.1 - (index * 0.12), 0);
+  container.add(button);
+  
+  // Store month ID in button's userData
+  button.userData.isButton = true;
+  button.userData.monthId = month.id;
+  button.userData.defaultColor = 0x00468e;
+  button.userData.hoverColor = 0x005bb5;
+  button.userData.pressColor = 0x00ffff;
+  button.userData.buttonType = 'monthSelect';
+  
+  // Add month name text
+  if (font) {
+    // Month name
+    const nameGeometry = new THREE.TextGeometry(month.name, { 
+      font: font, 
+      size: 0.025, 
+      height: 0.005 
+    });
+    const nameMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
+    nameGeometry.computeBoundingBox();
+    const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
+    nameMesh.position.set(-nameWidth/2, 0.01, 0.01);
+    button.add(nameMesh);
+    
+    // Theme text
+    const themeGeometry = new THREE.TextGeometry(month.theme, { 
+      font: font, 
+      size: 0.018, 
+      height: 0.002 
+    });
+    const themeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+    const themeMesh = new THREE.Mesh(themeGeometry, themeMaterial);
+    themeGeometry.computeBoundingBox();
+    const themeWidth = themeGeometry.boundingBox.max.x - themeGeometry.boundingBox.min.x;
+    themeMesh.position.set(-themeWidth/2, -0.02, 0.01);
+    button.add(themeMesh);
+    
+    // Add "NEW" badge for latest month
+    const latestMonth = [...availableMonths].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
+    if (month.id === latestMonth) {
+      const badgeGeometry = new THREE.TextGeometry("NEW", { 
+        font: font, 
+        size: 0.015, 
+        height: 0.002 
+      });
+      const badgeMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xff00ff,
+        emissive: 0xff00ff,
+        emissiveIntensity: 0.5
+      });
+      const badgeMesh = new THREE.Mesh(badgeGeometry, badgeMaterial);
+      badgeMesh.position.set(buttonWidth/2 - 0.05, buttonHeight/2 - 0.01, 0.01);
+      button.add(badgeMesh);
+    }
+  }
+  
+  return button;
+}
+
+function createVRComingSoonButton(month, index, container) {
+  // Similar to createVRMonthButton but with disabled state
+  const buttonWidth = 0.4;
+  const buttonHeight = 0.1;
+  const buttonGeometry = new THREE.BoxGeometry(buttonWidth, buttonHeight, 0.01);
+  const buttonMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x333333,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
+  button.position.set(0, 0.1 - (index * 0.12), 0);
+  container.add(button);
+  
+  if (font) {
+    // Month name
+    const nameGeometry = new THREE.TextGeometry(month.name, { 
+      font: font, 
+      size: 0.025, 
+      height: 0.005 
+    });
+    const nameMaterial = new THREE.MeshStandardMaterial({ color: 0x999999 });
+    const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
+    nameGeometry.computeBoundingBox();
+    const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
+    nameMesh.position.set(-nameWidth/2, 0.01, 0.01);
+    button.add(nameMesh);
+    
+    // Coming Soon text
+    const comingSoonGeometry = new THREE.TextGeometry("COMING SOON", { 
+      font: font, 
+      size: 0.018, 
+      height: 0.002 
+    });
+    const comingSoonMaterial = new THREE.MeshStandardMaterial({ color: 0xff8800 });
+    const comingSoonMesh = new THREE.Mesh(comingSoonGeometry, comingSoonMaterial);
+    comingSoonGeometry.computeBoundingBox();
+    const comingSoonWidth = comingSoonGeometry.boundingBox.max.x - comingSoonGeometry.boundingBox.min.x;
+    comingSoonMesh.position.set(-comingSoonWidth/2, -0.02, 0.01);
+    button.add(comingSoonMesh);
+  }
+  
+  return button;
+}
+
 
 
 loadAvailableMonths();
@@ -2120,6 +2376,46 @@ function onSelectStart(event) {
     }
   }, 300);
   
+  return;
+}
+
+else if (button.userData.buttonType === 'monthSelect') {
+  // Handle month selection in VR
+  console.log('Month selected in VR:', button.userData.monthId);
+  
+  // Visual feedback
+  if (button.material) {
+    const originalColor = button.material.color.getHex();
+    button.material.color.setHex(button.userData.pressColor);
+    
+    setTimeout(() => {
+      if (button.material) {
+        button.material.color.setHex(button.userData.defaultColor);
+      }
+    }, 300);
+  }
+  
+  // Hide all month buttons
+  let menuContainer = button.parent;
+  if (menuContainer) {
+    menuContainer.visible = false;
+    
+    // Load the selected month
+    const monthId = button.userData.monthId;
+    selectedMonth = monthId;
+    
+    // Play chime sound
+    if (chimeSound) {
+      chimeSound.play().catch(error => {});
+    }
+    
+    // Load month data and reset game
+    loadMonthLevels(monthId).then(() => {
+      resetGameForNewMonth();
+      triggerHapticFeedbackByHandedness('left', 0.5, 100);
+      triggerHapticFeedbackByHandedness('right', 0.5, 100);
+    });
+  }
   return;
 }
       }
