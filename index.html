@@ -302,6 +302,25 @@ document.getElementById('enterVRButton').addEventListener('click', function() {
       init();
     }
     
+    // First make sure font is loaded
+    if (!font) {
+      console.log("Font not loaded yet, loading now...");
+      const loader = new THREE.FontLoader();
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function(loadedFont) {
+        font = loadedFont;
+        console.log("Font loaded, entering VR now");
+        enterVRWithFontLoaded();
+      });
+    } else {
+      console.log("Font already loaded, entering VR directly");
+      enterVRWithFontLoaded();
+    }
+  } else {
+    console.error("WebXR not available");
+    alert("WebXR not supported by your browser.");
+  }
+  
+  function enterVRWithFontLoaded() {
     navigator.xr.isSessionSupported('immersive-vr').then(supported => {
       if (supported) {
         navigator.xr.requestSession('immersive-vr', {
@@ -311,26 +330,26 @@ document.getElementById('enterVRButton').addEventListener('click', function() {
           document.getElementById('loadingContainer').style.display = 'none';
           renderer.xr.setSession(session);
           
-          // Set up session events
           session.addEventListener('end', () => {
             document.getElementById('loadingContainer').style.display = 'flex';
             cleanupGameScene();
           });
           
-          // Create VR UI
-          createVRMonthMenu();
+          // Create month selection UI in VR with a slight delay
+          // to ensure everything is properly set up
+          setTimeout(() => {
+            console.log("Creating VR month menu");
+            createVRMonthMenu();
+          }, 500);
         }).catch(error => {
           console.error("Error starting VR session:", error);
           alert(`Error starting VR: ${error.message}`);
         });
       } else {
         console.error("VR not supported");
-        alert("VR not supported by your browser or headset not connected.");
+        alert("VR not supported or headset not connected.");
       }
     });
-  } else {
-    console.error("WebXR not available");
-    alert("WebXR not supported by your browser.");
   }
 });
 
