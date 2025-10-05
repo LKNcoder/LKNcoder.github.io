@@ -281,41 +281,60 @@ const leaderboardRef = firebase.database().ref('leaderboard');
 
 
 
-// Add this code right before the existing loadAvailableMonths() call around line 438
+// Auto-enter VR when page loads
 window.addEventListener('load', function() {
-  // Check if WebXR is supported
-  if (navigator.xr) {
-    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-      if (supported) {
-        // Initialize first (needed for VR)
-        init();
-        
-        // Request VR session
-        navigator.xr.requestSession('immersive-vr', {
-          optionalFeatures: ['local-floor', 'hand-tracking']
-        }).then(session => {
-          // Hide 2D UI once VR session starts
-          document.getElementById('loadingContainer').style.display = 'none';
-          
-          // Set up XR session
-          renderer.xr.setSession(session);
-          
-          // Set up session end handling
-          session.addEventListener('end', () => {
-            // Show 2D UI again when exiting VR
-            document.getElementById('loadingContainer').style.display = 'flex';
-            cleanupGameScene();
-          });
-          
-          // Create 3D month selection UI in VR
-          createVRMonthMenu();
-        }).catch(error => {
-          console.error('Failed to enter VR:', error);
-          // Fall back to 2D interface
+  console.log("Page loaded, initializing game...");
+  
+  // First initialize the game normally - this loads resources properly
+  init();
+  
+  // IMPORTANT: Wait for resources to load before attempting VR
+  const resourceCheckInterval = setInterval(function() {
+    // Check if essential elements like font are loaded
+    if (font && wire) {
+      console.log("Essential resources loaded, can enter VR now");
+      clearInterval(resourceCheckInterval);
+      
+      // Check if WebXR is supported
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+          if (supported) {
+            console.log("VR supported, requesting session...");
+            
+            // Request VR session
+            navigator.xr.requestSession('immersive-vr', {
+              optionalFeatures: ['local-floor', 'hand-tracking']
+            }).then(session => {
+              console.log("VR session started successfully");
+              
+              // Hide 2D UI once VR session starts
+              document.getElementById('loadingContainer').style.display = 'none';
+              
+              // Set up XR session
+              renderer.xr.setSession(session);
+              
+              // Set up session end handling
+              session.addEventListener('end', () => {
+                console.log("VR session ended");
+                // Show 2D UI again when exiting VR
+                document.getElementById('loadingContainer').style.display = 'flex';
+                cleanupGameScene();
+              });
+              
+              // Create 3D month selection UI in VR
+              console.log("Creating VR month menu...");
+              createVRMonthMenu();
+            }).catch(error => {
+              console.error('Failed to enter VR:', error);
+              // Fall back to 2D interface
+            });
+          } else {
+            console.log("VR not supported, using 2D interface");
+          }
         });
       }
-    });
-  }
+    }
+  }, 500); // Check every 500ms
 });
 
 
