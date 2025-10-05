@@ -187,33 +187,6 @@ canvas {
   margin: 15px 0;
 }
 
-.monthButton.placeholder {
-  background-image: linear-gradient(to right, #003366, #004488, #003366);
-  background-size: 200% 100%;
-  animation: loadingPulse 1.5s infinite;
-}
-
-@keyframes loadingPulse {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-.comingSoonRibbon {
-  position: absolute;
-  top: 30px;
-  right: -65px;
-  width: 220px;
-  transform: rotate(45deg);
-  background: linear-gradient(45deg, #ff8800, #ffaa00);
-  color: white;
-  padding: 5px 0;
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  z-index: 1;
-}
 
 </style>
 
@@ -255,8 +228,9 @@ let camera, scene, renderer, controller1, controller2, sphere1, sphere2, ring, t
 let grabbed = false, grabbingController = null, grabOffset = new THREE.Vector3(), grabRotationOffset = new THREE.Quaternion();
 let startTime = null, elapsedTime = 0, font, timerFont, wire, wirePoints = [], wireMaterial, victorySound, contactSound;
 const ringStartPosition = new THREE.Vector3(0, 1.35, -0.75);
-let currentLevel = 1;
-let levelTimes = [];
+let currentLevel = 1; // Track current level
+let levelTimes = []; // Array to store completion times for each level
+
 
 let explosionFragments = [];
 let explosionStartTime = null;
@@ -274,7 +248,7 @@ let scoreSummaryMeshes = [];
 let keyboardMeshes = [];
 let initialsDisplayMesh;
 let nameEntered = false;
-let playerName = "";
+let playerName = ""; // Empty string to start
 let maxNameLength = 10;
 let hoveredButton = null;
 let keyboardActive = false;
@@ -284,9 +258,9 @@ const tempVector = new THREE.Vector3();
 let timerCenterOffset = 0;
 
 let applauseSound, longApplauseSound, longHornsSound, hornsSound, chimeSound;
-let isFlashing = false;
-let levelMusic = [];
-let currentMusic = null;
+let isFlashing = false;  // wire flash flag
+let levelMusic = []; // Array to store music for each level
+let currentMusic = null; // Reference to currently playing music
 let endGameMusic;
 
 let selectedMonth = null;
@@ -294,13 +268,7 @@ let monthlyLevels = [];
 let cachedMonths = {};
 let isQuitting = false;
 
-// VR MENU SYSTEM VARIABLES
-let monthMenuItems = [];
-let hoveredMenuItem = null;
-let menuTooltip = null;
-let isInMenuMode = false;
-let menuFont;
-
+// Initialize Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCvzAS8zXYraoP-a10eAMFAZX7u1TQNY-M",
   databaseURL: "https://ring-ring-vr-game-default-rtdb.firebaseio.com/",
@@ -311,11 +279,51 @@ firebase.initializeApp(firebaseConfig);
 const levelsRef = firebase.database().ref('levels/months');
 const leaderboardRef = firebase.database().ref('leaderboard');
 
+
+// Auto-enter VR when page loads
+window.addEventListener('load', function() {
+  if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      if (supported) {
+        // Initialize three.js first
+        init();
+        
+        // Position the 2D menu in VR space
+        const menuTexture = new THREE.CanvasTexture(document.getElementById('loadingContainer'));
+        const menuGeometry = new THREE.PlaneGeometry(1.5, 1);
+        const menuMaterial = new THREE.MeshBasicMaterial({ 
+          map: menuTexture,
+          transparent: true 
+        });
+        const menuMesh = new THREE.Mesh(menuGeometry, menuMaterial);
+        menuMesh.position.set(0, 1.6, -1.5);
+        scene.add(menuMesh);
+        
+        // Request VR session
+        navigator.xr.requestSession('immersive-vr', {
+          optionalFeatures: ['local-floor', 'hand-tracking']
+        }).then(session => {
+          renderer.xr.setSession(session);
+          
+          // Update menu texture on every frame
+          function updateMenuTexture() {
+            menuTexture.needsUpdate = true;
+            session.requestAnimationFrame(updateMenuTexture);
+          }
+          session.requestAnimationFrame(updateMenuTexture);
+        });
+      }
+    });
+  }
+});
+
+
 loadAvailableMonths();
 
 function loadAvailableMonths() {
   console.log("Loading available months...");
   
+  // STEP 1: Show placeholder buttons immediately
   const placeholderMonths = [
     {
       id: "2025-03",
@@ -329,87 +337,142 @@ function loadAvailableMonths() {
     }
   ];
   
+  // Generate placeholder buttons immediately
   generateMonthButtons(placeholderMonths, true);
   
+  // Add some styling for placeholders
+  const styleElement = document.createElement('style');
+styleElement.textContent = `
+  .monthButton.placeholder {
+    background-image: linear-gradient(to right, #003366, #004488, #003366);
+    background-size: 200% 100%;
+    animation: loadingPulse 1.5s infinite;
+  }
+  
+  @keyframes loadingPulse {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .comingSoonRibbon {
+    position: absolute;
+    top: 30px;                /* Moved further up */
+    right: -65px;              /* Positioned from right instead of left */
+    width: 220px;              /* Made wider to fit text */
+    transform: rotate(45deg);  /* Rotated for right corner */
+    background: linear-gradient(45deg, #ff8800, #ffaa00);
+    color: white;
+    padding: 5px 0;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 1;
+  }
+`;
+document.head.appendChild(styleElement);
+  
+  // Fetch the real data in the background
   Promise.all([
-    levelsRef.once('value'),
-    firebase.database().ref('monthlyWires').once('value')
-  ])
-  .then(([legacySnapshot, newFormatSnapshot]) => {
-    const availableMonths = [];
-    
-    legacySnapshot.forEach(monthSnapshot => {
-      const monthId = monthSnapshot.key;
-      const monthData = monthSnapshot.val();
-      if (monthData) {
-        const [year, month] = monthId.split('-');
-        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-        const monthName = monthDate.toLocaleString('default', { month: 'long' });
-        
-        availableMonths.push({
-          id: monthId,
-          name: `${monthName} ${year}`,
-          theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
-        });
-      }
-    });
-    
-    newFormatSnapshot.forEach(monthSnapshot => {
-      const monthId = monthSnapshot.key;
-      if (!availableMonths.some(m => m.id === monthId)) {
-        const [year, month] = monthId.split('-');
-        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-        const monthName = monthDate.toLocaleString('default', { month: 'long' });
-        
-        availableMonths.push({
-          id: monthId,
-          name: `${monthName} ${year}`,
-          theme: `Levels 1-5`
-        });
-      }
-    });
-    
-    if (availableMonths.length > 0) {
-      generateMonthButtons(availableMonths);
-    } else {
-      console.warn("No months found in Firebase, using defaults");
-      const defaultMonths = [
-        {
-          id: "2025-04",
-          name: "April 2025",
-          theme: "Levels 1-5"
-        },
-        {
-          id: "2025-03",
-          name: "March 2025",
-          theme: "Levels 6-10"
-        }
-      ];
+  levelsRef.once('value'),
+  firebase.database().ref('monthlyWires').once('value')
+])
+.then(([legacySnapshot, newFormatSnapshot]) => {
+  // Process both types of data
+  const availableMonths = [];
+  
+  // Process legacy format data
+  legacySnapshot.forEach(monthSnapshot => {
+    const monthId = monthSnapshot.key;
+    const monthData = monthSnapshot.val();
+    if (monthData) {
+      // Extract month and year from ID (format: "YYYY-MM")
+      const [year, month] = monthId.split('-');
+      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+      const monthName = monthDate.toLocaleString('default', { month: 'long' });
       
-      generateMonthButtons(defaultMonths);
+      availableMonths.push({
+        id: monthId,
+        name: `${monthName} ${year}`,
+        theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
+      });
     }
   });
+  
+  // Process new format data
+  newFormatSnapshot.forEach(monthSnapshot => {
+    const monthId = monthSnapshot.key;
+    // Skip if we already added this month from legacy data
+    if (!availableMonths.some(m => m.id === monthId)) {
+      // Extract month and year from ID (format: "YYYY-MM")
+      const [year, month] = monthId.split('-');
+      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+      const monthName = monthDate.toLocaleString('default', { month: 'long' });
+      
+      availableMonths.push({
+        id: monthId,
+        name: `${monthName} ${year}`,
+        theme: `Levels 1-5`  // Default theme
+      });
+    }
+  });
+  
+  if (availableMonths.length > 0) {
+    // Generate buttons with the fetched data
+    generateMonthButtons(availableMonths);
+  } else {
+    console.warn("No months found in Firebase, using defaults");
+    // If no months found, use default data
+    const defaultMonths = [
+      {
+        id: "2025-04",
+        name: "April 2025",
+        theme: "Levels 1-5"
+      },
+      {
+        id: "2025-03",
+        name: "March 2025",
+        theme: "Levels 6-10"
+      }
+    ];
+    
+    // Generate buttons with default data
+    generateMonthButtons(defaultMonths);
+    
+  }
+});
 }
+
 
 function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
-  monthsContainer.innerHTML = '';
+  monthsContainer.innerHTML = ''; // Clear existing content
 
+  // Get the current date to determine the next month
   const currentDate = new Date();
+  
+  // Find the newest month before sorting
   const latestMonth = [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
   
+  // Sort months by date (newest first)
   monthsArray.sort((a, b) => a.id.localeCompare(b.id));
   
+  // Custom month labels based on month ID
   monthsArray.forEach(month => {
+    // Set the correct theme based on month ID
     if (month.id === "2025-03") {
       month.theme = "Levels 1-5";
     } else if (month.id === "2025-04") {
       month.theme = "Levels 6-10";
     } else {
+      // For May onwards, calculate dynamically
+      // Extract month number
       const monthNum = parseInt(month.id.split('-')[1]);
       
       if (!isNaN(monthNum)) {
-        const monthIndex = monthNum - 3;
+        // Calculate level range based on month number
+        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2
         const startLevel = (monthIndex * 5) + 1;
         const endLevel = startLevel + 4;
         month.theme = `Levels ${startLevel}-${endLevel}`;
@@ -417,16 +480,19 @@ function generateMonthButtons(monthsArray) {
     }
   });
   
+  // Create active month buttons
   monthsArray.forEach((month, index) => {
     const button = createMonthButton(month, index, latestMonth);
     monthsContainer.appendChild(button);
   });
   
+  // Get the latest month by finding the month with the most recent date
   const mostRecentMonth = monthsArray.length > 0 ? 
     [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
   let latestYearMonth = mostRecentMonth ? 
     mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
     
+  // Calculate the next month for "Coming Soon"
   let [nextYear, nextMonth] = latestYearMonth;
   nextMonth++;
   if (nextMonth > 12) {
@@ -434,15 +500,19 @@ function generateMonthButtons(monthsArray) {
     nextMonth = 1;
   }
   
+  // Format with leading zeros
   const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
   const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
   
+  // Create "Coming Soon" button for next month if it doesn't exist
   if (!monthsArray.some(m => m.id === nextMonthId)) {
+    // Calculate correct theme for next month
     let nextMonthTheme = "Coming Soon";
     
+    // If we're showing level ranges, calculate it
     const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
     if (!isNaN(nextMonthNum)) {
-      const nextMonthIndex = nextMonthNum - 3;
+      const nextMonthIndex = nextMonthNum - 3; // March = 0, April = 1, May = 2, etc.
       const startLevel = (nextMonthIndex * 5) + 1;
       const endLevel = startLevel + 4;
       nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
@@ -453,8 +523,8 @@ function generateMonthButtons(monthsArray) {
     comingSoonButton.style.opacity = '0.75';
     comingSoonButton.style.transform = 'scale(0.9)';
     comingSoonButton.style.pointerEvents = 'none';
-    comingSoonButton.style.position = 'relative';
-    comingSoonButton.style.overflow = 'hidden';
+    comingSoonButton.style.position = 'relative'; // Ensure relative positioning for absolute ribbon
+    comingSoonButton.style.overflow = 'hidden'; // Contain the ribbon
     
     comingSoonButton.innerHTML = `
       <div class="comingSoonRibbon">COMING SOON</div>
@@ -465,15 +535,19 @@ function generateMonthButtons(monthsArray) {
   }
 }
 
+
+
 function fetchLeaderboardForTooltip(monthId, tooltipElement) {
   const leaderboardContent = tooltipElement.querySelector('.leaderboardContent');
   
+  // Reference to the monthly leaderboard
   const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
   
   monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
     .then(snapshot => {
       const leaderboardData = [];
       
+      // Convert Firebase snapshot to array
       snapshot.forEach(childSnapshot => {
         leaderboardData.push({
           name: childSnapshot.val().playerName || 'Anonymous',
@@ -481,8 +555,10 @@ function fetchLeaderboardForTooltip(monthId, tooltipElement) {
         });
       });
       
+      // Sort by time (lowest first)
       leaderboardData.sort((a, b) => a.time - b.time);
       
+      // Update tooltip content
       if (leaderboardData.length > 0) {
         let html = '';
         leaderboardData.forEach((player, index) => {
@@ -505,7 +581,9 @@ function fetchLeaderboardForTooltip(monthId, tooltipElement) {
     });
 }
 
+// cleans up the visual effects
 function cleanupVisualEffects() {
+  // Clean up explosion fragments
   for (let i = 0; i < explosionFragments.length; i++) {
     if (explosionFragments[i]) {
       scene.remove(explosionFragments[i]);
@@ -516,6 +594,7 @@ function cleanupVisualEffects() {
   explosionFragments = [];
   explosionStartTime = null;
   
+  // Clean up confetti
   for (let i = 0; i < confettiParticles.length; i++) {
     if (confettiParticles[i]) {
       scene.remove(confettiParticles[i]);
@@ -530,38 +609,50 @@ function createMonthButton(month, index, latestMonth) {
   const button = document.createElement('div');
   button.className = 'monthButton';
   
+  // Store the month ID as a data attribute for easy access
   button.dataset.monthId = month.id;
   
+  // Create HTML content
   button.innerHTML = `
     <div class="monthName">${month.name}</div>
     <div class="monthTheme">${month.theme}</div>
     ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
   `;
   
+  // Clear and set up the button click handler
   button.onclick = function(event) {
+    // Prevent event bubbling if needed
     event.stopPropagation();
     
+    // Get the month ID from the dataset
     const monthId = this.dataset.monthId;
     
+    // Visual feedback
     this.style.backgroundColor = '#00ffff';
     
+    // Reset any global state flags
     isQuitting = false;
     gameCompleted = false;
     isExploding = false;
     isFlashing = false;
     
+    // Clear any existing confetti and fragments
     cleanupVisualEffects();
     
-    enterVRWithMenu(monthId);
+    // Call enterVR with the month ID
+    enterVR(monthId);
     
+    // Reset the button color after a short delay
     setTimeout(() => this.style.backgroundColor = '', 300);
   };
   
+  // Create the tooltip for leaderboard display
   const tooltip = document.createElement('div');
   tooltip.className = 'leaderboardTooltip';
   tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
   document.body.appendChild(tooltip);
   
+  // Tooltip hover handlers
   button.addEventListener('mouseenter', (event) => {
     const rect = button.getBoundingClientRect();
     tooltip.style.left = `${rect.right + 10}px`;
@@ -577,40 +668,89 @@ function createMonthButton(month, index, latestMonth) {
   return button;
 }
 
-async function enterVRWithMenu(monthId) {
+
+async function enterVR(monthId) {
+  console.log(`Selected month: ${monthId}`);
   selectedMonth = monthId;
   
+  // First check: are we already in a VR session?
+  const alreadyInVR = renderer && renderer.xr && renderer.xr.isPresenting;
+  
+  if (alreadyInVR) {
+    // Already in VR, just switch month
+    try {
+      await loadMonthLevels(monthId);
+      resetGameForNewMonth();
+      if (chimeSound) {
+        chimeSound.play().catch(error => {});
+      }
+      return;
+    } catch (error) {
+      console.error("Error switching month in VR:", error);
+      return;
+    }
+  }
+  
+  // Not in VR yet, need to enter VR mode
   if (!navigator.xr) {
     alert('WebXR not supported by your browser. Please try with a VR-compatible browser.');
     return;
   }
   
   try {
+    // Check if VR is supported BEFORE attempting any async operations
     const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
     if (!isSessionSupported) {
       alert('VR is not supported or no VR headset is connected. Connect your headset and try again.');
       return;
     }
     
+    // IMPORTANT: Request the VR session IMMEDIATELY while we still have user activation
     const session = await navigator.xr.requestSession('immersive-vr', {
       optionalFeatures: ['local-floor', 'hand-tracking']
     });
     
+    // Hide the UI
     document.getElementById('loadingContainer').style.display = 'none';
     
+    // Initialize renderer if needed (only after session is granted)
     if (!renderer) {
       init();
     }
     
+    // Set up the session
     renderer.xr.setSession(session);
     
-    isInMenuMode = true;
-    showVRMenu();
+    // AFTER session is established, load the month data
+    loadMonthLevels(monthId).then(() => {
+      resetGameForNewMonth();
+      
+      // Play chime sound
+      if (chimeSound) {
+        chimeSound.play().catch(error => {});
+      }
+    });
+    
+    // Session event listeners
+    let firstFrameRendered = false;
+    session.requestAnimationFrame(() => {
+      if (!firstFrameRendered) {
+        firstFrameRendered = true;
+        setTimeout(() => {
+          initControllerHaptics();
+        }, 1000);           
+      }
+    });
+    
+    session.addEventListener('inputsourceschange', (event) => {
+      setTimeout(initControllerHaptics, 500);
+    });
     
     session.addEventListener('end', () => {
       document.getElementById('loadingContainer').style.display = 'flex';
-      cleanupGameScene();
-      cleanupVRMenu();
+    
+    // Clean up all game completion and interface elements
+  cleanupGameScene();
     });
     
   } catch (error) {
@@ -618,203 +758,14 @@ async function enterVRWithMenu(monthId) {
     alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
   }
 }
-
-function showVRMenu() {
-  isInMenuMode = true;
-  
-  monthMenuItems.forEach(item => {
-    scene.remove(item.group);
-  });
-  monthMenuItems = [];
-  
-  createMenuTitle();
-  createMonthMenuItems();
-}
-
-function createMenuTitle() {
-  if (!font) return;
-  
-  const titleGeometry = new THREE.TextGeometry('RING RING', {
-    font: font,
-    size: 0.15,
-    height: 0.02
-  });
-  
-  const titleMaterial = new THREE.MeshStandardMaterial({
-    color: 0x00ffff,
-    emissive: 0x00ffff,
-    emissiveIntensity: 0.5
-  });
-  
-  const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
-  titleGeometry.computeBoundingBox();
-  titleMesh.position.set(
-    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
-    2.0,
-    -1.5
-  );
-  
-  scene.add(titleMesh);
-  monthMenuItems.push({ group: titleMesh, type: 'title' });
-
-  const subtitleGeometry = new THREE.TextGeometry('Select Month', {
-    font: font,
-    size: 0.06,
-    height: 0.01
-  });
-  
-  const subtitleMaterial = new THREE.MeshStandardMaterial({
-    color: 0xff00ff,
-    emissive: 0xff00ff,
-    emissiveIntensity: 0.3
-  });
-  
-  const subtitleMesh = new THREE.Mesh(subtitleGeometry, subtitleMaterial);
-  subtitleGeometry.computeBoundingBox();
-  subtitleMesh.position.set(
-    -(subtitleGeometry.boundingBox.max.x - subtitleGeometry.boundingBox.min.x) / 2,
-    1.8,
-    -1.5
-  );
-  
-  scene.add(subtitleMesh);
-  monthMenuItems.push({ group: subtitleMesh, type: 'subtitle' });
-}
-
-function createMonthMenuItems() {
-  if (!font) return;
-  
-  const months = Object.keys(cachedMonths).length > 0 ? 
-    Object.keys(cachedMonths).map(id => ({ id, ...getMonthDisplayInfo(id) })) :
-    getDefaultMenuMonths();
-  
-  const radius = 1.5;
-  const centerY = 1.2;
-  const angleStep = (Math.PI * 2) / months.length;
-  
-  months.forEach((month, index) => {
-    const angle = index * angleStep;
-    const x = Math.sin(angle) * radius;
-    const z = Math.cos(angle) * radius - 2.0;
-    
-    const menuItem = createMonthMenuItem(month, x, centerY, z, index === 0);
-    monthMenuItems.push(menuItem);
-  });
-}
-
-function createMonthMenuItem(month, x, y, z, isNewest) {
-  const group = new THREE.Group();
-  group.position.set(x, y, z);
-  
-  const panelGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.02);
-  const panelMaterial = new THREE.MeshStandardMaterial({
-    color: 0x003366,
-    transparent: true,
-    opacity: 0.9
-  });
-  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-  group.add(panel);
-  
-  const nameGeometry = new THREE.TextGeometry(month.name, {
-    font: font,
-    size: 0.05,
-    height: 0.005
-  });
-  const nameMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
-  nameGeometry.computeBoundingBox();
-  nameMesh.position.set(
-    -(nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x) / 2,
-    0.1,
-    0.015
-  );
-  group.add(nameMesh);
-  
-  const themeGeometry = new THREE.TextGeometry(month.theme, {
-    font: font,
-    size: 0.03,
-    height: 0.003
-  });
-  const themeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-  const themeMesh = new THREE.Mesh(themeGeometry, themeMaterial);
-  themeGeometry.computeBoundingBox();
-  themeMesh.position.set(
-    -(themeGeometry.boundingBox.max.x - themeGeometry.boundingBox.min.x) / 2,
-    -0.05,
-    0.015
-  );
-  group.add(themeMesh);
-  
-  if (isNewest) {
-    const badgeGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.01);
-    const badgeMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff00ff,
-      emissive: 0xff00ff,
-      emissiveIntensity: 0.5
-    });
-    const badge = new THREE.Mesh(badgeGeometry, badgeMaterial);
-    badge.position.set(0.25, 0.2, 0.02);
-    group.add(badge);
-    
-    const badgeTextGeometry = new THREE.TextGeometry('NEW', {
-      font: font,
-      size: 0.025,
-      height: 0.002
-    });
-    const badgeTextMesh = new THREE.Mesh(badgeTextGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    badgeTextGeometry.computeBoundingBox();
-    badgeTextMesh.position.set(
-      0.25 - (badgeTextGeometry.boundingBox.max.x - badgeTextGeometry.boundingBox.min.x) / 2,
-      0.2 - (badgeTextGeometry.boundingBox.max.y - badgeTextGeometry.boundingBox.min.y) / 2,
-      0.025
-    );
-    group.add(badgeTextMesh);
-  }
-  
-  group.lookAt(0, y, 0);
-  
-  scene.add(group);
-  
-  return {
-    group: group,
-    panel: panel,
-    month: month,
-    type: 'month',
-    originalColor: 0x003366,
-    hoverColor: 0x005599,
-    selectColor: 0x0088cc
-  };
-}
-
-function getDefaultMenuMonths() {
-  return [
-    { id: "2025-04", name: "April 2025", theme: "Levels 6-10" },
-    { id: "2025-03", name: "March 2025", theme: "Levels 1-5" }
-  ];
-}
-
-function getMonthDisplayInfo(monthId) {
-  const [year, month] = monthId.split('-');
-  const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-  const monthName = monthDate.toLocaleString('default', { month: 'long' });
-  
-  const monthNum = parseInt(month);
-  if (monthId === "2025-03") {
-    return { name: `${monthName} ${year}`, theme: "Levels 1-5" };
-  } else if (monthId === "2025-04") {
-    return { name: `${monthName} ${year}`, theme: "Levels 6-10" };
-  } else {
-    const monthIndex = monthNum - 3;
-    const startLevel = (monthIndex * 5) + 1;
-    const endLevel = startLevel + 4;
-    return { name: `${monthName} ${year}`, theme: `Levels ${startLevel}-${endLevel}` };
-  }
-}
+   
 
 async function loadMonthLevels(monthId) {
+  // March 2025 hardcoded special case
   if (monthId === "2025-03") {
     console.log("Using hardcoded parameters for March 2025");
     
+    // Create March 2025 levels with actual data
     const marchLevels = [
       {
         name: "Level 1",
@@ -863,23 +814,28 @@ async function loadMonthLevels(monthId) {
       }
     ];
     
+    // Cache and use these hardcoded values
     cachedMonths[monthId] = marchLevels;
     monthlyLevels = marchLevels;
     return;
   }
 
+  // All other months (including April) will use Firebase
+  // Check if we already have this month's data cached
   if (cachedMonths[monthId]) {
     monthlyLevels = cachedMonths[monthId];
     console.log(`Loaded cached month data for ${monthId}`);
     return;
   }
   
+  // Try loading from Firebase
   try {
     const newPathRef = firebase.database().ref(`monthlyWires/${monthId}`);
     const newPathSnapshot = await newPathRef.once('value');
     const newPathData = newPathSnapshot.val();
     
     if (newPathData) {
+      // Convert the level1, level2 format to an array
       const levelsArray = [];
       for (let i = 1; i <= 5; i++) {
         if (newPathData[`level${i}`]) {
@@ -892,27 +848,32 @@ async function loadMonthLevels(monthId) {
         }
       }
       
-      if (levelsArray.length > 0) {
-        cachedMonths[monthId] = levelsArray;
-        monthlyLevels = levelsArray;
-        console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
-        return;
-      }
+        // Only proceed if we actually found levels
+    if (levelsArray.length > 0) {
+      // Cache the month data
+      cachedMonths[monthId] = levelsArray;
+      monthlyLevels = levelsArray;
+      console.log(`Loaded month data for ${monthId}:`, monthlyLevels);
+      return;
     }
-  
-    console.error(`No levels found for month ${monthId}, falling back to March 2025`);
-    monthlyLevels = [];
-    await loadMonthLevels("2025-03");
-  
-  } catch (error) {
-    console.error(`Error loading data for ${monthId}:`, error);
-    console.log(`Falling back to March 2025`);
-    monthlyLevels = [];
-    await loadMonthLevels("2025-03");
   }
+  
+  // If we reach here, no valid levels were found
+  console.error(`No levels found for month ${monthId}, falling back to March 2025`);
+  monthlyLevels = []; // Clear any existing levels
+  await loadMonthLevels("2025-03"); // Fall back to March 2025
+  
+} catch (error) {
+  console.error(`Error loading data for ${monthId}:`, error);
+  console.log(`Falling back to March 2025`);
+  monthlyLevels = []; // Clear any existing levels
+  await loadMonthLevels("2025-03"); // Fall back to March 2025
+}
 }
 
+
 function resetGameForNewMonth() {
+  // Reset game state for the new month
   currentLevel = 1;
   levelTimes = [];
   startTime = null;
@@ -920,12 +881,15 @@ function resetGameForNewMonth() {
   levelCompleted = false;
   gameCompleted = false;
   
+  // Reset position and visibility
   ring.position.copy(ringStartPosition);
   ring.rotation.set(0, Math.PI / 2, 0);
   ring.visible = true;
   
+  // Create wire for first level
   wire = createWire(currentLevel);
   
+  // Update text displays
   updateLevelText();
   resetTimerDisplay();
 }
@@ -934,20 +898,25 @@ function updateLevelText() {
   if (textMesh && font) {
     if (textMesh.geometry) textMesh.geometry.dispose();
     
+    // Calculate absolute level number based on month
     let baseLevel = 1;
     let endLevel = 5;
     
     if (selectedMonth) {
+      // Extract month from YYYY-MM format
       const monthNum = parseInt(selectedMonth.split('-')[1]);
       if (!isNaN(monthNum)) {
-        const monthIndex = monthNum - 3;
+        // Calculate base level: March=1, April=6, May=11, etc.
+        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2, etc.
         baseLevel = (monthIndex * 5) + 1;
-        endLevel = baseLevel + 4;
+        endLevel = baseLevel + 4; // Last level of this month
       }
     }
     
+    // Absolute level number
     const absoluteLevel = baseLevel + (currentLevel - 1);
     
+    // Create new text geometry with absolute level numbering
     const textGeometry = new THREE.TextGeometry(`LEVEL ${absoluteLevel}/${endLevel}`, { 
       font: font, 
       size: 0.02, 
@@ -956,16 +925,19 @@ function updateLevelText() {
     
     textGeometry.computeBoundingBox();
     
+    // Center the geometry properly
     textGeometry.translate(
       -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
       -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
       0
     );
     
+    // Reuse existing material or create new one
     if (!textMesh.material) {
       textMesh.material = new THREE.MeshStandardMaterial({ color: 0xffffff });
     }
     
+    // Update geometry and position
     textMesh.geometry = textGeometry;
     textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
     textMesh.visible = true;
@@ -981,6 +953,7 @@ function resetTimerDisplay() {
       height: 0.005,
     });
     timerMesh.geometry.computeBoundingBox();
+    // Center the geometry itself
     timerMesh.geometry.translate(
       -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
       -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
@@ -991,186 +964,208 @@ function resetTimerDisplay() {
   }
 }
 
+
 init();
 animate();
 
 function init() {
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.xr.enabled = true;
-  document.body.appendChild(renderer.domElement);
+scene = new THREE.Scene();
+camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
 
-  const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-  light.position.set(0.5, 1, 0.25);
-  scene.add(light);
 
-  const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
-  const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1.0, metalness: 1.0, roughness: 0.0 });
-  ring = new THREE.Mesh(ringGeometry, ringMaterial);
-  ring.position.copy(ringStartPosition);
-  ring.rotation.y = Math.PI / 2;
-  scene.add(ring);
 
-  for (let i = 1; i <= 5; i++) {
-    const music = new Audio(`music_${i}.mp3`);
-    music.loop = true;
-    music.addEventListener('timeupdate', function() {
-      if (this.duration - this.currentTime < 0.5) {
-        this.currentTime = 0;
-      }
-    });
-   
-    levelMusic.push(music);
-  }
+const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+light.position.set(0.5, 1, 0.25);
+scene.add(light);
 
-  const loader = new THREE.FontLoader();
-  loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
-    font = loadedFont;
-    console.log('Font loaded successfully!', font);
-    const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
-    textGeometry.computeBoundingBox();
-    const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-    textGeometry.translate(
-      -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
-      -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
-      0
-    );
-    const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    textMesh = new THREE.Mesh(textGeometry, textMaterial);
-    textMesh.position.set(centerOffset, 2.0, -0.75);
-    textMesh.visible = true;
-    scene.add(textMesh);
+const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
+const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 1.0, metalness: 1.0, roughness: 0.0 });
+ring = new THREE.Mesh(ringGeometry, ringMaterial);
+ring.position.copy(ringStartPosition);
+ring.rotation.y = Math.PI / 2;
+scene.add(ring);
 
-    const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json';
-    loader.load(timerFontURL, function (loadedTimerFont) {
-      timerFont = loadedTimerFont;
-
-      const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
-      timerGeometry.computeBoundingBox();
-      const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
-      timerGeometry.translate(
-        -(timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x) / 2,
-        -(timerGeometry.boundingBox.max.y - timerGeometry.boundingBox.min.y) / 2,
-        0
-      );
-      const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-      timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
-      timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
-      timerMesh.visible = true;
-      scene.add(timerMesh);
-    });
-  });
-
-  const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
-  sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-  scene.add(sphere1);
-  sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-  scene.add(sphere2);
-
-  controller1 = renderer.xr.getController(0);
-  controller1.addEventListener('selectstart', onSelectStart);
-  controller1.addEventListener('selectend', onSelectEnd);
-  controller1.addEventListener('squeezestart', onSelectStart);
-  controller1.addEventListener('squeezeend', onSelectEnd);
-  scene.add(controller1);
-
-  controller2 = renderer.xr.getController(1);
-  controller2.addEventListener('selectstart', onSelectStart);
-  controller2.addEventListener('selectend', onSelectEnd);
-  controller2.addEventListener('squeezestart', onSelectStart);
-  controller2.addEventListener('squeezeend', onSelectEnd);
-  scene.add(controller2);
-
-  window.addEventListener('resize', onWindowResize, false);
-
-  const vrButton = document.getElementById('vrButton');
-  if (vrButton) {
-    vrButton.addEventListener('click', async () => {
-      try {
-        chimeSound.play().catch(error => console.log('Chime sound play error:', error));
-        const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
-        renderer.xr.setSession(session);
-        vrButton.style.display = 'none';
-
-        let firstFrameRendered = false;
-
-        session.requestAnimationFrame(() => {
-          console.log('First XR frame rendered');
-          if (!firstFrameRendered) {
-            firstFrameRendered = true;
-            console.log('Waiting for controllers to initialize...');
-            setTimeout(() => {
-              initControllerHaptics();
-            }, 1000);           
-          }
-        });
-        
-        session.addEventListener('inputsourceschange', (event) => {
-          console.log('Input sources changed:', event);
-          setTimeout(initControllerHaptics, 500);
-        });
-
-      } catch (error) {
-        console.error('Failed to enter VR:', error);
-      }
-    });
-  }
-
-  const particlesGeometry = new THREE.BufferGeometry();
-  const particlesCount = 3000;
-  const posArray = new Float32Array(particlesCount * 3);
-  const minDistance = 5.0;
-  for (let i = 0; i < particlesCount * 3; i += 3) {
-    let x = (Math.random() - 0.5) * 100;
-    let y = (Math.random() - 0.5) * 100;
-    let z = (Math.random() - 0.5) * 100;
-
-    const distance = Math.sqrt(x*x + y*y + z*z);
-
-    if (distance < minDistance) {
-      const scale = minDistance / distance;
-      x *= scale;
-      y *= scale;
-      z *= scale;
+for (let i = 1; i <= 5; i++) {
+  const music = new Audio(`music_${i}.mp3`);
+  music.loop = true; // Make music loop
+  // custom looping mechanism that restarts slightly before the end
+  music.addEventListener('timeupdate', function() {
+    // If we're 0.5 seconds before the end, restart
+    // Adjust this value if needed for smoother transition
+    if (this.duration - this.currentTime < 0.5) {
+      this.currentTime = 0;
     }
-
-    posArray[i] = x;
-    posArray[i + 1] = y;
-    posArray[i + 2] = z;
-  }
-  particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-  const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-  const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-  scene.add(particlesMesh);
-
-  wire = createWire(currentLevel);
-
-  victorySound = new Audio('short_horns.mp3');
-  contactSound = new Audio('contact.mp3');
-  applauseSound = new Audio('short_applause.mp3');
-  longApplauseSound = new Audio('long_applause.mp3');
-  longHornsSound = new Audio('long_horns.mp3');
-  chimeSound = new Audio('chime.mp3');
-  endGameMusic = new Audio('music_end.mp3');
+  });
+ 
+  levelMusic.push(music);
 }
 
+const loader = new THREE.FontLoader();
+loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+font = loadedFont;
+console.log('Font loaded successfully!', font);
+const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
+textGeometry.computeBoundingBox();
+const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+textGeometry.translate(
+  -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2,
+  -(textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y) / 2,
+  0
+);
+const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+textMesh = new THREE.Mesh(textGeometry, textMaterial);
+textMesh.position.set(centerOffset, 2.0, -0.75);
+textMesh.visible = true;
+scene.add(textMesh);
+
+// Load a monospaced font for the timer
+const timerFontURL = 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json';
+loader.load(timerFontURL, function (loadedTimerFont) {
+timerFont = loadedTimerFont;
+
+// Use the loaded font for the timer with shorter format
+const timerGeometry = new THREE.TextGeometry('0:00:000', { font: timerFont, size: 0.02, height: 0.005 });
+timerGeometry.computeBoundingBox();
+const timerCenterOffset = -0.5 * (timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x);
+// Center the geometry itself
+timerGeometry.translate(
+  -(timerGeometry.boundingBox.max.x - timerGeometry.boundingBox.min.x) / 2,
+  -(timerGeometry.boundingBox.max.y - timerGeometry.boundingBox.min.y) / 2,
+  0
+);
+const timerMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+timerMesh = new THREE.Mesh(timerGeometry, timerMaterial);
+timerMesh.position.set(timerCenterOffset, 1.8, -0.75);
+timerMesh.visible = true;
+scene.add(timerMesh);
+});
+});
+
+
+const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
+sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+scene.add(sphere1);
+sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+scene.add(sphere2);
+
+controller1 = renderer.xr.getController(0);
+controller1.addEventListener('selectstart', onSelectStart);
+controller1.addEventListener('selectend', onSelectEnd);
+controller1.addEventListener('squeezestart', onSelectStart);
+controller1.addEventListener('squeezeend', onSelectEnd);
+scene.add(controller1);
+
+controller2 = renderer.xr.getController(1);
+controller2.addEventListener('selectstart', onSelectStart);
+controller2.addEventListener('selectend', onSelectEnd);
+controller2.addEventListener('squeezestart', onSelectStart);
+controller2.addEventListener('squeezeend', onSelectEnd);
+scene.add(controller2);
+
+window.addEventListener('resize', onWindowResize, false);
+
+const vrButton = document.getElementById('vrButton');
+if (vrButton) {
+  vrButton.addEventListener('click', async () => {
+try {
+chimeSound.play().catch(error => console.log('Chime sound play error:', error));
+const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
+renderer.xr.setSession(session);
+vrButton.style.display = 'none';
+
+    // Set a flag to track first frame
+    let firstFrameRendered = false;
+
+     // Initialize haptics after the first frame is rendered
+     session.requestAnimationFrame(() => {
+      console.log('First XR frame rendered');
+      if (!firstFrameRendered) {
+        firstFrameRendered = true;
+        console.log('Waiting for controllers to initialize...');
+        setTimeout(() => {
+          initControllerHaptics();
+        }, 1000);           
+      }
+    });
+    
+    // Also listen for input source changes
+    session.addEventListener('inputsourceschange', (event) => {
+      console.log('Input sources changed:', event);
+      setTimeout(initControllerHaptics, 500); // Small delay after change
+    });
+
+
+} catch (error) {
+console.error('Failed to enter VR:', error);
+}
+});
+}
+
+const particlesGeometry = new THREE.BufferGeometry();
+const particlesCount = 3000;
+const posArray = new Float32Array(particlesCount * 3);
+const minDistance = 5.0; // Minimum distance from center to avoid particles near wire
+for (let i = 0; i < particlesCount * 3; i += 3) {
+let x = (Math.random() - 0.5) * 100;
+let y = (Math.random() - 0.5) * 100;
+let z = (Math.random() - 0.5) * 100;
+
+ // Calculate distance from center
+ const distance = Math.sqrt(x*x + y*y + z*z);
+
+   // If too close, push it outward to minimum distance
+   if (distance < minDistance) {
+    const scale = minDistance / distance;
+    x *= scale;
+    y *= scale;
+    z *= scale;
+  }
+
+posArray[i] = x;
+posArray[i + 1] = y;
+posArray[i + 2] = z;
+}
+particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+scene.add(particlesMesh);
+
+wire = createWire(currentLevel);
+
+// Load all sound effects
+victorySound = new Audio('short_horns.mp3');
+contactSound = new Audio('contact.mp3');
+applauseSound = new Audio('short_applause.mp3');
+longApplauseSound = new Audio('long_applause.mp3');
+longHornsSound = new Audio('long_horns.mp3');
+chimeSound = new Audio('chime.mp3');
+endGameMusic = new Audio('music_end.mp3');
+}
+
+// Function to initialize haptic feedback system using direct XR input sources
 function initControllerHaptics() {
   console.log('Initializing haptic feedback system');
   
+  // Clear any previous input sources
   xrInputSources = [];
   
+  // Get current session
   const session = renderer.xr.getSession();
   if (!session) {
     console.warn('No XR session available for haptics');
     return;
   }
 
-  xrInputSources = Array.from(session.inputSources || []);
+ // Get and store all input sources
+ xrInputSources = Array.from(session.inputSources || []);
   console.log('Found input sources:', xrInputSources.length);
   
+  // Log details about each input source
   xrInputSources.forEach((inputSource, index) => {
     console.log(`Input source ${index}:`, {
       handedness: inputSource.handedness,
@@ -1179,12 +1174,15 @@ function initControllerHaptics() {
     });
   });
   
+  // Set up listener for future input source changes
   session.addEventListener('inputsourceschange', (event) => {
     console.log('Input sources changed:', event);
     
+    // Update our stored input sources
     xrInputSources = Array.from(session.inputSources || []);
     console.log('Updated input sources count:', xrInputSources.length);
     
+    // Test newly added input sources
     if (event.added && event.added.length > 0) {
       event.added.forEach(source => {
         console.log('Testing new input source:', source.handedness);
@@ -1196,30 +1194,40 @@ function initControllerHaptics() {
   });
 }
 
+//testing keyboard again
 function forceShowKeyboard() {
+  // First make sure keyboard is not already visible
   if (keyboardMeshes.length > 0) {
-    return;
+    return; // Keyboard already exists
   }
   
   console.log("Force showing keyboard");
   
+  // Reset state variables
   playerName = "";
   nameEntered = false;
   keyboardActive = true;
   
+  // Create keyboard
   const keyboard = createImprovedVirtualKeyboard();
   
+  // Position keyboard in front of player
   if (keyboard) {
     keyboard.position.set(0, 1.2, -0.75);
     keyboard.visible = true;
     
+    // Make sure keyboard is added to appropriate arrays
     gameCompletionMeshes.push(keyboard);
     
+    // Ensure controller rays are visible
     createControllerRays();
   }
   return keyboard;
 }
 
+
+
+//debug firebase initialization
 console.log('Testing Firebase connection...');
 leaderboardRef.once('value')
   .then(snapshot => {
@@ -1230,10 +1238,12 @@ leaderboardRef.once('value')
     console.error('Firebase connection error:', error);
   });
 
-function createImprovedVirtualKeyboard() {
-  keyboardActive = true;
-  createControllerRays();
 
+function createImprovedVirtualKeyboard() {
+    keyboardActive = true;
+    createControllerRays();
+
+  // Remove any existing keyboard elements
   keyboardMeshes.forEach(mesh => {
     scene.remove(mesh);
     if (mesh.geometry) mesh.geometry.dispose();
@@ -1241,12 +1251,15 @@ function createImprovedVirtualKeyboard() {
   });
   keyboardMeshes = [];
 
+  //check for font
   if (!font) {
     console.error("Font not loaded, cannot create keyboard");
+    // Try again in a second
     setTimeout(createImprovedVirtualKeyboard, 1000);
     return null;
   }
   
+  // Keyboard container to group all elements
   const keyboardContainer = new THREE.Group();
   keyboardContainer.name = "keyboardContainer"; 
   keyboardContainer.position.set(0, 1.3, -0.75);
@@ -1255,6 +1268,7 @@ function createImprovedVirtualKeyboard() {
   gameCompletionMeshes.push(keyboardContainer);
   keyboardMeshes.push(keyboardContainer);
   
+  // Keyboard background panel
   const panelGeometry = new THREE.BoxGeometry(0.8, 0.65, 0.01);
   const panelMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x222222, 
@@ -1266,6 +1280,7 @@ function createImprovedVirtualKeyboard() {
   keyboardContainer.add(panel);
   keyboardMeshes.push(panel);
   
+  // Display area for input
   const displayGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.01);
   const displayMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x333333, 
@@ -1277,8 +1292,10 @@ function createImprovedVirtualKeyboard() {
   keyboardContainer.add(displayPanel);
   keyboardMeshes.push(displayPanel);
   
+  // Create initial text display
   updateNameDisplay(keyboardContainer);
   
+  // Define key rows
   const rows = [
     "1234567890",
     "QWERTYUIOP",
@@ -1286,11 +1303,13 @@ function createImprovedVirtualKeyboard() {
     "ZXCVBNM"
   ];
   
+  // Config
   const keySize = 0.06;
   const keyMargin = 0.01;
   const keyHeight = 0.06;
   const startY = 0.05;
   
+  // Create all keys
   rows.forEach((row, rowIndex) => {
     const rowWidth = row.length * (keySize + keyMargin) - keyMargin;
     const startX = -rowWidth / 2;
@@ -1310,6 +1329,7 @@ function createImprovedVirtualKeyboard() {
       keyboardContainer.add(key);
       keyboardMeshes.push(key);
       
+      // Add letter text
       const textGeometry = new THREE.TextGeometry(letter, { 
         font: font, 
         size: 0.025, 
@@ -1329,6 +1349,7 @@ function createImprovedVirtualKeyboard() {
       textMesh.position.z = 0.006;
       key.add(textMesh);
       
+      // Make key interactive
       key.userData.isButton = true;
       key.userData.buttonType = 'letter';
       key.userData.letter = letter;
@@ -1338,6 +1359,7 @@ function createImprovedVirtualKeyboard() {
     });
   });
   
+  // Special keys - common row
   const specialRow = [
     { label: "Space", width: 0.25, action: 'space', x: -0.15 },
     { label: "Back", width: 0.15, action: 'backspace', x: 0.15, color: 0x884444 }
@@ -1357,6 +1379,7 @@ function createImprovedVirtualKeyboard() {
     keyboardContainer.add(keyMesh);
     keyboardMeshes.push(keyMesh);
     
+    // Add text label
     const textGeometry = new THREE.TextGeometry(key.label, { 
       font: font, 
       size: 0.02, 
@@ -1374,6 +1397,7 @@ function createImprovedVirtualKeyboard() {
     textMesh.position.z = 0.006;
     keyMesh.add(textMesh);
     
+    // Set button data
     keyMesh.userData.isButton = true;
     keyMesh.userData.buttonType = key.action;
     keyMesh.userData.defaultColor = key.color || 0x444444;
@@ -1381,6 +1405,7 @@ function createImprovedVirtualKeyboard() {
     keyMesh.userData.pressColor = key.color ? 0xff6666 : 0x888888;
   });
   
+  // Submit button
   const submitGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.01);
   const submitMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x008800,
@@ -1392,6 +1417,7 @@ function createImprovedVirtualKeyboard() {
   keyboardContainer.add(submitButton);
   keyboardMeshes.push(submitButton);
   
+  // Add submit text
   const submitTextGeometry = new THREE.TextGeometry("SUBMIT NAME", { 
     font: font, 
     size: 0.03, 
@@ -1422,6 +1448,7 @@ function createImprovedVirtualKeyboard() {
 }
 
 function updateNameDisplay(container) {
+  // Remove existing display elements
   if (initialsDisplayMesh) {
     if (container) {
       container.remove(initialsDisplayMesh);
@@ -1434,12 +1461,15 @@ function updateNameDisplay(container) {
     }
   }
   
+  // Clear any existing cursor blink interval
   if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
     clearInterval(initialsDisplayMesh.userData.blinkInterval);
   }
   
+  // Create a group to hold both name and cursor
   const textGroup = new THREE.Group();
   
+  // Create the name text (without cursor)
   const nameGeometry = new THREE.TextGeometry(playerName, { 
     font: font, 
     size: 0.04, 
@@ -1454,9 +1484,11 @@ function updateNameDisplay(container) {
   nameGeometry.computeBoundingBox();
   const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
   
+  // Position name text at left side of the centered group
   nameMesh.position.set(0, 0, 0.006);
   textGroup.add(nameMesh);
   
+  // Create separate cursor mesh only if we haven't reached max length
   let cursorMesh = null;
   if (playerName.length < maxNameLength) {
     const cursorGeometry = new THREE.TextGeometry("|", { 
@@ -1470,9 +1502,11 @@ function updateNameDisplay(container) {
       new THREE.MeshStandardMaterial({ color: 0x00ffff })
     );
     
+    // Position cursor right after the name text
     cursorMesh.position.set(nameWidth, 0, 0.006);
     textGroup.add(cursorMesh);
     
+    // Set up blinking for cursor only
     const blinkInterval = setInterval(() => {
       if (cursorMesh && cursorMesh.parent) {
         cursorMesh.visible = !cursorMesh.visible;
@@ -1484,8 +1518,10 @@ function updateNameDisplay(container) {
     textGroup.userData.blinkInterval = blinkInterval;
   }
   
+  // Center the entire text group
   textGroup.position.set(-nameWidth/2, 0, 0);
   
+  // Add the group to the container or scene
   if (container) {
     textGroup.position.y = 0.13;
     container.add(textGroup);
@@ -1495,6 +1531,7 @@ function updateNameDisplay(container) {
     gameCompletionMeshes.push(textGroup);
   }
   
+  // Store reference to the text group
   initialsDisplayMesh = textGroup;
 }
 
@@ -1505,15 +1542,18 @@ function updateRecordHolderDisplays() {
   
   for (let i = 0; i < window.recordHolderMeshes.length; i++) {
     if (window.recordHolderMeshes[i]) {
+      // Remove old geometry
       if (window.recordHolderMeshes[i].geometry) {
         window.recordHolderMeshes[i].geometry.dispose();
       }
       
+      // Create new text geometry with current player name - SAME SIZE as original
       const newGeometry = new THREE.TextGeometry(
         `${formatTime(levelTimes[i] || 0)} - ${displayName}`,  
         { font: font, size: 0.018, height: 0.005 }
       );
       
+      // Center the text properly
       newGeometry.computeBoundingBox();
       newGeometry.translate(
         -(newGeometry.boundingBox.max.x - newGeometry.boundingBox.min.x) / 2,
@@ -1521,1106 +1561,573 @@ function updateRecordHolderDisplays() {
         0
       );
       
+      // Store the original position
       const originalPosition = window.recordHolderMeshes[i].position.clone();
       
+      // Update the geometry
       window.recordHolderMeshes[i].geometry = newGeometry;
       
+      // Ensure material color and position are preserved
       if (window.recordHolderMeshes[i].material) {
         window.recordHolderMeshes[i].material.color.set(0xff8000);
         window.recordHolderMeshes[i].material.emissive.set(0xff8000);
         window.recordHolderMeshes[i].material.emissiveIntensity = 0.3;
-      } 
+      }
     }
   }
 }
-       
-function showGameCompletionScores() {
-  // Clear existing game completion meshes first
-  gameCompletionMeshes.forEach(mesh => {
-    scene.remove(mesh);
-    if (mesh.geometry) mesh.geometry.dispose();
-    if (mesh.material) mesh.material.dispose();
-  });
-  gameCompletionMeshes = [];
-  
-  scoreSummaryMeshes.forEach(mesh => {
-    scene.remove(mesh);
-    if (mesh.geometry) mesh.geometry.dispose();
-    if (mesh.material) mesh.material.dispose();
-  });
-  scoreSummaryMeshes = [];
 
-  if (!font) {
-    console.error("Font not loaded, cannot create score display");
+// Function to trigger haptics by controller handedness
+function triggerHapticFeedbackByHandedness(handedness, intensity, duration) {
+  // Find the input source for the specified hand
+  const inputSource = xrInputSources.find(source => source.handedness === handedness);
+  
+  if (!inputSource) {
+    console.warn(`No input source found for ${handedness} hand`);
     return;
   }
-
-  // Fetch best times for this month
-  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${selectedMonth}`);
   
-  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(1).once('value')
-    .then(snapshot => {
-      const bestTimes = {
-        levels: Array(5).fill(null).map(() => ({ time: null, name: null })),
-        total: { time: null, name: null }
-      };
-      
-      // Get the fastest overall completion
-      snapshot.forEach(childSnapshot => {
-        const data = childSnapshot.val();
-        if (data.totalTime && data.playerName) {
-          bestTimes.total = { time: data.totalTime, name: data.playerName };
-          
-          // Also get individual level times if available
-          if (data.levelTimes && Array.isArray(data.levelTimes)) {
-            data.levelTimes.forEach((time, index) => {
-              if (index < 5 && time > 0) {
-                if (!bestTimes.levels[index].time || time < bestTimes.levels[index].time) {
-                  bestTimes.levels[index] = { time: time, name: data.playerName };
-                }
-              }
-            });
-          }
-        }
-      });
-      
-      // Now get individual level records
-      Promise.all(
-        Array.from({ length: 5 }, (_, i) => 
-          firebase.database().ref(`leaderboard/${selectedMonth}`)
-            .orderByChild(`levelTimes/${i}`)
-            .limitToFirst(1)
-            .once('value')
-        )
-      ).then(levelSnapshots => {
-        levelSnapshots.forEach((snapshot, levelIndex) => {
-          snapshot.forEach(childSnapshot => {
-            const data = childSnapshot.val();
-            if (data.levelTimes && data.levelTimes[levelIndex] > 0) {
-              if (!bestTimes.levels[levelIndex].time || 
-                  data.levelTimes[levelIndex] < bestTimes.levels[levelIndex].time) {
-                bestTimes.levels[levelIndex] = {
-                  time: data.levelTimes[levelIndex],
-                  name: data.playerName || 'Anonymous'
-                };
-              }
-            }
-          });
-        });
-        
-        // Display the scores
-        displayScoresWithRecords(bestTimes);
-      });
-    })
-    .catch(error => {
-      console.error("Error fetching leaderboard data:", error);
-      // Display scores without records
-      const bestTimes = {
-        levels: Array(5).fill({ time: null, name: null }),
-        total: { time: null, name: null }
-      };
-      displayScoresWithRecords(bestTimes);
-    });
-}
-
-function displayScoresWithRecords(bestTimes) {
-  // Title
-  const titleGeometry = new THREE.TextGeometry("LEVEL COMPLETE!", { 
-    font: font, 
-    size: 0.03, 
-    height: 0.005 
-  });
-  const titleMesh = new THREE.Mesh(
-    titleGeometry, 
-    new THREE.MeshStandardMaterial({ 
-      color: 0x00ff00,
-      emissive: 0x00ff00,
-      emissiveIntensity: 0.5 
-    })
-  );
-  titleGeometry.computeBoundingBox();
-  titleMesh.position.set(
-    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
-    1.8,
-    -0.75
-  );
-  scene.add(titleMesh);
-  gameCompletionMeshes.push(titleMesh);
-  scoreSummaryMeshes.push(titleMesh);
-
-  // Headers
-  const headerLabels = ["Level", "Your Time", "Record"];
-  headerLabels.forEach((label, index) => {
-    const headerGeometry = new THREE.TextGeometry(label, { 
-      font: font, 
-      size: 0.015, 
-      height: 0.003 
-    });
-    const headerMesh = new THREE.Mesh(
-      headerGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xffff00 })
-    );
-    headerMesh.position.set(-0.25 + (index * 0.2), 1.65, -0.75);
-    scene.add(headerMesh);
-    gameCompletionMeshes.push(headerMesh);
-    scoreSummaryMeshes.push(headerMesh);
-  });
-
-  // Level scores
-  let hasNewRecord = false;
-  const newRecordMeshes = [];
-
-  for (let i = 0; i < 5; i++) {
-    const levelTime = levelTimes[i] || 0;
-    const recordTime = bestTimes.levels[i];
-    const recordHolder = bestTimes.levels[i].name;
-    const isNewRecord = levelTime > 0 && (!recordTime || !recordTime.time || levelTime <= recordTime.time);
-    
-    if (isNewRecord) hasNewRecord = true;
-
-    // Level number
-    let baseLevel = 1;
-    if (selectedMonth) {
-      const monthNum = parseInt(selectedMonth.split('-')[1]);
-      if (!isNaN(monthNum)) {
-        const monthIndex = monthNum - 3;
-        baseLevel = (monthIndex * 5) + 1;
-      }
-    }
-    const absoluteLevel = baseLevel + i;
-    
-    const levelGeometry = new THREE.TextGeometry(`${absoluteLevel}`, { 
-      font: font, 
-      size: 0.018, 
-      height: 0.005 
-    });
-    const levelMesh = new THREE.Mesh(
-      levelGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xffffff })
-    );
-    levelMesh.position.set(-0.25, 1.6 - (i * 0.035), -0.75);
-    scene.add(levelMesh);
-    gameCompletionMeshes.push(levelMesh);
-    scoreSummaryMeshes.push(levelMesh);
-
-    // Player time
-    const playerTimeGeometry = new THREE.TextGeometry(formatTime(levelTime), { 
-      font: font, 
-      size: 0.018, 
-      height: 0.005 
-    });
-    const playerTimeMesh = new THREE.Mesh(
-      playerTimeGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: 0x00ffff,
-        emissive: 0x00ffff,
-        emissiveIntensity: 0.3
-      })
-    );
-    playerTimeMesh.position.set(-0.05, 1.6 - (i * 0.035), -0.75);
-    scene.add(playerTimeMesh);
-    gameCompletionMeshes.push(playerTimeMesh);
-    scoreSummaryMeshes.push(playerTimeMesh);
-
-    // Record time and holder
-    const recordTimeFormatted = recordTime && recordTime.time ? 
-      formatTime(recordTime.time) : "N/A";
-    const displayRecordHolder = recordHolder ? 
-      (recordHolder.length > 10 ? recordHolder.substring(0, 10) : recordHolder) : "N/A";
-    const combinedRecordText = recordTime && recordTime.time ? 
-      `${recordTimeFormatted} - ${displayRecordHolder}` : "N/A";
-
-    const combinedRecordGeometry = new THREE.TextGeometry(
-      isNewRecord ? `${formatTime(levelTime)} - ${playerName || "..."}` : combinedRecordText, { 
-      font: font, 
-      size: 0.018, 
-      height: 0.005 
-    });
-    const combinedRecordMesh = new THREE.Mesh(
-      combinedRecordGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: isNewRecord ? 0xff00ff : 0xff8000,
-        emissive: isNewRecord ? 0xff00ff : 0xff8000,
-        emissiveIntensity: 0.3
-      })
-    );
-    combinedRecordMesh.position.set(0.15, 1.6 - (i * 0.035), -0.75);
-    scene.add(combinedRecordMesh);
-    gameCompletionMeshes.push(combinedRecordMesh);
-    scoreSummaryMeshes.push(combinedRecordMesh);
-
-    if (isNewRecord) {
-      newRecordMeshes.push(combinedRecordMesh);
-      // Store in global array for later updates as player types
-      if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
-      window.recordHolderMeshes[i] = combinedRecordMesh;
-    }
-  }
-
-
-
-
-
-    const totalTime = levelTimes.reduce((total, time) => total + time, 0);
-    const totalRecordTime = bestTimes.total;
-    const totalRecordHolder = bestTimes.total.name;
-    const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
-
-    // Total label
-    const totalLabelGeometry = new THREE.TextGeometry("Total:", { 
-      font: font, 
-      size: 0.018, 
-      height: 0.005 
-    });
-    const totalLabelMesh = new THREE.Mesh(
-      totalLabelGeometry, 
-      new THREE.MeshStandardMaterial({ color: 0xffffff })
-    );
-    totalLabelMesh.position.set(-0.25, 1.46 - (5 * 0.035), -0.75);
-    scene.add(totalLabelMesh);
-    gameCompletionMeshes.push(totalLabelMesh);
-    scoreSummaryMeshes.push(totalLabelMesh);
-
-    // Player total time
-    const playerTotalTimeGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
-      font: font, 
-      size: 0.018, 
-      height: 0.005 
-    });
-    const playerTotalMesh = new THREE.Mesh(
-      playerTotalTimeGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: 0x00ffff,
-        emissive: 0x00ffff,
-        emissiveIntensity: 0.3
-      })
-    );
-    playerTotalMesh.position.set(-0.05, 1.46 - (5 * 0.035), -0.75);
-    scene.add(playerTotalMesh);
-    gameCompletionMeshes.push(playerTotalMesh);
-    scoreSummaryMeshes.push(playerTotalMesh);
-
-    // Format combined total record
-    const totalRecordTimeFormatted = totalRecordTime && totalRecordTime.time ? 
-      formatTime(totalRecordTime.time) : "N/A";
-    const displayTotalHolder = totalRecordHolder ? 
-      (totalRecordHolder.length > 10 ? totalRecordHolder.substring(0, 10) : totalRecordHolder) : "N/A";
-    const combinedTotalRecordText = totalRecordTime && totalRecordTime.time ? 
-      `${totalRecordTimeFormatted} - ${displayTotalHolder}` : "N/A";
-
-    const combinedTotalRecordGeometry = new THREE.TextGeometry(
-      isNewRecord ? `${formatTime(totalTime)} - ${playerName || "..."}` : combinedTotalRecordText, { 
-      font: font, 
-      size: 0.018, 
-      height: 0.005 
-    });
-    const combinedTotalRecordMesh = new THREE.Mesh(
-      combinedTotalRecordGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: 0xff8000,
-        emissive: 0xff8000,
-        emissiveIntensity: 0.3
-      })
-    );
-    combinedTotalRecordMesh.position.set(0.15, 1.46 - (5 * 0.035), -0.75);
-    scene.add(combinedTotalRecordMesh);
-    gameCompletionMeshes.push(combinedTotalRecordMesh);
-    scoreSummaryMeshes.push(combinedTotalRecordMesh);
-
-    if (isNewRecord) {
-      // Store in global array for later updates as player types
-      if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
-      window.recordHolderMeshes[5] = combinedTotalRecordMesh; // Use index 5 for total row
-    }
-
-    // Only show keyboard if it's a new record
-    if (!isNewRecord) {
-        // Just show the restart/quit buttons without any additional text
-        createControllerRays();
-        
-        // add restart and quit buttons
-        addGameControlButtons();
-    }
-  }
-   
-  // Function to make new record meshes blink
-  function blinkNewRecords(meshes, times = 5) {
-    if (!meshes || meshes.length === 0) return;
-    
-    let count = 0;
-    const interval = setInterval(function() {
-      // Toggle visibility using traditional for loop instead of forEach
-      for (let i = 0; i < meshes.length; i++) {
-        if (meshes[i] && meshes[i].material) {
-          meshes[i].visible = !meshes[i].visible;
-        }
-      }
-      
-      count++;
-      if (count >= times * 2) {
-        clearInterval(interval);
-        // Make sure all are visible at the end
-        for (let i = 0; i < meshes.length; i++) {
-          if (meshes[i] && meshes[i].material) {
-            meshes[i].visible = true;
-          }
-        }
-      }
-    }, 250);
-  }
-
-
-
-
-// Enhanced enterVR function with VR menu support
-async function enterVRWithMenu(monthId) {
-  selectedMonth = monthId;
-  
-  if (!navigator.xr) {
-    alert('WebXR not supported by your browser. Please try with a VR-compatible browser.');
-    return;
-  }
+  console.log(`Attempting haptic feedback on ${handedness} controller:`, inputSource);
   
   try {
-    const isSessionSupported = await navigator.xr.isSessionSupported('immersive-vr');
-    if (!isSessionSupported) {
-      alert('VR is not supported or no VR headset is connected. Connect your headset and try again.');
-      return;
-    }
-    
-    const session = await navigator.xr.requestSession('immersive-vr', {
-      optionalFeatures: ['local-floor', 'hand-tracking']
-    });
-    
-    // Hide the 2D UI
-    document.getElementById('loadingContainer').style.display = 'none';
-    
-    // Initialize renderer if needed
-    if (!renderer) {
-      init();
-    }
-    
-    // Set up the session
-    renderer.xr.setSession(session);
-    
-    // Start in VR menu mode
-    isInMenuMode = true;
-    showVRMenu();
-    
-    // Session event listeners
-    session.addEventListener('end', () => {
-      document.getElementById('loadingContainer').style.display = 'flex';
-      cleanupGameScene();
-      cleanupVRMenu();
-    });
-    
-  } catch (error) {
-    console.error("Failed to enter VR:", error);
-    alert(`Failed to enter VR: ${error.message}\n\nMake sure your headset is connected and try again.`);
-  }
-}
-
-function showVRMenu() {
-  isInMenuMode = true;
-  
-  // Clear any existing menu items
-  monthMenuItems.forEach(item => {
-    scene.remove(item.group);
-  });
-  monthMenuItems = [];
-  
-  // Create title
-  createMenuTitle();
-  
-  // Create month selection items in a circle
-  createMonthMenuItems();
-}
-
-function createMenuTitle() {
-  if (!font) return;
-  
-  const titleGeometry = new THREE.TextGeometry('RING RING', {
-    font: font,
-    size: 0.15,
-    height: 0.02
-  });
-  
-  const titleMaterial = new THREE.MeshStandardMaterial({
-    color: 0x00ffff,
-    emissive: 0x00ffff,
-    emissiveIntensity: 0.5
-  });
-  
-  const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
-  titleGeometry.computeBoundingBox();
-  titleMesh.position.set(
-    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
-    2.0,
-    -1.5
-  );
-  
-  scene.add(titleMesh);
-  monthMenuItems.push({ group: titleMesh, type: 'title' });
-
-  // Subtitle
-  const subtitleGeometry = new THREE.TextGeometry('Select Month', {
-    font: font,
-    size: 0.06,
-    height: 0.01
-  });
-  
-  const subtitleMaterial = new THREE.MeshStandardMaterial({
-    color: 0xff00ff,
-    emissive: 0xff00ff,
-    emissiveIntensity: 0.3
-  });
-  
-  const subtitleMesh = new THREE.Mesh(subtitleGeometry, subtitleMaterial);
-  subtitleGeometry.computeBoundingBox();
-  subtitleMesh.position.set(
-    -(subtitleGeometry.boundingBox.max.x - subtitleGeometry.boundingBox.min.x) / 2,
-    1.8,
-    -1.5
-  );
-  
-  scene.add(subtitleMesh);
-  monthMenuItems.push({ group: subtitleMesh, type: 'subtitle' });
-}
-
-function createMonthMenuItems() {
-  if (!font) return;
-  
-  // Get months from cache
-  const months = Object.keys(cachedMonths).length > 0 ? 
-    Object.keys(cachedMonths).map(id => ({ id, ...getMonthDisplayInfo(id) })) :
-    getDefaultMenuMonths();
-  
-  const radius = 1.5;
-  const centerY = 1.2;
-  const angleStep = (Math.PI * 2) / months.length;
-  
-  months.forEach((month, index) => {
-    const angle = index * angleStep;
-    const x = Math.sin(angle) * radius;
-    const z = Math.cos(angle) * radius - 2.0;
-    
-    const menuItem = createMonthMenuItem(month, x, centerY, z, index === 0);
-    monthMenuItems.push(menuItem);
-  });
-}
-
-function createMonthMenuItem(month, x, y, z, isNewest) {
-  const group = new THREE.Group();
-  group.position.set(x, y, z);
-  
-  // Background panel
-  const panelGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.02);
-  const panelMaterial = new THREE.MeshStandardMaterial({
-    color: 0x003366,
-    transparent: true,
-    opacity: 0.9
-  });
-  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
-  group.add(panel);
-  
-  // Month name text
-  const nameGeometry = new THREE.TextGeometry(month.name, {
-    font: font,
-    size: 0.05,
-    height: 0.005
-  });
-  const nameMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
-  nameGeometry.computeBoundingBox();
-  nameMesh.position.set(
-    -(nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x) / 2,
-    0.1,
-    0.015
-  );
-  group.add(nameMesh);
-  
-  // Theme text
-  const themeGeometry = new THREE.TextGeometry(month.theme, {
-    font: font,
-    size: 0.03,
-    height: 0.003
-  });
-  const themeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-  const themeMesh = new THREE.Mesh(themeGeometry, themeMaterial);
-  themeGeometry.computeBoundingBox();
-  themeMesh.position.set(
-    -(themeGeometry.boundingBox.max.x - themeGeometry.boundingBox.min.x) / 2,
-    -0.05,
-    0.015
-  );
-  group.add(themeMesh);
-  
-  // "NEW" badge if it's the newest month
-  if (isNewest) {
-    const badgeGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.01);
-    const badgeMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff00ff,
-      emissive: 0xff00ff,
-      emissiveIntensity: 0.5
-    });
-    const badge = new THREE.Mesh(badgeGeometry, badgeMaterial);
-    badge.position.set(0.25, 0.2, 0.02);
-    group.add(badge);
-    
-    const badgeTextGeometry = new THREE.TextGeometry('NEW', {
-      font: font,
-      size: 0.025,
-      height: 0.002
-    });
-    const badgeTextMesh = new THREE.Mesh(badgeTextGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    badgeTextGeometry.computeBoundingBox();
-    badgeTextMesh.position.set(
-      0.25 - (badgeTextGeometry.boundingBox.max.x - badgeTextGeometry.boundingBox.min.x) / 2,
-      0.2 - (badgeTextGeometry.boundingBox.max.y - badgeTextGeometry.boundingBox.min.y) / 2,
-      0.025
-    );
-    group.add(badgeTextMesh);
-  }
-  
-  // Make the group face the center
-  group.lookAt(0, y, 0);
-  
-  scene.add(group);
-  
-  return {
-    group: group,
-    panel: panel,
-    month: month,
-    type: 'month',
-    originalColor: 0x003366,
-    hoverColor: 0x005599,
-    selectColor: 0x0088cc
-  };
-}
-
-function getDefaultMenuMonths() {
-  return [
-    { id: "2025-04", name: "April 2025", theme: "Levels 6-10" },
-    { id: "2025-03", name: "March 2025", theme: "Levels 1-5" }
-  ];
-}
-
-function getMonthDisplayInfo(monthId) {
-  const [year, month] = monthId.split('-');
-  const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-  const monthName = monthDate.toLocaleString('default', { month: 'long' });
-  
-  const monthNum = parseInt(month);
-  if (monthId === "2025-03") {
-    return { name: `${monthName} ${year}`, theme: "Levels 1-5" };
-  } else if (monthId === "2025-04") {
-    return { name: `${monthName} ${year}`, theme: "Levels 6-10" };
-  } else {
-    const monthIndex = monthNum - 3;
-    const startLevel = (monthIndex * 5) + 1;
-    const endLevel = startLevel + 4;
-    return { name: `${monthName} ${year}`, theme: `Levels ${startLevel}-${endLevel}` };
-  }
-}
-
-// Enhanced onSelectStart to handle both menu and game interactions
-function onSelectStart(event) {
-  if (isInMenuMode) {
-    handleMenuSelection(event);
-  } else {
-    handleGameSelection(event);
-  }
-}
-
-function handleMenuSelection(event) {
-  const raycaster = new THREE.Raycaster();
-  const direction = new THREE.Vector3(0, 0, -1);
-  direction.applyQuaternion(event.target.quaternion);
-  raycaster.set(event.target.position, direction);
-  
-  const menuGroups = monthMenuItems.filter(item => item.type === 'month').map(item => item.group);
-  const intersects = raycaster.intersectObjects(menuGroups, true);
-  
-  if (intersects.length > 0) {
-    const selectedGroup = intersects[0].object.parent;
-    const menuItem = monthMenuItems.find(item => item.group === selectedGroup);
-    
-    if (menuItem && menuItem.type === 'month') {
-      // Play selection sound
-      if (chimeSound) {
-        chimeSound.play().catch(error => {});
+    // Try to use the gamepad haptics
+    if (inputSource.gamepad) {
+      console.log(`Gamepad found for ${handedness}:`, inputSource.gamepad);
+      
+      // Method 1: Standard haptic actuators array
+      if (inputSource.gamepad.hapticActuators && inputSource.gamepad.hapticActuators.length > 0) {
+        console.log(`Using hapticActuators for ${handedness}`);
+        return inputSource.gamepad.hapticActuators[0].pulse(intensity, duration);
+      } 
+      
+      // Method 2: Single haptic actuator (some Quest versions)
+      if (inputSource.gamepad.hapticActuator) {
+        console.log(`Using single hapticActuator for ${handedness}`);
+        return inputSource.gamepad.hapticActuator.pulse(intensity, duration);
       }
       
-      // Visual feedback
-      menuItem.panel.material.color.setHex(menuItem.selectColor);
+      // Method 3: Vibration actuator (older standard)
+      if (inputSource.gamepad.vibrationActuator) {
+        console.log(`Using vibrationActuator for ${handedness}`);
+        return inputSource.gamepad.vibrationActuator.playEffect('dual-rumble', {
+          duration: duration,
+          strongMagnitude: intensity,
+          weakMagnitude: intensity
+        });
+      }
       
-      // Start game with selected month
-      setTimeout(() => {
-        startGameWithMonth(menuItem.month.id);
-      }, 300);
+      // Log all available properties on the gamepad
+      console.log(`All gamepad properties for ${handedness}:`);
+      for (const prop in inputSource.gamepad) {
+        console.log(`- ${prop}:`, inputSource.gamepad[prop]);
+      }
     }
+    
+    console.warn(`No haptic capability found for ${handedness} controller`);
+  } catch (error) {
+    console.error(`Error triggering haptic on ${handedness} controller:`, error);
   }
 }
 
-function startGameWithMonth(monthId) {
-  selectedMonth = monthId;
-  isInMenuMode = false;
-  
-  // Clear menu items
-  monthMenuItems.forEach(item => {
-    scene.remove(item.group);
+// Function to trigger haptics on a controller
+function triggerHapticFeedback(controller, intensity, duration) {
+  // Determine handedness from controller index
+  const handedness = controller === controller1 ? 'left' : 'right';
+  return triggerHapticFeedbackByHandedness(handedness, intensity, duration);
+}
+
+// create visible controller rays while keyboard is active
+function createControllerRays() {
+  // Clear any existing rays
+  controllerRays.forEach(ray => {
+    if (ray.parent) ray.parent.remove(ray);
+    if (ray.geometry) ray.geometry.dispose();
+    if (ray.material) ray.material.dispose();
   });
-  monthMenuItems = [];
+  controllerRays = [];
   
-  // Initialize game
-  loadMonthLevels(monthId).then(() => {
-    initializeGameScene();
-    resetGameForNewMonth();
+  // Create a ray for each controller
+  [controller1, controller2].forEach((controller, index) => {
+    // Create ray geometry (a thin, long cylinder)
+    const rayGeometry = new THREE.CylinderGeometry(0.001, 0.001, 3, 8);
+    rayGeometry.rotateX(Math.PI / 2); // Point forward
+    rayGeometry.translate(0, 0, -1.5); // Center ray with origin at controller
+    
+    // Create material with appropriate color
+    const rayMaterial = new THREE.MeshBasicMaterial({
+      color: index === 0 ? 0x0088ff : 0xff8800,
+      transparent: true,
+      opacity: 0.7
+    });
+    
+    // Create mesh and add to controller
+    const rayMesh = new THREE.Mesh(rayGeometry, rayMaterial);
+    controller.add(rayMesh);
+    controllerRays.push(rayMesh);
   });
 }
 
-function initializeGameScene() {
-  // Create ring if it doesn't exist
-  if (!ring) {
-    const ringGeometry = new THREE.TorusGeometry(0.075, 0.00625, 16, 100);
-    const ringMaterial = new THREE.MeshStandardMaterial({ 
+// Function to remove rays when keyboard is dismissed
+function hideControllerRays() {
+  controllerRays.forEach(ray => {
+    if (ray.parent) ray.parent.remove(ray);
+    if (ray.geometry) ray.geometry.dispose();
+    if (ray.material) ray.material.dispose();
+  });
+  controllerRays = [];
+  keyboardActive = false;
+}
+
+// Function to make the wire flash
+function flashWire(times = 3, isGameComplete = false) {
+if (isFlashing) return;
+isFlashing = true;
+
+let flashCount = 0;
+const maxFlashes = times * 2; // Each flash is white->blue, so double the count
+const flashDuration = isGameComplete ? 250 : 150; // Slower flashing for game complete
+
+function flash() {
+if (flashCount >= maxFlashes) {
+isFlashing = false;
+return;
+}
+
+const colors = wire.geometry.attributes.color.array;
+const isWhite = flashCount % 2 === 0;
+
+for (let i = 0; i < colors.length; i += 3) {
+colors[i] = isWhite ? 1 : 0;     // R
+colors[i + 1] = isWhite ? 1 : 0; // G
+colors[i + 2] = 1;               // B (always 1 for white or blue)
+}
+
+wire.geometry.attributes.color.needsUpdate = true;
+flashCount++;
+
+setTimeout(flash, flashDuration);
+}
+
+flash();
+}
+
+
+function createWire(level) {
+  console.log(`Creating wire for level ${level}`);
+  
+  // IMPORTANT: Always remove any existing wire first
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+    if (wire.material) wire.material.dispose();
+    wire = null;
+  }
+  
+  // If we have valid monthly levels data, use it
+  if (monthlyLevels && monthlyLevels.length > 0) {
+    console.log(`Using monthly wire data, ${monthlyLevels.length} levels available`);
+    return createMonthlyWire(level);
+  }
+  
+  // Otherwise, fallback to March 2025 levels
+  console.log('No monthly wire data available, falling back to March 2025 levels');
+  
+  // Handle async loading properly - return a temporary placeholder but replace it later
+  // when data is loaded
+  const tempGeometry = new THREE.BufferGeometry();
+  const tempMaterial = new THREE.LineBasicMaterial({ color: 0x000000, visible: false });
+  wire = new THREE.Line(tempGeometry, tempMaterial);
+  scene.add(wire);
+  
+  loadMonthLevels("2025-03").then(() => {
+    console.log('Loaded March 2025 fallback data');
+    
+    // Remove the temporary wire
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+    if (wire.material) wire.material.dispose();
+    
+    // Now create the actual wire
+    wire = createMonthlyWire(level);
+  });
+  
+  return wire;
+}
+
+function createMonthlyWire(level) {
+  console.log(`Creating wire for level ${level}, monthly levels length: ${monthlyLevels ? monthlyLevels.length : 0}`);
+  
+  // Check if monthlyLevels is empty
+  if (!monthlyLevels || monthlyLevels.length === 0) {
+    console.error("No monthly levels available, falling back to March 2025");
+    // Fall back to March 2025 (loadMonthLevels will set the monthlyLevels variable)
+    loadMonthLevels("2025-03").then(() => {
+      if (monthlyLevels && monthlyLevels.length > 0) {
+        return createMonthlyWire(level);
+      } else {
+        console.error("Critical error: Cannot load any level data");
+        return null;
+      }
+    });
+    return null;
+  }
+  
+  // Make sure we're not exceeding array bounds
+  if (level < 1 || level > monthlyLevels.length) {
+    console.error(`Invalid level ${level}, max is ${monthlyLevels.length}`);
+    // Use level 1 instead of going out of bounds
+    level = 1;
+  }
+  
+  // Get level parameters
+  const levelData = monthlyLevels[level - 1];
+  const params = levelData.params;
+  
+  const points = [];
+  const segments = 200;
+  const radius = 0.75;
+  
+  // Extract parameters with defaults
+  const rotationOffset = params.rotationOffset || 0;
+  const frequencies = params.frequencies || [8, 6, 6];
+  const amplitudes = params.amplitudes || [0.05, 0.05, 0.05];
+  
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const angle = t * Math.PI * 2;
+    const rotatedAngle = angle + rotationOffset;
+    
+    // Base wave components
+    let waveX = Math.sin(angle * frequencies[0]) * amplitudes[0];
+    let waveY = Math.cos(angle * frequencies[1]) * amplitudes[1];
+    let waveZ = Math.sin(angle * frequencies[2]) * amplitudes[2];
+    
+    // Handle section-specific modifications
+    if (params.sections) {
+      const section = Math.floor(angle / (Math.PI/2)); // 0-3 sections
+      if (section < params.sections.length) {
+        const sectionData = params.sections[section];
+        const sectionFactor = getSectionFactor(section, t);
+        
+        // Apply effects based on section type
+        switch(sectionData.type) {
+          case 'ascent':
+            waveY += Math.sin(sectionFactor * Math.PI * 0.5) * sectionData.factor;
+            break;
+          case 'oscillate': 
+            waveX += Math.sin(sectionFactor * Math.PI * 3) * sectionData.factor;
+            waveZ += Math.cos(sectionFactor * Math.PI * 3) * sectionData.factor;
+            break;
+          case 'descent':
+            waveY -= Math.sin(sectionFactor * Math.PI * 0.5) * sectionData.factor;
+            break;
+          case 'smooth':
+            waveX *= (1.2 - sectionFactor * sectionData.factor);
+            waveZ *= (1.2 - sectionFactor * sectionData.factor);
+            break;
+        }
+      }
+    }
+    
+    // Calculate radius variation if specified
+    const radiusVar = params.radiusVariation ? 
+      (1 + Math.sin(angle * 2) * params.radiusVariation) : 1.0;
+    
+    // Calculate height variation
+    const heightVar = params.heightFactor ? 
+      Math.sin(angle * 2) * params.heightFactor : 0;
+    
+    // Final position calculation
+    const x = (Math.cos(rotatedAngle) * radius * radiusVar) + waveX;
+    const y = 1.4 + waveY + heightVar;
+    const z = (Math.sin(rotatedAngle) * radius * radiusVar) + waveZ;
+    
+    points.push(new THREE.Vector3(x, y, z));
+  }
+  
+  // Create the wire geometry and material
+  wirePoints = points;
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const colors = new Float32Array(points.length * 3);
+  for (let i = 0; i < points.length; i++) {
+    colors[i * 3] = 1;     // R
+    colors[i * 3 + 1] = 0; // G
+    colors[i * 3 + 2] = 1; // B
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  wireMaterial = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 7 });
+  
+  wire = new THREE.Line(geometry, wireMaterial);
+  scene.add(wire);
+  
+  console.log(`Monthly wire for level ${level} created:`, wire);
+  return wire;
+}
+
+// Helper for section calculations
+function getSectionFactor(section, t) {
+  return section === 0 ? t * 4 : 
+         section === 1 ? (t - 0.25) * 4 :
+         section === 2 ? (t - 0.5) * 4 : 
+         (t - 0.75) * 4;
+}
+
+
+
+function explodeRing() {
+  if (isExploding) return; // Prevent multiple explosions
+  isExploding = true;
+  explosionStartTime = Date.now();
+  
+  // Hide the original ring
+  ring.visible = false;
+  
+  // Create fragments
+  const segments = 20;
+  for (let i = 0; i < segments; i++) {
+    // Create fragment geometry (smaller than the original ring)
+    const fragGeometry = new THREE.TorusGeometry(0.075, 0.00625, 8, 6, Math.PI * 2 / segments);
+    const fragMaterial = new THREE.MeshStandardMaterial({ 
       color: 0x00ff00, 
       emissive: 0x00ff00, 
       emissiveIntensity: 1.0, 
       metalness: 1.0, 
       roughness: 0.0 
     });
-    ring = new THREE.Mesh(ringGeometry, ringMaterial);
-    scene.add(ring);
-  }
-  
-  ring.position.copy(ringStartPosition);
-  ring.rotation.y = Math.PI / 2;
-  ring.visible = true;
-
-  // Create spheres if they don't exist
-  if (!sphere1) {
-    const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-    const sphereMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x0078d7, 
-      transparent: true, 
-      opacity: 0.5 
-    });
-    sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    scene.add(sphere1);
-    sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    scene.add(sphere2);
-  }
-}
-
-// Enhanced render function for VR menu support
-function render() {
-  // Update controller spheres
-  if (controller1 && controller2 && !isInMenuMode) {
-    sphere1.position.copy(controller1.position);
-    sphere2.position.copy(controller2.position);
-  }
-  
-  // Menu hover effects
-  if (isInMenuMode) {
-    updateMenuHover();
-  }
-  
-  // Game render logic (your existing code)
-  if (!isInMenuMode) {
-    // Check for collisions
-    if (!isExploding && !transitionImmunity && !gameCompleted && !isQuitting && checkCollision()) {
-      handleCollision();
-    }
-
-    // Move ring with the grabbing controller while maintaining the offset
-    if (grabbed && grabbingController) {
-      ring.position.copy(grabbingController.position).add(grabOffset);
-      ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset);
-      sphere1.visible = false;
-      sphere2.visible = false;
-    } else {
-      sphere1.visible = true;
-      sphere2.visible = true;
-    }
-
-    if (!gameCompleted) {
-      // Keep the text and timer above the ring and billboarded to face the player
-      if (textMesh) {
-        textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
-        textMesh.lookAt(camera.position);
-      }
-
-      // Update timer
-      if (startTime !== null && font) {
-        elapsedTime = Date.now() - startTime;
-        const minutes = Math.floor(elapsedTime / 60000);
-        const seconds = Math.floor((elapsedTime % 60000) / 1000);
-        const milliseconds = Math.floor(elapsedTime % 1000);
-        const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
-
-        if (timerMesh && timerMesh.geometry) {
-          timerMesh.geometry.dispose();
-          timerMesh.geometry = new THREE.TextGeometry(timerText, {
-            font: font,
-            size: 0.02,
-            height: 0.005,
-          });
-          timerMesh.geometry.computeBoundingBox();
-          timerMesh.geometry.translate(
-            -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
-            -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
-            0
-          );
-        }
-      }
-
-      if (timerMesh) {
-        timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
-        timerMesh.lookAt(camera.position);
-      }
-    }
-
-    updateWireColor();
-
-    // Handle confetti animation
-    if (confettiStartTime !== null) {
-      const elapsed = Date.now() - confettiStartTime;
-      
-      if (elapsed < 10000) {
-        for (let i = 0; i < confettiParticles.length; i++) {
-          const confetti = confettiParticles[i];
-          confetti.userData.velocity.y -= 0.0003;
-          confetti.position.add(confetti.userData.velocity);
-          confetti.rotation.x += confetti.userData.rotationSpeed.x;
-          confetti.rotation.y += confetti.userData.rotationSpeed.y;
-          confetti.rotation.z += confetti.userData.rotationSpeed.z;
-          confetti.userData.velocity.x += Math.sin(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
-          confetti.userData.velocity.z += Math.cos(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
-        }
-      } else {
-        for (let i = 0; i < confettiParticles.length; i++) {
-          scene.remove(confettiParticles[i]);
-          confettiParticles[i].material.dispose();
-        }
-        confettiParticles = [];
-        confettiStartTime = null;
-      }
-    }
-
-    // Handle explosion animation
-    if (isExploding) {
-      const explosionElapsed = Date.now() - explosionStartTime;
-      const explosionDuration = 2000;
-      
-      if (explosionElapsed < explosionDuration) {
-        for (let i = 0; i < explosionFragments.length; i++) {
-          const fragment = explosionFragments[i];
-          fragment.position.add(fragment.userData.velocity);
-          fragment.rotation.x += fragment.userData.rotationSpeed.x;
-          fragment.rotation.y += fragment.userData.rotationSpeed.y;
-          fragment.rotation.z += fragment.userData.rotationSpeed.z;
-          fragment.userData.velocity.y -= 0.0005;
-        }
-      } else {
-        for (let i = 0; i < explosionFragments.length; i++) {
-          const fragment = explosionFragments[i];
-          scene.remove(fragment);
-          if (fragment.geometry) fragment.geometry.dispose();
-          if (fragment.material) fragment.material.dispose();
-        }
-        
-        explosionFragments = [];
-        isExploding = false;
-        
-        if (!gameCompleted) {
-          ring.visible = true;
-          ring.position.copy(ringStartPosition);
-          ring.rotation.set(0, Math.PI / 2, 0);
-          
-          if (timerMesh && font) {
-            timerMesh.geometry.dispose();
-            timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
-              font: font,
-              size: 0.02,
-              height: 0.005,
-            });
-            timerMesh.geometry.computeBoundingBox();
-            timerMesh.geometry.translate(
-              -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
-              -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
-              0
-            );
-            timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
-            timerMesh.lookAt(camera.position);
-          }
-        }
-      }
-    }
-
-    if (gameCompleted) {
-      updateKeyboardHoverState();
-    }
-
-    if (keyboardActive) {
-      updateKeyboardHoverState();
-    }
-  }
-  
-  renderer.render(scene, camera);
-}
-
-function updateMenuHover() {
-  // Reset previous hover
-  if (hoveredMenuItem) {
-    hoveredMenuItem.panel.material.color.setHex(hoveredMenuItem.originalColor);
-    hoveredMenuItem = null;
-  }
-  
-  // Remove existing tooltip
-  if (menuTooltip) {
-    scene.remove(menuTooltip);
-    menuTooltip = null;
-  }
-  
-  // Check for new hover
-  [controller1, controller2].forEach(controller => {
-    if (!controller) return;
+    const fragment = new THREE.Mesh(fragGeometry, fragMaterial);
     
-    const raycaster = new THREE.Raycaster();
-    const direction = new THREE.Vector3(0, 0, -1);
-    direction.applyQuaternion(controller.quaternion);
-    raycaster.set(controller.position, direction);
+    // Position and rotate to match the original ring
+    fragment.position.copy(ring.position);
+    fragment.rotation.copy(ring.rotation);
     
-    const menuGroups = monthMenuItems.filter(item => item.type === 'month').map(item => item.group);
-    const intersects = raycaster.intersectObjects(menuGroups, true);
+    // Rotate fragment to correct position in the ring
+    fragment.rotateOnAxis(new THREE.Vector3(0, 1, 0), (i / segments) * Math.PI * 2);
     
-    if (intersects.length > 0) {
-      const hoveredGroup = intersects[0].object.parent;
-      const menuItem = monthMenuItems.find(item => item.group === hoveredGroup);
-      
-      if (menuItem && menuItem.type === 'month') {
-        hoveredMenuItem = menuItem;
-        menuItem.panel.material.color.setHex(menuItem.hoverColor);
-        
-        // Show leaderboard tooltip
-        showMenuTooltip(menuItem.month.id, hoveredGroup.position);
+    // Add explosion velocity - direction slightly outward from the center
+    const angle = (i / segments) * Math.PI * 2;
+    const direction = new THREE.Vector3(Math.cos(angle), 0.2, Math.sin(angle));
+    direction.normalize();
+    
+    fragment.userData.velocity = direction.multiplyScalar(0.02 + Math.random() * 0.02);
+    fragment.userData.rotationSpeed = {
+      x: (Math.random() - 0.5) * 0.2,
+      y: (Math.random() - 0.5) * 0.2,
+      z: (Math.random() - 0.5) * 0.2
+    };
+    
+    // Add to scene and array
+    scene.add(fragment);
+    explosionFragments.push(fragment);
+  }
+}
+
+function onWindowResize() {
+camera.aspect = window.innerWidth / window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Replace the existing checkCollision function with this more accurate version
+function checkCollision() {
+  if (!ring.visible || isQuitting) return false;
+
+  // Get the ring's actual tube thickness for more accurate collision
+  const tubeDiameter = 0.00625 * 2; // From your TorusGeometry
+  const thresholdDistance = tubeDiameter * 0.25; // Slightly less than the actual tube thickness
+  
+  const ringVertices = ring.geometry.attributes.position.array;
+  const ringMatrixWorld = ring.matrixWorld;
+  
+  // Create a transformed ring vertices array for more efficient checking
+  const transformedRingVertices = [];
+  for (let i = 0; i < ringVertices.length; i += 3) {
+    const vertex = new THREE.Vector3(ringVertices[i], ringVertices[i + 1], ringVertices[i + 2]);
+    vertex.applyMatrix4(ringMatrixWorld);
+    transformedRingVertices.push(vertex);
+  }
+
+  // First check the existing point-based detection (for performance)
+  for (const vertex of transformedRingVertices) {
+    for (let j = 0; j < wirePoints.length; j++) {
+      const distance = vertex.distanceTo(wirePoints[j]);
+      if (distance < thresholdDistance) {
+        return true;
       }
     }
-  });
-}
-
-function showMenuTooltip(monthId, position) {
-  if (!font) return;
-  
-  const tooltipGroup = new THREE.Group();
-  
-  // Background
-  const bgGeometry = new THREE.BoxGeometry(0.5, 0.4, 0.01);
-  const bgMaterial = new THREE.MeshStandardMaterial({
-    color: 0x001122,
-    transparent: true,
-    opacity: 0.9
-  });
-  const bg = new THREE.Mesh(bgGeometry, bgMaterial);
-  tooltipGroup.add(bg);
-  
-  // Title
-  const titleGeometry = new THREE.TextGeometry('Fastest Times', {
-    font: font,
-    size: 0.03,
-    height: 0.002
-  });
-  const titleMesh = new THREE.Mesh(titleGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
-  titleGeometry.computeBoundingBox();
-  titleMesh.position.set(
-    -(titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x) / 2,
-    0.15,
-    0.015
-  );
-  tooltipGroup.add(titleMesh);
-  
-  // Loading text
-  const loadingGeometry = new THREE.TextGeometry('Loading...', {
-    font: font,
-    size: 0.025,
-    height: 0.002
-  });
-  const loadingMesh = new THREE.Mesh(loadingGeometry, new THREE.MeshStandardMaterial({ color: 0xaaaaaa }));
-  loadingGeometry.computeBoundingBox();
-  loadingMesh.position.set(
-    -(loadingGeometry.boundingBox.max.x - loadingGeometry.boundingBox.min.x) / 2,
-    0.05,
-    0.015
-  );
-  tooltipGroup.add(loadingMesh);
-  
-  tooltipGroup.position.copy(position);
-  tooltipGroup.position.x += 0.6;
-  tooltipGroup.lookAt(camera.position);
-  
-  scene.add(tooltipGroup);
-  menuTooltip = tooltipGroup;
-  
-  // Load actual leaderboard data
-  fetchLeaderboardForVRTooltip(monthId, tooltipGroup);
-}
-
-function fetchLeaderboardForVRTooltip(monthId, tooltipGroup) {
-  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
-  
-  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
-    .then(snapshot => {
-      const leaderboardData = [];
-      
-      snapshot.forEach(childSnapshot => {
-        leaderboardData.push({
-          name: childSnapshot.val().playerName || 'Anonymous',
-          time: childSnapshot.val().totalTime || 0
-        });
-      });
-      
-      leaderboardData.sort((a, b) => a.time - b.time);
-      
-      // Clear loading text and add real data
-      tooltipGroup.children = tooltipGroup.children.slice(0, 2); // Keep background and title
-      
-      if (leaderboardData.length > 0) {
-        leaderboardData.forEach((player, index) => {
-          const entryText = `#${index + 1} ${player.name} ${formatTime(player.time)}`;
-          const entryGeometry = new THREE.TextGeometry(entryText, {
-            font: font,
-            size: 0.02,
-            height: 0.001
-          });
-          const entryMesh = new THREE.Mesh(entryGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff }));
-          entryGeometry.computeBoundingBox();
-          entryMesh.position.set(
-            -(entryGeometry.boundingBox.max.x - entryGeometry.boundingBox.min.x) / 2,
-            0.08 - (index * 0.04),
-            0.015
-          );
-          tooltipGroup.add(entryMesh);
-        });
-      } else {
-        const noDataGeometry = new THREE.TextGeometry('No records yet', {
-          font: font,
-          size: 0.02,
-          height: 0.001
-        });
-        const noDataMesh = new THREE.Mesh(noDataGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }));
-        noDataGeometry.computeBoundingBox();
-        noDataMesh.position.set(
-          -(noDataGeometry.boundingBox.max.x - noDataGeometry.boundingBox.min.x) / 2,
-          0.05,
-          0.015
-        );
-        tooltipGroup.add(noDataMesh);
-      }
-    })
-    .catch(error => {
-      console.error("Error fetching leaderboard:", error);
-    });
-}
-
-function cleanupVRMenu() {
-  monthMenuItems.forEach(item => {
-    scene.remove(item.group);
-  });
-  monthMenuItems = [];
-  
-  if (menuTooltip) {
-    scene.remove(menuTooltip);
-    menuTooltip = null;
   }
   
-  hoveredMenuItem = null;
-  isInMenuMode = false;
+  // If no point collision found, check the segments between points
+  // but with a much more conservative threshold
+  const tempPointOnLine = new THREE.Vector3();
+  const tempLineStart = new THREE.Vector3();
+  const tempLineEnd = new THREE.Vector3();
+  const tempLineVector = new THREE.Vector3();
+  
+  for (let i = 0; i < wirePoints.length - 1; i++) {
+    tempLineStart.copy(wirePoints[i]);
+    tempLineEnd.copy(wirePoints[i + 1]);
+    tempLineVector.subVectors(tempLineEnd, tempLineStart);
+    const segmentLength = tempLineVector.length();
+    
+    // Smaller segment multiplier to avoid false collisions
+    const dynamicThreshold = Math.max(thresholdDistance, segmentLength * 0.01);
+    
+    for (const vertex of transformedRingVertices) {
+      // Calculate closest point on line segment to the vertex
+      const t = calculateClosestPointOnLineParameter(vertex, tempLineStart, tempLineEnd);
+      
+      // Get the actual closest point
+      tempPointOnLine.copy(tempLineStart).addScaledVector(tempLineVector, t);
+      
+      // Check distance to closest point with more precise threshold
+      const distance = vertex.distanceTo(tempPointOnLine);
+      if (distance < dynamicThreshold) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
-// Enhanced handleGameSelection to include quit-to-menu functionality
-function handleGameSelection(event) {
+// Helper function to calculate the closest point parameter on a line
+function calculateClosestPointOnLineParameter(point, lineStart, lineEnd) {
+  const lineVector = new THREE.Vector3().subVectors(lineEnd, lineStart);
+  const pointVector = new THREE.Vector3().subVectors(point, lineStart);
+  
+  const lineLengthSq = lineVector.lengthSq();
+  if (lineLengthSq === 0) return 0; // lineStart and lineEnd are the same point
+  
+  // Calculate projection and clamp to segment
+  const t = Math.max(0, Math.min(1, pointVector.dot(lineVector) / lineLengthSq));
+  return t;
+}
+
+function onSelectStart(event) {
   const controllerPosition = event.target.position;
   
+  // Check for button interactions first if game is completed OR keyboard is active
   if (gameCompletionMeshes.length > 0 || keyboardActive) {
+    console.log('Checking for UI interactions, keyboard active:', keyboardActive);
+    
     const raycaster = new THREE.Raycaster();
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
+    // Use recursive intersection to properly detect buttons in hierarchies
     const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes, true);
+    console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
+      // Find the actual button - either the intersected object or one of its parents
       let intersectedObj = buttonIntersects[0].object;
   
-      if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
-        if (buttonIntersects.length > 1) {
-          intersectedObj = buttonIntersects[1].object;
-        } else {
-          let parent = intersectedObj.parent;
-          if (parent && parent.userData && parent.userData.isButton) {
-            intersectedObj = parent;
-          }
-        }
+  // Skip non-interactive elements (like text on buttons)
+  if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
+    // Try next intersection if available
+    if (buttonIntersects.length > 1) {
+      intersectedObj = buttonIntersects[1].object;
+    } else {
+      // Check if parent of non-interactive element is a button
+      let parent = intersectedObj.parent;
+      if (parent && parent.userData && parent.userData.isButton) {
+        // Use the parent button instead
+        intersectedObj = parent;
       }
-      
-      let button = null;
-      
-      if (intersectedObj.userData && intersectedObj.userData.isButton) {
-        button = intersectedObj;
-      } else {
-        let parent = intersectedObj.parent;
-        while (parent && !button) {
-          if (parent.userData && parent.userData.isButton) {
-            button = parent;
-          }
-          parent = parent.parent;
-        }
+    }
+  }
+  
+  let button = null;
+  
+  // Check if the object itself is a button
+  if (intersectedObj.userData && intersectedObj.userData.isButton) {
+    button = intersectedObj;
+  } else {
+    // Check parent hierarchy for a button
+    let parent = intersectedObj.parent;
+    while (parent && !button) {
+      if (parent.userData && parent.userData.isButton) {
+        button = parent;
       }
+      parent = parent.parent;
+    }
+  }
       
       if (button) {
+        console.log('Button interaction:', button.userData.buttonType);
+        
         if (button.userData.buttonType === 'letter' || 
             button.userData.buttonType === 'space' || 
             button.userData.buttonType === 'backspace' || 
             button.userData.buttonType === 'submit') {
+          // Use the centralized handler for keyboard buttons
           handleKeyPress(button);
+          triggerHapticFeedbackByHandedness(event.target === controller1 ? 'left' : 'right', 0.3, 50);
           return;
         }
         else if (button.userData.buttonType === 'restart') {
-          if (endGameMusic) {
-            endGameMusic.pause();
-          }
+          console.log('Restarting game...');
+           // Stop end game music
+  if (endGameMusic) {
+    endGameMusic.pause();
+  }
           restartGame();
+          triggerHapticFeedbackByHandedness('left', 0.4, 100);
+          triggerHapticFeedbackByHandedness('right', 0.4, 100);
           return;
         }
         else if (button.userData.buttonType === 'quit') {
-          isQuitting = true;
-          
-          if (endGameMusic) endGameMusic.pause();
-          if (currentMusic) currentMusic.pause();
-          
-          isFlashing = false;
-          isExploding = false;
-          
-          cleanupVisualEffects();
-          cleanupGameScene();
-          
-          if (chimeSound) {
-            chimeSound.play().catch(error => {});
-          }
-          
-          // Return to VR menu instead of exiting VR
-          setTimeout(() => {
-            showVRMenu();
-          }, 300);
-          
-          return;
-        }
+  console.log('Quitting game...');
+  isQuitting = true;
+  
+  // Stop all sounds and music immediately
+  if (endGameMusic) endGameMusic.pause();
+  if (currentMusic) currentMusic.pause();
+  if (victorySound) victorySound.pause();
+  if (applauseSound) applauseSound.pause();
+  if (longApplauseSound) longApplauseSound.pause();
+  if (longHornsSound) longHornsSound.pause();
+  
+  // Cancel any ongoing animations
+  isFlashing = false;
+  isExploding = false;
+  
+  // Clear any active timers
+  const highestTimeoutId = setTimeout(";");
+  for (let i = 0; i < highestTimeoutId; i++) {
+    clearTimeout(i);
+  }
+  
+  // Clean up visual effects
+  cleanupVisualEffects();
+  
+  // Hide everything except background particles
+  if (ring) ring.visible = false;
+  if (wire) wire.visible = false;
+  if (textMesh) textMesh.visible = false;
+  if (timerMesh) timerMesh.visible = false;
+  
+  // Play feedback sound and haptics
+  contactSound.play().catch(error => console.log('Sound play error:', error));
+  triggerHapticFeedbackByHandedness('left', 0.8, 200);
+  triggerHapticFeedbackByHandedness('right', 0.8, 200);
+  
+  // Exit VR session after a short delay
+  setTimeout(() => {
+    if (renderer.xr.isPresenting) {
+      renderer.xr.getSession().end();
+    }
+  }, 300);
+  
+  return;
+}
       }
     }
   }
+
  
-  // Ring grabbing logic (existing code)
+  // Only handle ring grabbing if game is not completed
   if (!gameCompleted) {
     const ringBox = new THREE.Box3().setFromObject(ring);
     const sphereBox1 = new THREE.Sphere(sphere1.position, 0.05);
@@ -2629,14 +2136,17 @@ function handleGameSelection(event) {
     if (ringBox.intersectsSphere(sphereBox1) && event.target === controller1) {
       grabbed = true;
       if (grabbed) {
-        const levelMusicTrack = levelMusic[currentLevel - 1];
-        if (!currentMusic || currentMusic !== levelMusicTrack) {
-          if (currentMusic) currentMusic.pause();
-          currentMusic = levelMusicTrack;
-          currentMusic.currentTime = 0;
-          currentMusic.play().catch(error => console.log('Music play error:', error));
-        }
-      }
+    // Only start music if it's not already playing this level's music
+    const levelMusicTrack = levelMusic[currentLevel - 1];
+    if (!currentMusic || currentMusic !== levelMusicTrack) {
+      // Stop any previous music
+      if (currentMusic) currentMusic.pause();
+      // Set and play the current level's music
+      currentMusic = levelMusicTrack;
+  currentMusic.currentTime = 0; // Start from beginning
+  currentMusic.play().catch(error => console.log('Music play error:', error));
+}
+}
       grabbingController = controller1;
       grabOffset.copy(ring.position).sub(controller1.position);
       grabRotationOffset.copy(controller1.quaternion).invert().multiply(ring.quaternion);
@@ -2646,14 +2156,17 @@ function handleGameSelection(event) {
     } else if (ringBox.intersectsSphere(sphereBox2) && event.target === controller2) {
       grabbed = true;
       if (grabbed) {
-        const levelMusicTrack = levelMusic[currentLevel - 1];
-        if (!currentMusic || currentMusic !== levelMusicTrack) {
-          if (currentMusic) currentMusic.pause();
-          currentMusic = levelMusicTrack;
-          currentMusic.currentTime = 0;
-          currentMusic.play().catch(error => console.log('Music play error:', error));
-        }
-      }
+    // Only start music if it's not already playing this level's music
+    const levelMusicTrack = levelMusic[currentLevel - 1];
+    if (!currentMusic || currentMusic !== levelMusicTrack) {
+      // Stop any previous music
+      if (currentMusic) currentMusic.pause();
+      // Set and play the current level's music
+      currentMusic = levelMusicTrack;
+  currentMusic.currentTime = 0; // Start from beginning
+  currentMusic.play().catch(error => console.log('Music play error:', error));
+}
+}
       grabbingController = controller2;
       grabOffset.copy(ring.position).sub(controller2.position);
       grabRotationOffset.copy(controller2.quaternion).invert().multiply(ring.quaternion);
@@ -2662,6 +2175,1403 @@ function handleGameSelection(event) {
       }
     }
   }
+}
+
+function onSelectEnd(event) {
+if (event.target === grabbingController) {
+grabbed = false;
+grabbingController = null;
+}
+}
+
+// restart Game 
+function restartGame() {
+  levelCompleted = false;
+
+  // Add collision immunity during transition
+  transitionImmunity = true;
+
+  // Clean up game completion meshes
+  gameCompletionMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  gameCompletionMeshes = [];
+
+  // Remove controller rays 
+  hideControllerRays();
+
+  // Reset game state
+  currentLevel = 1;
+  levelTimes = [];
+  startTime = null;
+  elapsedTime = 0;
+  
+  // remove old wire before positioning ring
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+  }
+  
+  // Reset game state
+  gameCompleted = false;
+  
+  // Create new wire for level 1
+  wire = createWire(currentLevel);
+  wire.visible = true;
+
+  // Now position ring (after wire is created)
+  ring.position.copy(ringStartPosition);
+  ring.rotation.set(0, Math.PI / 2, 0);
+  ring.visible = true;
+  
+   // Update level text and timer
+   updateLevelText();
+   resetTimerDisplay();
+  
+  // Play chime sound to indicate restart
+  chimeSound.play().catch(error => console.log('Sound play error:', error));
+
+  // Remove immunity after a short delay
+  setTimeout(() => {
+    transitionImmunity = false;
+  }, 300);
+}
+
+// clean up game scene
+function cleanupGameScene() {
+  cleanupVisualEffects();
+  // Clean up game completion meshes
+  gameCompletionMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  gameCompletionMeshes = [];
+  
+  // Clean up score summary meshes
+  scoreSummaryMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  scoreSummaryMeshes = [];
+  
+  // Clear keyboard meshes
+  keyboardMeshes.forEach(mesh => {
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
+  });
+  keyboardMeshes = [];
+  
+  // Hide controller rays
+  hideControllerRays();
+  
+  // Reset game state variables
+  gameCompleted = false;
+  levelCompleted = false;
+  isFlashing = false;
+  isExploding = false;
+  currentLevel = 1;
+  levelTimes = [];
+  
+  // Stop any playing music
+  if (currentMusic) {
+    currentMusic.pause();
+    currentMusic = null;
+  }
+  if (endGameMusic) {
+    endGameMusic.pause();
+  }
+  
+  // Clean up wire
+  if (wire) {
+    scene.remove(wire);
+    if (wire.geometry) wire.geometry.dispose();
+    if (wire.material) wire.material.dispose();
+    wire = null;
+    wirePoints = [];
+  }
+  
+  // Reset ring but keep it invisible until needed again
+  if (ring) {
+    ring.position.copy(ringStartPosition);
+    ring.rotation.set(0, Math.PI / 2, 0);
+    ring.visible = false;  // Changed from true to false
+  }
+  
+  // Clear any record holder references
+  if (window.recordHolderMeshes) {
+    window.recordHolderMeshes = [];
+  }
+  
+  // Reset name entry state
+  nameEntered = false;
+  playerName = "";
+}
+
+function animate() {
+renderer.setAnimationLoop(render);
+}
+ 
+  function handleKeyPress(button) {
+  // Visual feedback
+  if (button.material && button.userData.pressColor) {
+    const originalColor = button.material.color.getHex();
+    button.material.color.setHex(button.userData.pressColor);
+    
+    // Reset color after short delay
+    setTimeout(() => {
+      if (button.material) {
+        button.material.color.setHex(button.userData.hoverColor || button.userData.defaultColor);
+      }
+    }, 150);
+  }
+  
+  // Process button action
+  if (button.userData.buttonType === 'letter' && !nameEntered) {
+    // Add letter if under max length
+    if (playerName.length < maxNameLength) {
+      playerName += button.userData.letter;
+      updateNameDisplay(button.parent);
+     // Also update record holder meshes if they exist
+     if (window.recordHolderMeshes) {
+        updateRecordHolderDisplays();
+      }    
+      triggerHapticFeedbackByHandedness('left', 0.3, 50);
+      triggerHapticFeedbackByHandedness('right', 0.3, 50);
+    } else {
+      // Character limit reached - provide feedback
+      contactSound.play().catch(error => console.log('Error sound play error:', error));
+      triggerHapticFeedbackByHandedness('left', 0.8, 80);
+      triggerHapticFeedbackByHandedness('right', 0.8, 80);
+    }
+  }
+ 
+  else if (button.userData.buttonType === 'space' && !nameEntered) {
+  // Add space if under max length
+  if (playerName.length < maxNameLength) {
+    playerName += ' ';
+    updateNameDisplay(button.parent);
+    // Also update record holder meshes if they exist
+    if (window.recordHolderMeshes) {
+      updateRecordHolderDisplays();
+    }
+    triggerHapticFeedbackByHandedness('left', 0.3, 50);
+    triggerHapticFeedbackByHandedness('right', 0.3, 50);
+  } else {
+    // Character limit reached - provide feedback
+    contactSound.play().catch(error => console.log('Error sound play error:', error));
+    triggerHapticFeedbackByHandedness('left', 0.8, 80);
+    triggerHapticFeedbackByHandedness('right', 0.8, 80);
+  }
+}
+
+  else if (button.userData.buttonType === 'backspace' && !nameEntered) {
+    // Remove the last letter
+    if (playerName.length > 0) {
+      playerName = playerName.slice(0, -1);
+      updateNameDisplay(button.parent);
+         // Also update record holder meshes if they exist
+         if (window.recordHolderMeshes) {
+        updateRecordHolderDisplays();
+      }
+      triggerHapticFeedbackByHandedness('left', 0.2, 40);
+      triggerHapticFeedbackByHandedness('right', 0.2, 40);
+    }
+  }
+
+  else if (button.userData.buttonType === 'submit' && !nameEntered && playerName.length > 0) {
+    // Submit score to leaderboard
+    nameEntered = true;
+    
+    if (gameCompleted) {
+      // If game is complete, submit full game score
+      submitScore(playerName, levelTimes);
+      // Check and save records for all levels
+  for (let i = 0; i < 5; i++) {
+    // Check if this level was a new record
+    if (window.recordHolderMeshes && window.recordHolderMeshes[i]) {
+      saveLevelRecord(i+1, levelTimes[i], playerName);
+    }
+  }
+
+      // Remove the "New Record" prompt meshes
+      gameCompletionMeshes.forEach(mesh => {
+      if (mesh.userData && mesh.userData.isNotification) {
+        scene.remove(mesh);
+      }
+    });
+    
+    // Now fetch best times and show the full score summary
+     fetchBestTimes(bestTimes => {
+      showGameCompletionScores(bestTimes);
+      addGameControlButtons();
+    });
+
+          } else {
+      // If individual level, save just that level record
+      saveLevelRecord(currentLevel, levelTimes[currentLevel-1], playerName);
+    }
+        
+    // Clear any cursor blink interval
+    if (initialsDisplayMesh && initialsDisplayMesh.userData.blinkInterval) {
+      clearInterval(initialsDisplayMesh.userData.blinkInterval);
+      initialsDisplayMesh.userData.blinkInterval = null;
+    }
+    window.pendingRecords = null; // Clear pending records
+    
+    triggerHapticFeedbackByHandedness('left', 0.5, 100);
+    triggerHapticFeedbackByHandedness('right', 0.5, 100);
+    
+    // Hide keyboard after submission
+    button.parent.visible = false;
+    hideControllerRays();
+    keyboardActive = false;
+    
+    // If mid-game, continue to next level
+    if (!gameCompleted) {
+      proceedToNextLevel();
+    } else {
+      // If game is completed, now show the control buttons
+      addGameControlButtons();
+    }
+  }
+}
+
+// Function to check if a level time is a record
+function checkIfNewRecord(levelIndex, levelTime, callback) {
+  try {
+    // Get current best time from database
+    const levelRef = firebase.database().ref(`records/level${levelIndex + 1}`);
+    levelRef.once('value', 
+      // Success handler
+      snapshot => {
+        const record = snapshot.val();
+        // If no record exists or new time is better, it's a record
+        const isRecord = !record || levelTime < record.time;
+        console.log(`Level ${levelIndex + 1} time: ${levelTime}ms, Record: ${record ? record.time : 'none'}, Is new record: ${isRecord}`);
+        callback(isRecord);
+      }, 
+      // Error handler
+      error => {
+        console.error('Error checking for record:', error);
+        // If there's an error, we'll assume it's not a record and proceed normally
+        callback(false);
+      }
+    );
+  } catch (error) {
+    console.error('Exception in checkIfNewRecord:', error);
+    // If there's an exception, assume it's not a record and proceed
+    callback(false);
+  }
+}
+
+// Function to proceed to next level 
+function proceedToNextLevel() {
+  // Clean up any notification meshes
+  gameCompletionMeshes.forEach(mesh => {
+    if (mesh.userData && mesh.userData.isNotification) {
+      scene.remove(mesh);
+    }
+  });
+  
+  ring.visible = false;
+  transitionImmunity = true;
+  
+  // Wait 500ms for visual transition
+  setTimeout(() => {
+    currentLevel++;
+    levelCompleted = false;
+    updateLevelText();
+
+    // CRITICAL: First make sure any existing wire is completely removed
+    if (wire) {
+      scene.remove(wire);
+      if (wire.geometry) wire.geometry.dispose();
+      if (wire.material) wire.material.dispose();
+      wire = null;
+      wirePoints = [];
+    }
+
+    // Now create the new wire with the global reference
+    createWire(currentLevel);
+
+    // Reset the ring position
+    ring.position.copy(ringStartPosition);
+    ring.rotation.set(0, Math.PI / 2, 0);
+
+    // Keep ring invisible until we're sure it's safe
+    setTimeout(() => {
+      ring.visible = true;
+      transitionImmunity = false;
+    }, 100);
+
+    // Reset timer for next level
+    elapsedTime = 0;
+    startTime = null;
+    grabbed = false;
+    grabbingController = null;
+
+    // Reset timer display
+    if (timerMesh && timerFont) {
+      timerMesh.geometry.dispose();
+      timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+        font: timerFont, size: 0.02, height: 0.005,
+      });
+      timerMesh.geometry.computeBoundingBox();
+      timerCenterOffset = -0.5 * (timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x);
+      // center the geometry 
+      timerMesh.geometry.translate(
+        -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+        -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+        0
+      );
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+      timerMesh.visible = true; 
+    }
+  }, 500);
+}
+
+
+// implement keyboard hover effects
+function updateKeyboardHoverState() {
+  // Only check if keyboard is active
+  if (!keyboardActive && !gameCompleted) return;
+  
+  // Reset previously hovered button
+  if (hoveredButton) {
+    if (hoveredButton.material && hoveredButton.userData.defaultColor) {
+      hoveredButton.material.color.setHex(hoveredButton.userData.defaultColor);
+    }
+    hoveredButton = null;
+  }
+
+  // Check both controllers
+  [controller1, controller2].forEach(controller => {
+    if (!controller) return;
+    
+    const raycaster = new THREE.Raycaster();
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(controller.quaternion);
+    raycaster.set(controller.position, direction);
+    
+    let allInteractableObjects = [...gameCompletionMeshes];
+    if (keyboardActive) {
+      allInteractableObjects = [...allInteractableObjects, ...keyboardMeshes];
+    }
+    
+    // Use recursive intersection to check all child objects too
+    const intersects = raycaster.intersectObjects(allInteractableObjects, true);
+    
+    if (intersects.length > 0) {
+      // Get the actual button (might be a child of a group)
+      let intersectedObj = intersects[0].object;
+      let button = null;
+         // Check if it's a non-interactive element (like text on a button)
+      if (intersectedObj.userData && intersectedObj.userData.isNonInteractive) {
+        // If it's text, check its parent for a button
+        let parent = intersectedObj.parent;
+        if (parent && parent.userData && parent.userData.isButton) {
+          button = parent;
+        }
+      } else if (intersectedObj.userData && intersectedObj.userData.isButton) {
+        // It's directly a button
+        button = intersectedObj;
+      } else {
+        // Check parent hierarchy for a button
+        button = findButtonParent(intersectedObj);
+      }
+      
+      if (button && button.material) {
+        // Apply hover color based on userData
+        if (button.userData.hoverColor) {
+          button.material.color.setHex(button.userData.hoverColor);
+        } else {
+          // Default hover color
+          button.material.color.set(0x4477ff);
+        }
+        hoveredButton = button;
+      }
+    }
+  });
+}
+
+// Helper function to find button parent
+function findButtonParent(obj) {
+  let current = obj;
+  while (current && !current.userData.isButton) {
+    current = current.parent;
+  }
+  return current;
+}
+
+function render() {
+// Update sphere positions to match controller positions
+if (controller1 && controller2) {
+sphere1.position.copy(controller1.position);
+sphere2.position.copy(controller2.position);
+}
+
+// Check for collisions
+if (!isExploding && !transitionImmunity && !gameCompleted && !isQuitting && checkCollision()) {
+    handleCollision();
+  }
+
+// Move ring with the grabbing controller while maintaining the offset
+if (grabbed && grabbingController) {
+ring.position.copy(grabbingController.position).add(grabOffset);
+ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
+
+// Hide the spheres when the ring is grabbed
+sphere1.visible = false;
+sphere2.visible = false;
+} else {
+// Show the spheres when the ring is not grabbed
+sphere1.visible = true;
+sphere2.visible = true;
+}
+
+if (!gameCompleted) {
+// Keep the text and timer above the ring and billboarded to face the player
+if (textMesh) {
+textMesh.position.set(ring.position.x, ring.position.y + 0.2, ring.position.z);
+textMesh.lookAt(camera.position);
+}
+
+// Update timer with seconds:milliseconds format and check time limit
+if (startTime !== null && timerFont) {
+elapsedTime = Date.now() - startTime;
+
+const minutes = Math.floor(elapsedTime / 60000);
+const seconds = Math.floor((elapsedTime % 60000) / 1000);
+const milliseconds = Math.floor(elapsedTime % 1000);
+const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+
+// Update timer text
+if (timerMesh && timerMesh.geometry) {
+timerMesh.geometry.dispose();
+timerMesh.geometry = new THREE.TextGeometry(timerText, {
+font: timerFont,
+size: 0.02,
+height: 0.005,
+});
+timerMesh.geometry.computeBoundingBox();
+timerMesh.geometry.translate(
+    -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+    -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+    0
+  );
+}
+}
+
+// Ensure timer text stays attached to the ring and faces the player
+if (timerMesh) {
+timerMesh.position.set(ring.position.x, ring.position.y + 0.15, ring.position.z);
+timerMesh.lookAt(camera.position);
+}
+}
+// Check for wire collision and update wire color
+updateWireColor();
+
+if (confettiStartTime !== null) {
+  const elapsed = Date.now() - confettiStartTime;
+  
+  if (elapsed < 10000) { // 10 seconds of confetti
+    for (let i = 0; i < confettiParticles.length; i++) {
+      const confetti = confettiParticles[i];
+      
+      // Add gravity and update position
+      confetti.userData.velocity.y -= 0.0003;
+      confetti.position.add(confetti.userData.velocity);
+      
+      // Update rotation
+      confetti.rotation.x += confetti.userData.rotationSpeed.x;
+      confetti.rotation.y += confetti.userData.rotationSpeed.y;
+      confetti.rotation.z += confetti.userData.rotationSpeed.z;
+      
+      // Add fluttering effect
+      confetti.userData.velocity.x += Math.sin(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
+      confetti.userData.velocity.z += Math.cos(elapsed * 0.01 + confetti.userData.flutter) * 0.0001;
+    }
+  } else {
+    // Clean up confetti
+    for (let i = 0; i < confettiParticles.length; i++) {
+      scene.remove(confettiParticles[i]);
+      confettiParticles[i].material.dispose();
+    }
+    confettiParticles = [];
+    confettiStartTime = null;
+  }
+}
+
+if (isExploding) {
+    const explosionElapsed = Date.now() - explosionStartTime;
+    const explosionDuration = 2000; // 2 seconds
+    
+    if (explosionElapsed < explosionDuration) {
+      // Update fragment positions and rotations
+      for (let i = 0; i < explosionFragments.length; i++) {
+        const fragment = explosionFragments[i];
+        fragment.position.add(fragment.userData.velocity);
+        fragment.rotation.x += fragment.userData.rotationSpeed.x;
+        fragment.rotation.y += fragment.userData.rotationSpeed.y;
+        fragment.rotation.z += fragment.userData.rotationSpeed.z;
+        
+        // Add gravity effect
+        fragment.userData.velocity.y -= 0.0005;
+      }
+    } else {
+      // Clean up explosion
+      for (let i = 0; i < explosionFragments.length; i++) {
+        const fragment = explosionFragments[i];
+        scene.remove(fragment);
+        if (fragment.geometry) fragment.geometry.dispose();
+        if (fragment.material) fragment.material.dispose();
+      }
+      
+      // Reset
+      explosionFragments = [];
+      isExploding = false;
+      
+      // Show and reset ring
+      if (!gameCompleted) {
+      ring.visible = true;
+      ring.position.copy(ringStartPosition);
+      ring.rotation.set(0, Math.PI / 2, 0);
+      
+        // Reset timer display to 0:00:000
+    if (timerMesh && timerFont) {
+      timerMesh.geometry.dispose();
+      timerMesh.geometry = new THREE.TextGeometry('0:00:000', {
+        font: timerFont,
+        size: 0.02,
+        height: 0.005,
+      });
+      timerMesh.geometry.computeBoundingBox();
+      // Center the geometry itself
+      timerMesh.geometry.translate(
+    -(timerMesh.geometry.boundingBox.max.x - timerMesh.geometry.boundingBox.min.x) / 2,
+    -(timerMesh.geometry.boundingBox.max.y - timerMesh.geometry.boundingBox.min.y) / 2,
+    0
+  );
+      timerMesh.position.set(ring.position.x + timerCenterOffset, ring.position.y + 0.1, ring.position.z);
+      timerMesh.lookAt(camera.position);
+    }
+    }
+  }
+  }
+  // Check for keyboard button hover states
+if (gameCompleted) {
+  updateKeyboardHoverState();
+}
+
+if (keyboardActive) {
+  updateKeyboardHoverState();
+}
+
+renderer.render(scene, camera);
+}
+
+function updateWireColor() {
+if (levelCompleted) return;
+const ringBox = new THREE.Box3().setFromObject(ring);
+const colors = wire.geometry.attributes.color.array;
+
+// Calculate a dynamic pointBox size based on the ring's scale
+const ringScale = ring.scale.x; // Assuming uniform scale
+const pointBoxSize = 0.01 * ringScale; // Adjust the multiplier as needed
+
+for (let i = 0; i < wirePoints.length; i++) {
+const point = wirePoints[i];
+const pointBox = new THREE.Box3().setFromCenterAndSize(point, new THREE.Vector3(pointBoxSize, pointBoxSize, pointBoxSize));
+
+if (ringBox.intersectsBox(pointBox)) {
+// Color this segment blue
+colors[i * 3] = 0;     // R
+colors[i * 3 + 1] = 0; // G
+colors[i * 3 + 2] = 1; // B
+}
+//No ELSE, so color will remain unless reset
+}
+
+wire.geometry.attributes.color.needsUpdate = true;
+
+// Check if the entire wire is blue (victory condition)
+let allBlue = true;
+for (let i = 0; i < wirePoints.length; i++) {
+if (colors[i * 3] !== 0 || colors[i * 3 + 1] !== 0 || colors[i * 3 + 2] !== 1) {
+allBlue = false;
+break;
+}
+}
+if (allBlue && !gameCompleted) {
+victory();
+}
+}
+
+function handleCollision() {
+  // Stop any playing music
+  if (currentMusic) {
+    currentMusic.pause();
+    currentMusic = null;
+  }
+explodeRing(); // Add explosion effect
+contactSound.play().catch(error => console.log('Sound play error:', error)); // Play contact sound
+resetWireColor(); // Reset wire color to pink
+triggerHapticFeedbackByHandedness('left', 1.0, 80); // haptic feedback
+triggerHapticFeedbackByHandedness('right', 1.0, 80);  // haptic feedback
+grabbed = false; // Override the grab
+grabbingController = null; // Clear the grabbing controller
+
+// Reset timer but don't change level
+elapsedTime = 0;
+startTime = null;
+}
+
+function resetWireColor() {
+const colors = wire.geometry.attributes.color.array;
+for (let i = 0; i < colors.length; i += 3) {
+colors[i] = 1; // R
+colors[i + 1] = 0; // G
+colors[i + 2] = 1; // B
+}
+wire.geometry.attributes.color.needsUpdate = true;
+}
+
+// Helper function to format time as SS:MMM
+function formatTime(ms) {
+const minutes = Math.floor(ms / 60000);  
+const seconds = Math.floor((ms % 60000) / 1000);
+const milliseconds = Math.floor(ms % 1000);
+return `${minutes}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
+}
+
+function createConfetti() {
+  confettiStartTime = Date.now();
+  const confettiGeometry = new THREE.PlaneGeometry(0.015, 0.015);
+  const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+  
+  // Create 3000 confetti particles
+  for (let i = 0; i < 1000; i++) {
+    const material = new THREE.MeshBasicMaterial({ 
+      color: colors[Math.floor(Math.random() * colors.length)], 
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9
+    });
+    
+    const confetti = new THREE.Mesh(confettiGeometry, material);
+    // Position around center with slight spread
+    confetti.position.set(
+      ring.position.x + (Math.random() - 0.5) * 2,
+      ring.position.y + Math.random() * 1.5,
+      ring.position.z + (Math.random() - 0.5) * 2
+    );
+    
+    confetti.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    
+    // Physics properties
+    confetti.userData.velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.03,
+      Math.random() * 0.03,
+      (Math.random() - 0.5) * 0.03
+    );
+    confetti.userData.rotationSpeed = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.15,
+      (Math.random() - 0.5) * 0.15,
+      (Math.random() - 0.5) * 0.15
+    );
+    confetti.userData.flutter = Math.random() * 10;
+    
+    scene.add(confetti);
+    confettiParticles.push(confetti);
+  }
+}
+
+
+// Submit score to Leaderboard 
+function submitScore(playerName, levelTimes) {
+  const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+
+  // Reference to the monthly leaderboard
+  const monthLeaderboardRef = selectedMonth ? 
+    firebase.database().ref(`leaderboard/${selectedMonth}`) : 
+    leaderboardRef;
+  
+  // Add to leaderboard
+  monthLeaderboardRef.push({
+    playerName: playerName || 'Anonymous Player',
+    totalTime: totalTime,
+    levelTimes: levelTimes,
+    date: Date.now()
+  });
+}
+
+// Add this function to check if a time is in the top 5
+function checkIfTopFiveTime(totalTime, callback) {
+  const monthLeaderboardRef = selectedMonth ? 
+    firebase.database().ref(`leaderboard/${selectedMonth}`) : 
+    leaderboardRef;
+  
+  // Get top 5 times plus one extra to compare
+  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(6).once('value')
+    .then(snapshot => {
+      const leaderboardData = [];
+      
+      // Convert snapshot to array
+      snapshot.forEach(childSnapshot => {
+        leaderboardData.push({
+          time: childSnapshot.val().totalTime || 0
+        });
+      });
+      
+      // Sort by time (lowest first)
+      leaderboardData.sort((a, b) => a.time - b.time);
+      
+      // Check if this time would be in the top 5
+      const isTopFive = leaderboardData.length < 5 || totalTime <= leaderboardData[4].time;
+      callback(isTopFive);
+    })
+    .catch(error => {
+      console.error("Error checking for top 5:", error);
+      // If error, assume it's not top 5 to be safe
+      callback(false);
+    });
+}
+
+// fetch best times for each level
+function fetchBestTimes(callback) {
+  // Structure to store best times
+  const bestTimes = {
+    level1: { time: Number.MAX_VALUE, name: "" },
+    level2: { time: Number.MAX_VALUE, name: "" },
+    level3: { time: Number.MAX_VALUE, name: "" },
+    level4: { time: Number.MAX_VALUE, name: "" },
+    level5: { time: Number.MAX_VALUE, name: "" },
+    total: { time: Number.MAX_VALUE, name: "" }
+  };
+
+  // Use the monthly leaderboard if available
+  const monthLeaderboardRef = selectedMonth ? 
+    firebase.database().ref(`leaderboard/${selectedMonth}`) : 
+    leaderboardRef;
+
+  try {
+    // Get all leaderboard entries with timeout protection
+    const timeoutId = setTimeout(() => {
+      console.warn("Firebase query timed out, using default values");
+      // Make sure we call the callback even if Firebase times out
+      if (callback) callback(bestTimes);
+      // Set callback to null to prevent multiple calls
+      callback = null;
+    }, 5000);
+    
+    monthLeaderboardRef.once('value', 
+      // Success handler
+      snapshot => {
+        clearTimeout(timeoutId); // Clear the timeout
+        
+        // Process the data...
+        snapshot.forEach(child => {
+          const entry = child.val();
+          
+          // Check for total time record
+          if (entry.totalTime && entry.totalTime < bestTimes.total.time) {
+            bestTimes.total.time = entry.totalTime;
+            bestTimes.total.name = entry.playerName || "Anonymous";
+          }
+          
+          // Check each level time
+          if (entry.levelTimes) {
+            for (let i = 0; i < 5; i++) {
+              if (entry.levelTimes[i] && entry.levelTimes[i] < bestTimes[`level${i+1}`].time) {
+                bestTimes[`level${i+1}`].time = entry.levelTimes[i];
+                bestTimes[`level${i+1}`].name = entry.playerName || "Anonymous";
+              }
+            }
+          }
+        });
+        
+        // Replace MAX_VALUE with null for any levels without records
+        for (const key in bestTimes) {
+          if (bestTimes[key].time === Number.MAX_VALUE) {
+            bestTimes[key].time = null;
+            bestTimes[key].name = "N/A";
+          }
+        }
+        
+        if (callback) callback(bestTimes);
+      },
+      // Error handler
+      error => {
+        clearTimeout(timeoutId); // Clear the timeout
+        console.error("Error fetching best times:", error);
+        // Still call the callback with default values
+        if (callback) callback(bestTimes);
+      }
+    );
+  } catch (e) {
+    console.error("Exception in fetchBestTimes:", e);
+    // Call callback even if there's an exception
+    if (callback) callback(bestTimes);
+  }
+}
+
+function saveLevelRecord(levelNumber, levelTime, playerName) {
+  // Reference to the specific level record
+  const levelRef = firebase.database().ref(`records/level${levelNumber}`);
+  
+  // First check if this is a record
+  levelRef.once('value', snapshot => {
+    const currentRecord = snapshot.val();
+    
+    // If no record exists or the new time is better
+    if (!currentRecord || levelTime < currentRecord.time) {
+      // Save the new record
+      levelRef.set({
+        time: levelTime,
+        name: playerName || 'Anonymous Player',
+        date: Date.now()
+      });
+      console.log(`New record for level ${levelNumber} saved!`);
+    } else {
+      console.log(`Not a new record for level ${levelNumber}`);
+    }
+  });
+}
+
+// create restart and quit buttons
+function addGameControlButtons() {
+  // Create button container to help with positioning
+  const buttonContainer = new THREE.Group();
+  buttonContainer.position.set(0, 1.2, -0.75);
+  scene.add(buttonContainer);
+  gameCompletionMeshes.push(buttonContainer);
+  
+  // Add Restart button with background
+  const restartBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
+  const restartBgMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00aa00,
+    emissive: 0x005500,
+    emissiveIntensity: 0.3
+  });
+  const restartBg = new THREE.Mesh(restartBgGeometry, restartBgMaterial);
+  restartBg.position.set(-0.15, 0, 0);
+  buttonContainer.add(restartBg);
+  gameCompletionMeshes.push(restartBg);
+
+  const restartGeometry = new THREE.TextGeometry('RESTART', { 
+    font: font, 
+    size: 0.025, 
+    height: 0.005 
+  });
+  const restartMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const restartMesh = new THREE.Mesh(restartGeometry, restartMaterial);
+  restartGeometry.computeBoundingBox();
+  const restartWidth = restartGeometry.boundingBox.max.x - restartGeometry.boundingBox.min.x;
+  const restartOffset = -0.5 * restartWidth;
+  restartMesh.userData.isNonInteractive = true;
+  restartMesh.raycast = function() {};
+  restartMesh.position.set(restartOffset - 0.15, -0.01, 0.005);
+  buttonContainer.add(restartMesh);
+  
+  // Make the background button interactive
+  restartBg.userData.isButton = true;
+  restartBg.userData.buttonType = 'restart';
+  restartBg.userData.defaultColor = 0x00aa00;
+  restartBg.userData.hoverColor = 0x00cc00;
+  restartBg.userData.pressColor = 0x00ff00;
+  
+  // Add Quit button with background
+  const quitBgGeometry = new THREE.BoxGeometry(0.2, 0.07, 0.01);
+  const quitBgMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xaa0000,
+    emissive: 0x550000,
+    emissiveIntensity: 0.3
+  });
+  const quitBg = new THREE.Mesh(quitBgGeometry, quitBgMaterial);
+  quitBg.position.set(0.15, 0, 0);
+  buttonContainer.add(quitBg);
+  gameCompletionMeshes.push(quitBg);
+  
+  const quitGeometry = new THREE.TextGeometry('QUIT', { 
+    font: font, 
+    size: 0.025, 
+    height: 0.005 
+  });
+  const quitMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const quitMesh = new THREE.Mesh(quitGeometry, quitMaterial);
+  quitGeometry.computeBoundingBox();
+  const quitWidth = quitGeometry.boundingBox.max.x - quitGeometry.boundingBox.min.x;
+  const quitOffset = -0.5 * quitWidth;
+  quitMesh.userData.isNonInteractive = true; 
+  quitMesh.raycast = function() {};
+  quitMesh.position.set(quitOffset + 0.15, -0.01, 0.005);
+  buttonContainer.add(quitMesh);
+  
+  // Make the background button interactive
+  quitBg.userData.isButton = true;
+  quitBg.userData.buttonType = 'quit';
+  quitBg.userData.defaultColor = 0xaa0000;
+  quitBg.userData.hoverColor = 0xcc0000;
+  quitBg.userData.pressColor = 0xff0000;
+  
+  // Ensure controller rays are visible
+  if (controllerRays.length === 0) {
+    createControllerRays();
+  }
+  
+  return buttonContainer;
+}
+
+function victory() {
+  if (levelCompleted) return;
+  levelCompleted = true;
+
+   // Stop the music
+   if (currentMusic) {
+    currentMusic.pause();
+    currentMusic = null;
+  }
+
+  // First, always record the completion time for the current level
+  if (startTime !== null) {
+    const levelTime = Date.now() - startTime;
+    levelTimes[currentLevel - 1] = levelTime;
+    startTime = null;
+    console.log(`Level ${currentLevel} completed in ${levelTime}ms`);
+    }
+
+  if (currentLevel < 5) {
+    // Handle regular level completion
+    if (textMesh) textMesh.visible = false; 
+    if (timerMesh) timerMesh.visible = false;
+
+    // Play victory sounds
+    victorySound.play().catch(error => console.log('Sound play error:', error));
+    applauseSound.play().catch(error => console.log('Sound play error:', error));
+    triggerHapticFeedbackByHandedness('left', 0.5, 500); 
+    triggerHapticFeedbackByHandedness('right', 0.5, 500);
+
+    // Flash the wire white and blue
+    flashWire(3, false);
+
+    // Add confetti 
+    createConfetti();
+
+    setTimeout(() => {
+      proceedToNextLevel();
+    }, 3000);
+  } 
+  else {
+    // Game complete! But don't show scores yet
+    gameCompleted = true;
+    const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+    console.log("Game completed! Total time:", totalTime);
+
+    // Hide the ring and wire
+    ring.visible = false;
+    wire.visible = false;
+    if (textMesh) textMesh.visible = false;
+    if (timerMesh) timerMesh.visible = false;
+
+    // Play grand finale sounds
+    longHornsSound.play().catch(error => console.log('Sound play error:', error));
+    longApplauseSound.play().catch(error => console.log('Sound play error:', error));
+
+    // Create haptic feedback pattern
+    const celebratePulses = () => {
+      let count = 0;
+      const interval = setInterval(() => {
+        triggerHapticFeedbackByHandedness('left', 0.7, 100);
+        triggerHapticFeedbackByHandedness('right', 0.7, 100);
+        count++;
+        if (count >= 5) clearInterval(interval);
+      }, 300);
+    };
+    celebratePulses();
+
+    createConfetti(); // Add confetti effect
+    flashWire(6, true);  // Flash the wire more dramatically
+
+    // First check if there's a new record before proceeding
+    fetchBestTimes(bestTimes => {
+  const totalRecordTime = bestTimes.total;
+  const isNewTotalRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
+  
+  // Also check if level 5 specifically was a record
+  const level5Time = levelTimes[4];
+  const level5Record = bestTimes.level5;
+  const isLevel5Record = level5Time > 0 && (!level5Record || !level5Record.time || level5Time <= level5Record.time);
+  
+  if (isNewTotalRecord || isLevel5Record) {
+    // It's a #1 record
+    window.pendingRecords = {
+      totalGame: isNewTotalRecord,
+      level5: isLevel5Record
+    };
+    
+    // Show "New Record" prompt with keyboard
+    showNewRecordPrompt(isNewTotalRecord);
+  } else {
+    // Check if it's a top 5 time
+    checkIfTopFiveTime(totalTime, isTopFive => {
+      if (isTopFive) {
+        // Top 5 but not #1 - show different prompt
+        showNameEntryPrompt("TOP 5 TIME!");
+      } else {
+        // Not a top time, just show scores
+        showGameCompletionScores(bestTimes);
+        addGameControlButtons();
+      }
+    });
+  }
+});
+  }
+}
+
+function showNewRecordPrompt(isNewTotalRecord) {
+  // Create "New Record!" header text
+  const recordGeometry = new THREE.TextGeometry('NEW RECORD SET!', { 
+    font: font, 
+    size: 0.03,
+    height: 0.008 
+  });
+  const recordMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffff00,
+    emissive: 0xffff00,
+    emissiveIntensity: 0.7
+  });
+  const recordMesh = new THREE.Mesh(recordGeometry, recordMaterial);
+  recordGeometry.computeBoundingBox();
+  const recordOffset = -0.5 * (recordGeometry.boundingBox.max.x - recordGeometry.boundingBox.min.x);
+  recordMesh.position.set(recordOffset, 1.5, -0.75);
+  scene.add(recordMesh);
+  
+  // Add "Enter your name:" text
+  const promptGeometry = new THREE.TextGeometry('Enter your name:', { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const promptMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
+  promptGeometry.computeBoundingBox();
+  const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
+  promptMesh.position.set(promptOffset, 1.45, -0.75);
+  scene.add(promptMesh);
+  
+  // Store these for later cleanup
+  recordMesh.userData.isNotification = true;
+  promptMesh.userData.isNotification = true;
+  gameCompletionMeshes.push(recordMesh, promptMesh);
+  
+  // Make the record text blink
+  let blinkCount = 0;
+  const blinkInterval = setInterval(() => {
+    recordMesh.visible = !recordMesh.visible;
+    blinkCount++;
+    if (blinkCount >= 10) {
+      clearInterval(blinkInterval);
+      recordMesh.visible = true;
+    }
+  }, 250);
+  
+  // Show keyboard with short delay
+  setTimeout(() => {
+    keyboardActive = true;
+    playerName = ""; 
+    nameEntered = false;
+    createImprovedVirtualKeyboard();
+  }, 1000);
+}
+
+function showNameEntryPrompt(headerText) {
+  // Create header text
+  const promptGeometry = new THREE.TextGeometry(headerText, { 
+    font: font, 
+    size: 0.03,
+    height: 0.008 
+  });
+  const promptMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00ffff,
+    emissive: 0x00ffff,
+    emissiveIntensity: 0.5
+  });
+  const promptMesh = new THREE.Mesh(promptGeometry, promptMaterial);
+  promptGeometry.computeBoundingBox();
+  const promptOffset = -0.5 * (promptGeometry.boundingBox.max.x - promptGeometry.boundingBox.min.x);
+  promptMesh.position.set(promptOffset, 1.5, -0.75);
+  scene.add(promptMesh);
+  
+  // Add "Enter your name:" text
+  const subPromptGeometry = new THREE.TextGeometry('Enter your name for the leaderboard:', { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const subPromptMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const subPromptMesh = new THREE.Mesh(subPromptGeometry, subPromptMaterial);
+  subPromptGeometry.computeBoundingBox();
+  const subPromptOffset = -0.5 * (subPromptGeometry.boundingBox.max.x - subPromptGeometry.boundingBox.min.x);
+  subPromptMesh.position.set(subPromptOffset, 1.45, -0.75);
+  scene.add(subPromptMesh);
+  
+  // Store these for later cleanup
+  promptMesh.userData.isNotification = true;
+  subPromptMesh.userData.isNotification = true;
+  gameCompletionMeshes.push(promptMesh, subPromptMesh);
+  
+  // Show keyboard with short delay
+  setTimeout(() => {
+    keyboardActive = true;
+    playerName = ""; 
+    nameEntered = false;
+    createImprovedVirtualKeyboard();
+  }, 1000);
+}
+
+// Extract the score display code into its own function
+function showGameCompletionScores(bestTimes) {
+ // Play end game music
+ if (endGameMusic) {
+    endGameMusic.currentTime = 0; // Start from beginning
+    endGameMusic.play().catch(error => console.log('End game music play error:', error));
+  }
+
+  // Create "GAME COMPLETE!" header at the top
+  const gameCompleteGeometry = new THREE.TextGeometry('GAME COMPLETE!', { 
+    font: font, 
+    size: 0.03, 
+    height: 0.005 
+  });
+  const gameCompleteMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffff00, 
+    emissive: 0xffff00,
+    emissiveIntensity: 0.3
+  });
+  const gameCompleteMesh = new THREE.Mesh(gameCompleteGeometry, gameCompleteMaterial);
+  gameCompleteGeometry.computeBoundingBox();
+  const gameCompleteOffset = -0.5 * (gameCompleteGeometry.boundingBox.max.x - gameCompleteGeometry.boundingBox.min.x);
+  gameCompleteMesh.position.set(gameCompleteOffset, 1.6, -0.75);
+  scene.add(gameCompleteMesh);
+  gameCompletionMeshes.push(gameCompleteMesh);
+  
+  // Create column headers
+  const yourTimesGeometry = new THREE.TextGeometry('YOUR TIMES', { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const yourTimesMesh = new THREE.Mesh(yourTimesGeometry, new THREE.MeshStandardMaterial({ color: 0x00ffff }));
+  yourTimesMesh.position.set(-0.07, 1.51, -0.75);
+  scene.add(yourTimesMesh);
+  gameCompletionMeshes.push(yourTimesMesh);
+  
+  const recordsGeometry = new THREE.TextGeometry('RECORDS', { 
+    font: font, 
+    size: 0.02, 
+    height: 0.005 
+  });
+  const recordsMesh = new THREE.Mesh(recordsGeometry, new THREE.MeshStandardMaterial({ color: 0xff8000, emissive: 0xff8000,
+    emissiveIntensity: 0.3  }));
+  recordsMesh.position.set(0.13, 1.51, -0.75);
+  scene.add(recordsMesh);
+  gameCompletionMeshes.push(recordsMesh);
+
+
+// Level rows
+for (let i = 0; i < 5; i++) {
+  const levelTime = levelTimes[i] || 0;
+  const recordTime = bestTimes[`level${i+1}`];
+  const recordHolder = bestTimes[`level${i+1}`].name;
+  
+  // Create level number label
+  const levelLabelGeometry = new THREE.TextGeometry(`Level ${i+1}:`, { 
+    font: font, 
+    size: 0.018, 
+    height: 0.005 
+  });
+  const levelLabelMesh = new THREE.Mesh(
+    levelLabelGeometry, 
+    new THREE.MeshStandardMaterial({ color: 0xffffff })
+  );
+  levelLabelMesh.position.set(-0.25, 1.46 - (i * 0.035), -0.75);
+  scene.add(levelLabelMesh);
+  gameCompletionMeshes.push(levelLabelMesh);
+
+
+  scoreSummaryMeshes.push(levelLabelMesh);
+  
+  // Format player's time
+  const playerTimeText = formatTime(levelTime);
+  
+  // Player time - left column
+  const isNewLevelRecord = (levelTime > 0 && recordTime && recordTime.time && levelTime <= recordTime.time);
+  const playerTextColor = isNewLevelRecord ? 0x00ff00 : 0x00ffff;
+  const playerTimeGeometry = new THREE.TextGeometry(playerTimeText, { 
+    font: font, 
+    size: 0.018, 
+    height: 0.005 
+  });
+  const playerTimeMesh = new THREE.Mesh(
+    playerTimeGeometry, 
+    new THREE.MeshStandardMaterial({ 
+      color: 0x00ffff,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.3
+    })
+  );
+  playerTimeMesh.position.set(-0.05, 1.46 - (i * 0.035), -0.75);
+  scene.add(playerTimeMesh);
+  gameCompletionMeshes.push(playerTimeMesh);
+  scoreSummaryMeshes.push(playerTimeMesh);
+  
+  // Combined record time and holder with hyphenated format
+  const recordTimeFormatted = recordTime && recordTime.time ? formatTime(recordTime.time) : "N/A";
+  const displayName = recordHolder ? 
+    (recordHolder.length > 10 ? recordHolder.substring(0, 10) : recordHolder) : "N/A";
+  
+  // Format combined record: "1:23:456 - PLAYER" or "N/A" if no record exists
+  const combinedRecordText = recordTime && recordTime.time ? 
+    `${recordTimeFormatted} - ${displayName}` : "N/A";
+  
+  // Combined record - right column
+  const combinedRecordGeometry = new THREE.TextGeometry(
+    isNewLevelRecord ? `${formatTime(levelTime)} - ${playerName || "..."}` : combinedRecordText, {  
+    font: font, 
+    size: 0.018, 
+    height: 0.005 
+  });
+  const combinedRecordMesh = new THREE.Mesh(
+    combinedRecordGeometry, 
+    new THREE.MeshStandardMaterial({ 
+      color: 0xff8000, 
+      emissive: 0xff8000,
+      emissiveIntensity: 0.3
+    })
+  );
+  combinedRecordMesh.position.set(0.15, 1.46 - (i * 0.035), -0.75);
+  scene.add(combinedRecordMesh);
+  gameCompletionMeshes.push(combinedRecordMesh);
+  scoreSummaryMeshes.push(combinedRecordMesh);
+
+  if (isNewLevelRecord) {
+    // Store in global array for later updates as player types
+    if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
+    window.recordHolderMeshes[i] = combinedRecordMesh;
+  }
+}
+
+const totalTime = levelTimes.reduce((total, time) => total + time, 0);
+const totalRecordTime = bestTimes.total;
+const totalRecordHolder = bestTimes.total.name;
+const isNewRecord = totalTime > 0 && (!totalRecordTime || !totalRecordTime.time || totalTime <= totalRecordTime.time);
+
+// Total label
+const totalLabelGeometry = new THREE.TextGeometry("Total:", { 
+  font: font, 
+  size: 0.018, 
+  height: 0.005 
+});
+const totalLabelMesh = new THREE.Mesh(
+  totalLabelGeometry, 
+  new THREE.MeshStandardMaterial({ color: 0xffffff })
+);
+totalLabelMesh.position.set(-0.25, 1.46 - (5 * 0.035), -0.75);
+scene.add(totalLabelMesh);
+gameCompletionMeshes.push(totalLabelMesh);
+scoreSummaryMeshes.push(totalLabelMesh);
+
+// Player total time
+const playerTotalTimeGeometry = new THREE.TextGeometry(formatTime(totalTime), { 
+  font: font, 
+  size: 0.018, 
+  height: 0.005 
+});
+const playerTotalMesh = new THREE.Mesh(
+  playerTotalTimeGeometry, 
+  new THREE.MeshStandardMaterial({ 
+    color: 0x00ffff,
+    emissive: 0x00ffff,
+    emissiveIntensity: 0.3
+  })
+);
+playerTotalMesh.position.set(-0.05, 1.46 - (5 * 0.035), -0.75);
+scene.add(playerTotalMesh);
+gameCompletionMeshes.push(playerTotalMesh);
+scoreSummaryMeshes.push(playerTotalMesh);
+
+// Format combined total record
+const totalRecordTimeFormatted = totalRecordTime && totalRecordTime.time ? 
+  formatTime(totalRecordTime.time) : "N/A";
+const displayTotalHolder = totalRecordHolder ? 
+  (totalRecordHolder.length > 10 ? totalRecordHolder.substring(0, 10) : totalRecordHolder) : "N/A";
+const combinedTotalRecordText = totalRecordTime && totalRecordTime.time ? 
+  `${totalRecordTimeFormatted} - ${displayTotalHolder}` : "N/A";
+
+const combinedTotalRecordGeometry = new THREE.TextGeometry(
+  isNewRecord ? `${formatTime(totalTime)} - ${playerName || "..."}` : combinedTotalRecordText, { 
+  font: font, 
+  size: 0.018, 
+  height: 0.005 
+});
+const combinedTotalRecordMesh = new THREE.Mesh(
+  combinedTotalRecordGeometry, 
+  new THREE.MeshStandardMaterial({ 
+    color: 0xff8000,
+    emissive: 0xff8000,
+    emissiveIntensity: 0.3
+  })
+);
+combinedTotalRecordMesh.position.set(0.15, 1.46 - (5 * 0.035), -0.75);
+scene.add(combinedTotalRecordMesh);
+gameCompletionMeshes.push(combinedTotalRecordMesh);
+scoreSummaryMeshes.push(combinedTotalRecordMesh);
+
+if (isNewRecord) {
+  // Store in global array for later updates as player types
+  if (!window.recordHolderMeshes) window.recordHolderMeshes = [];
+  window.recordHolderMeshes[5] = combinedTotalRecordMesh; // Use index 5 for total row
+}
+
+// Only show keyboard if it's a new record
+if (!isNewRecord) {
+    // Just show the restart/quit buttons without any additional text
+    createControllerRays();
+    
+    // add restart and quit buttons
+    addGameControlButtons();
+}
+}
+ 
+// Function to make new record meshes blink
+function blinkNewRecords(meshes, times = 5) {
+  if (!meshes || meshes.length === 0) return;
+  
+  let count = 0;
+  const interval = setInterval(function() {
+    // Toggle visibility using traditional for loop instead of forEach
+    for (let i = 0; i < meshes.length; i++) {
+      if (meshes[i] && meshes[i].material) {
+        meshes[i].visible = !meshes[i].visible;
+      }
+    }
+    
+    count++;
+    if (count >= times * 2) {
+      clearInterval(interval);
+      // Make sure all are visible at the end
+      for (let i = 0; i < meshes.length; i++) {
+        if (meshes[i] && meshes[i].material) {
+          meshes[i].visible = true;
+        }
+      }
+    }
+  }, 250);
 }
 
 </script>
