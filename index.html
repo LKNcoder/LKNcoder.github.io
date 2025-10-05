@@ -77,40 +77,7 @@ canvas {
   color: #ff00ff;
 }
 
-.monthButton {
-  padding: 20px 40px;
-  font-size: 24px;
-  background-color: #00468e;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-  max-width: 300px;
-  box-sizing: border-box;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative; 
-}
 
-.monthButton:hover { 
-  background-color: #005bb5; 
-  transform: scale(1.05);
-}
-
-.monthButton .monthName {
-  font-weight: bold;
-  font-size: 28px;
-  margin-bottom: 5px;
-}
-
-.monthButton .monthTheme {
-  font-size: 18px;
-  color: #00ffff;
-}
 
 .newBadge {
   background-color: #ff00ff;
@@ -199,14 +166,11 @@ canvas {
 <a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
 
 <div id="loadingContainer">
-  <div id="titleContainer">
-    <h1 id="gameTitle">RING RING</h1>
-    <div id="gameSubtitle">VR GAME</div>
-  </div>
-  
-  <div id="monthsContainer" style="display: flex; flex-direction: column; gap: 20px;">
-    <!-- Month buttons will be generated here -->
-  </div>
+  <h1>RING RING</h1>
+  <p>VR GAME - Please connect your VR headset</p>
+  <div id="monthsContainer"></div>
+</div>
+    
 </div>
 
 <script type="importmap">
@@ -558,268 +522,13 @@ function createVRComingSoonButton(month, index, container) {
 }
 
 
-loadAvailableMonths();
-
-function loadAvailableMonths() {
-  console.log("Loading available months...");
-  
-  // STEP 1: Show placeholder buttons immediately
-  const placeholderMonths = [
-    {
-      id: "2025-03",
-      name: "March 2025",
-      theme: "Loading..."
-    },
-    {
-      id: "2025-04", 
-      name: "April 2025",
-      theme: "Loading..."
-    }
-  ];
-  
-  // Generate placeholder buttons immediately
-  generateMonthButtons(placeholderMonths, true);
-  
-  // Add some styling for placeholders
-  const styleElement = document.createElement('style');
-styleElement.textContent = `
-  .monthButton.placeholder {
-    background-image: linear-gradient(to right, #003366, #004488, #003366);
-    background-size: 200% 100%;
-    animation: loadingPulse 1.5s infinite;
-  }
-  
-  @keyframes loadingPulse {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  
-  .comingSoonRibbon {
-    position: absolute;
-    top: 30px;                /* Moved further up */
-    right: -65px;              /* Positioned from right instead of left */
-    width: 220px;              /* Made wider to fit text */
-    transform: rotate(45deg);  /* Rotated for right corner */
-    background: linear-gradient(45deg, #ff8800, #ffaa00);
-    color: white;
-    padding: 5px 0;
-    font-size: 12px;
-    font-weight: bold;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    z-index: 1;
-  }
-`;
-document.head.appendChild(styleElement);
-  
-  // Fetch the real data in the background
-  Promise.all([
-  levelsRef.once('value'),
-  firebase.database().ref('monthlyWires').once('value')
-])
-.then(([legacySnapshot, newFormatSnapshot]) => {
-  // Process both types of data
-  const availableMonths = [];
-  
-  // Process legacy format data
-  legacySnapshot.forEach(monthSnapshot => {
-    const monthId = monthSnapshot.key;
-    const monthData = monthSnapshot.val();
-    if (monthData) {
-      // Extract month and year from ID (format: "YYYY-MM")
-      const [year, month] = monthId.split('-');
-      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-      const monthName = monthDate.toLocaleString('default', { month: 'long' });
-      
-      availableMonths.push({
-        id: monthId,
-        name: `${monthName} ${year}`,
-        theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
-      });
-    }
-  });
-  
-  // Process new format data
-  newFormatSnapshot.forEach(monthSnapshot => {
-    const monthId = monthSnapshot.key;
-    // Skip if we already added this month from legacy data
-    if (!availableMonths.some(m => m.id === monthId)) {
-      // Extract month and year from ID (format: "YYYY-MM")
-      const [year, month] = monthId.split('-');
-      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-      const monthName = monthDate.toLocaleString('default', { month: 'long' });
-      
-      availableMonths.push({
-        id: monthId,
-        name: `${monthName} ${year}`,
-        theme: `Levels 1-5`  // Default theme
-      });
-    }
-  });
-  
-  if (availableMonths.length > 0) {
-    // Generate buttons with the fetched data
-    generateMonthButtons(availableMonths);
-  } else {
-    console.warn("No months found in Firebase, using defaults");
-    // If no months found, use default data
-    const defaultMonths = [
-      {
-        id: "2025-04",
-        name: "April 2025",
-        theme: "Levels 1-5"
-      },
-      {
-        id: "2025-03",
-        name: "March 2025",
-        theme: "Levels 6-10"
-      }
-    ];
-    
-    // Generate buttons with default data
-    generateMonthButtons(defaultMonths);
-    
-  }
-});
-}
-
-
-function generateMonthButtons(monthsArray) {
-  const monthsContainer = document.getElementById('monthsContainer');
-  monthsContainer.innerHTML = ''; // Clear existing content
-
-  // Get the current date to determine the next month
-  const currentDate = new Date();
-  
-  // Find the newest month before sorting
-  const latestMonth = [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
-  
-  // Sort months by date (newest first)
-  monthsArray.sort((a, b) => a.id.localeCompare(b.id));
-  
-  // Custom month labels based on month ID
-  monthsArray.forEach(month => {
-    // Set the correct theme based on month ID
-    if (month.id === "2025-03") {
-      month.theme = "Levels 1-5";
-    } else if (month.id === "2025-04") {
-      month.theme = "Levels 6-10";
-    } else {
-      // For May onwards, calculate dynamically
-      // Extract month number
-      const monthNum = parseInt(month.id.split('-')[1]);
-      
-      if (!isNaN(monthNum)) {
-        // Calculate level range based on month number
-        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2
-        const startLevel = (monthIndex * 5) + 1;
-        const endLevel = startLevel + 4;
-        month.theme = `Levels ${startLevel}-${endLevel}`;
-      }
-    }
-  });
-  
-  // Create active month buttons
-  monthsArray.forEach((month, index) => {
-    const button = createMonthButton(month, index, latestMonth);
-    monthsContainer.appendChild(button);
-  });
-  
-  // Get the latest month by finding the month with the most recent date
-  const mostRecentMonth = monthsArray.length > 0 ? 
-    [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
-  let latestYearMonth = mostRecentMonth ? 
-    mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
-    
-  // Calculate the next month for "Coming Soon"
-  let [nextYear, nextMonth] = latestYearMonth;
-  nextMonth++;
-  if (nextMonth > 12) {
-    nextYear++;
-    nextMonth = 1;
-  }
-  
-  // Format with leading zeros
-  const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-  const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
-  
-  // Create "Coming Soon" button for next month if it doesn't exist
-  if (!monthsArray.some(m => m.id === nextMonthId)) {
-    // Calculate correct theme for next month
-    let nextMonthTheme = "Coming Soon";
-    
-    // If we're showing level ranges, calculate it
-    const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
-    if (!isNaN(nextMonthNum)) {
-      const nextMonthIndex = nextMonthNum - 3; // March = 0, April = 1, May = 2, etc.
-      const startLevel = (nextMonthIndex * 5) + 1;
-      const endLevel = startLevel + 4;
-      nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
-    }
-    
-    const comingSoonButton = document.createElement('div');
-    comingSoonButton.className = 'monthButton';
-    comingSoonButton.style.opacity = '0.75';
-    comingSoonButton.style.transform = 'scale(0.9)';
-    comingSoonButton.style.pointerEvents = 'none';
-    comingSoonButton.style.position = 'relative'; // Ensure relative positioning for absolute ribbon
-    comingSoonButton.style.overflow = 'hidden'; // Contain the ribbon
-    
-    comingSoonButton.innerHTML = `
-      <div class="comingSoonRibbon">COMING SOON</div>
-      <div class="monthName">${nextMonthName} ${nextYear}</div>
-      <div class="monthTheme">${nextMonthTheme}</div>
-    `;
-    monthsContainer.appendChild(comingSoonButton);
-  }
-}
 
 
 
-function fetchLeaderboardForTooltip(monthId, tooltipElement) {
-  const leaderboardContent = tooltipElement.querySelector('.leaderboardContent');
-  
-  // Reference to the monthly leaderboard
-  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
-  
-  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
-    .then(snapshot => {
-      const leaderboardData = [];
-      
-      // Convert Firebase snapshot to array
-      snapshot.forEach(childSnapshot => {
-        leaderboardData.push({
-          name: childSnapshot.val().playerName || 'Anonymous',
-          time: childSnapshot.val().totalTime || 0
-        });
-      });
-      
-      // Sort by time (lowest first)
-      leaderboardData.sort((a, b) => a.time - b.time);
-      
-      // Update tooltip content
-      if (leaderboardData.length > 0) {
-        let html = '';
-        leaderboardData.forEach((player, index) => {
-          html += `
-            <div class="leaderboardPlayer">
-              <span class="leaderboardRank">#${index + 1}</span>
-              <span class="leaderboardName">${player.name}</span>
-              <span class="leaderboardTime">${formatTime(player.time)}</span>
-            </div>
-          `;
-        });
-        leaderboardContent.innerHTML = html;
-      } else {
-        leaderboardContent.innerHTML = '<div class="noRecords">No records yet.<br>Be the first!</div>';
-      }
-    })
-    .catch(error => {
-      console.error("Error fetching leaderboard:", error);
-      leaderboardContent.innerHTML = '<div class="noRecords">Could not load leaderboard</div>';
-    });
-}
+
+
+
+
 
 // cleans up the visual effects
 function cleanupVisualEffects() {
@@ -845,90 +554,29 @@ function cleanupVisualEffects() {
   confettiStartTime = null;
 }
 
-function createMonthButton(month, index, latestMonth) {
-  const button = document.createElement('div');
-  button.className = 'monthButton';
+
+// New function that only handles month switching
+async function switchMonth(monthId) {
+  console.log(`Switching to month: ${monthId}`);
+  selectedMonth = monthId;
   
-  // Store the month ID as a data attribute for easy access
-  button.dataset.monthId = month.id;
-  
-  // Create HTML content
-  button.innerHTML = `
-    <div class="monthName">${month.name}</div>
-    <div class="monthTheme">${month.theme}</div>
-    ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
-  `;
-  
-  // Clear and set up the button click handler
-  button.onclick = function(event) {
-    // Prevent event bubbling if needed
-    event.stopPropagation();
-    
-    // Get the month ID from the dataset
-    const monthId = this.dataset.monthId;
-    
-    // Visual feedback
-    this.style.backgroundColor = '#00ffff';
-    
-    // Reset any global state flags
-    isQuitting = false;
-    gameCompleted = false;
-    isExploding = false;
-    isFlashing = false;
-    
-    // Clear any existing confetti and fragments
-    cleanupVisualEffects();
-    
-    // Call enterVR with the month ID
-    enterVR(monthId);
-    
-    // Reset the button color after a short delay
-    setTimeout(() => this.style.backgroundColor = '', 300);
-  };
-  
-  // Create the tooltip for leaderboard display
-  const tooltip = document.createElement('div');
-  tooltip.className = 'leaderboardTooltip';
-  tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
-  document.body.appendChild(tooltip);
-  
-  // Tooltip hover handlers
-  button.addEventListener('mouseenter', (event) => {
-    const rect = button.getBoundingClientRect();
-    tooltip.style.left = `${rect.right + 10}px`;
-    tooltip.style.top = `${rect.top + window.scrollY}px`;
-    tooltip.classList.add('visible');
-    fetchLeaderboardForTooltip(button.dataset.monthId, tooltip);
-  });
-  
-  button.addEventListener('mouseleave', () => {
-    tooltip.classList.remove('visible');
-  });
-  
-  return button;
+  try {
+    await loadMonthLevels(monthId);
+    resetGameForNewMonth();
+    if (chimeSound) {
+      chimeSound.play().catch(error => {});
+    }
+  } catch (error) {
+    console.error("Error switching month:", error);
+  }
 }
 
 
+  
 async function enterVR(monthId) {
-  console.log(`Selected month: ${monthId}`);
-  selectedMonth = monthId;
-  
-  // First check: are we already in a VR session?
-  const alreadyInVR = renderer && renderer.xr && renderer.xr.isPresenting;
-  
-  if (alreadyInVR) {
-    // Already in VR, just switch month
-    try {
-      await loadMonthLevels(monthId);
-      resetGameForNewMonth();
-      if (chimeSound) {
-        chimeSound.play().catch(error => {});
-      }
-      return;
-    } catch (error) {
-      console.error("Error switching month in VR:", error);
-      return;
-    }
+  // Already in VR? Just switch the month
+  if (renderer && renderer.xr && renderer.xr.isPresenting) {
+    return switchMonth(monthId);
   }
   
   // Not in VR yet, need to enter VR mode
@@ -2395,17 +2043,16 @@ else if (button.userData.buttonType === 'monthSelect') {
       chimeSound.play().catch(error => {});
     }
     
-    // Load month data and reset game
-    loadMonthLevels(monthId).then(() => {
-      resetGameForNewMonth();
-      triggerHapticFeedbackByHandedness('left', 0.5, 100);
-      triggerHapticFeedbackByHandedness('right', 0.5, 100);
-    });
-  }
+  // Use switchMonth instead of the direct calls
+  switchMonth(monthId).then(() => {
+    triggerHapticFeedbackByHandedness('left', 0.5, 100);
+    triggerHapticFeedbackByHandedness('right', 0.5, 100);
+  });
+  
   return;
 }
 
-
+}
 
 
       }
