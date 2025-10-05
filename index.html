@@ -167,7 +167,10 @@ canvas {
 
 <div id="loadingContainer">
   <h1>RING RING</h1>
-  <p>VR GAME - Please connect your VR headset</p>
+  <p>move small ring around big ring</p>
+  <button id="enterVRButton" style="padding: 12px 24px; margin-top: 20px; background: #00ccff; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">
+    Enter VR
+  </button>
   <div id="monthsContainer"></div>
 </div>
     
@@ -288,6 +291,48 @@ window.addEventListener('load', function() {
     });
   }
 })
+
+// Add click handler for the VR button
+document.getElementById('enterVRButton').addEventListener('click', function() {
+  if (navigator.xr) {
+    console.log("Manual VR entry requested");
+    
+    // Initialize if needed
+    if (!renderer) {
+      init();
+    }
+    
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      if (supported) {
+        navigator.xr.requestSession('immersive-vr', {
+          optionalFeatures: ['local-floor', 'hand-tracking']
+        }).then(session => {
+          console.log("VR session granted");
+          document.getElementById('loadingContainer').style.display = 'none';
+          renderer.xr.setSession(session);
+          
+          // Set up session events
+          session.addEventListener('end', () => {
+            document.getElementById('loadingContainer').style.display = 'flex';
+            cleanupGameScene();
+          });
+          
+          // Create VR UI
+          createVRMonthMenu();
+        }).catch(error => {
+          console.error("Error starting VR session:", error);
+          alert(`Error starting VR: ${error.message}`);
+        });
+      } else {
+        console.error("VR not supported");
+        alert("VR not supported by your browser or headset not connected.");
+      }
+    });
+  } else {
+    console.error("WebXR not available");
+    alert("WebXR not supported by your browser.");
+  }
+});
 
 function createVRMonthMenu() {
   // Create a container for the menu
