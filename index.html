@@ -50,11 +50,11 @@ canvas {
 
 #monthsContainer {
   width: 100%;
-  max-width: 800px; /* Wider to accommodate multiple columns */
+  max-width: 800px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 15px;
-  padding: 20px;
+  grid-template-columns: 1fr 1fr 1fr; /* Fixed 3-column layout */
+  gap: 12px; /* Smaller gap */
+  padding: 15px;
   margin: 0 auto;
 }
 
@@ -78,9 +78,9 @@ canvas {
 }
 
 .monthButton {
-  padding: 15px 25px;
-  min-height: 120px;
-  font-size: 24px;
+  padding: 10px 15px; /* Reduced padding */
+  min-height: 100px; /* Reduced height */
+  font-size: 24px; /* Keep text size the same */
   background-color: #00468e;
   color: white;
   border: none;
@@ -88,13 +88,15 @@ canvas {
   cursor: pointer;
   transition: all 0.3s ease;
   width: 100%;
-  max-width: 300px;
+  max-width: 250px; /* Slightly smaller max-width */
   box-sizing: border-box;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative; 
+  justify-content: center; /* Better vertical centering */
+  position: relative;
+  margin: 0 auto; /* Center in grid cell */
 }
 
 .monthButton:hover { 
@@ -409,10 +411,10 @@ function generateMonthButtons(monthsArray) {
   const monthsContainer = document.getElementById('monthsContainer');
   monthsContainer.innerHTML = ''; // Clear existing content
 
-  // Ensure the container uses grid layout
+  // Ensure the container uses grid layout with 3 columns
   monthsContainer.style.display = 'grid';
-  monthsContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
-  monthsContainer.style.gap = '15px';
+  monthsContainer.style.gridTemplateColumns = '1fr 1fr 1fr';
+  monthsContainer.style.gap = '12px';
   
   // Get the current date to determine the next month
   const currentDate = new Date();
@@ -420,8 +422,8 @@ function generateMonthButtons(monthsArray) {
   // Find the newest month before sorting
   const latestMonth = [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
   
-  // Sort months by date (newest first)
-  monthsArray.sort((a, b) => b.id.localeCompare(a.id));
+  // Sort months by date (oldest first) - reversed from previous order
+  monthsArray.sort((a, b) => a.id.localeCompare(b.id));
   
   // Custom month labels based on month ID
   monthsArray.forEach(month => {
@@ -449,13 +451,14 @@ function generateMonthButtons(monthsArray) {
     monthsContainer.appendChild(button);
   });
   
+  // Calculate the next month for "Coming Soon"
   // Get the latest month by finding the month with the most recent date
   const mostRecentMonth = monthsArray.length > 0 ? 
     [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
   let latestYearMonth = mostRecentMonth ? 
     mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
-    
-  // Calculate the next month for "Coming Soon"
+  
+  // Calculate the next month
   let [nextYear, nextMonth] = latestYearMonth;
   nextMonth++;
   if (nextMonth > 12) {
@@ -495,8 +498,8 @@ function generateMonthButtons(monthsArray) {
     monthsContainer.appendChild(comingSoonButton);
   }
   
-  // If there are more than 8 months, add pagination
-  if (monthsArray.length > 8) {
+  // If there are more than 9 months, add pagination
+  if (monthsArray.length > 9) {
     paginateMonths([...monthsArray]);
   }
 }
@@ -679,7 +682,7 @@ function createMonthButton(month, index, latestMonth) {
     setTimeout(() => this.style.backgroundColor = '', 300);
   };
   
-  // Create the tooltip for leaderboard display
+  // Create tooltip and other functionality (unchanged)
   const tooltip = document.createElement('div');
   tooltip.className = 'leaderboardTooltip';
   tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
