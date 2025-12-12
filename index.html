@@ -266,7 +266,12 @@ try {
 
 // Auto-enter VR when page loads
 window.addEventListener('load', function() {
-  console.log('Page loaded, checking WebXR support...');
+  console.log('Page loaded, initializing...');
+  
+  // Always initialize the scene and renderer
+  init();
+  animate();
+  console.log('Init and animate called');
   
   // Check if WebXR is supported
   if (navigator.xr) {
@@ -274,9 +279,6 @@ window.addEventListener('load', function() {
     navigator.xr.isSessionSupported('immersive-vr').then(supported => {
       console.log('VR session supported:', supported);
       if (supported) {
-        // Initialize first (needed for VR)
-        init();
-        
         // Wait for essential resources to load
         const resourceCheckInterval = setInterval(function() {
           if (font && renderer) {
@@ -310,6 +312,8 @@ window.addEventListener('load', function() {
         }, 100);
       }
     });
+  } else {
+    console.log('WebXR not supported');
   }
 })
 
@@ -959,8 +963,8 @@ function resetTimerDisplay() {
 }
 
 
-init();
-animate();
+// init() and animate() are called from window.addEventListener('load') below
+// DO NOT call them here or it will create duplicate renderers and break the app
 
 function init() {
 scene = new THREE.Scene();
