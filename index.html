@@ -479,39 +479,65 @@ function displaySelectedMonth() {
   leaderboardMeshes = [];
   
   const month = menuMonths[currentMonthIndex];
-  const [year, monthNum] = month.id.split('-');
-  const monthDate = new Date(parseInt(year), parseInt(monthNum) - 1);
+  const [year, monthNum] = month.id.split('-').map(Number);
+  const monthDate = new Date(year, monthNum - 1);
   const monthName = monthDate.toLocaleString('default', { month: 'long' });
   
-  // Month name display (large, centered)
+  // Calculate level numbers for this month
+  const monthsSinceMarch = (year - 2025) * 12 + (monthNum - 3);
+  const firstLevel = (monthsSinceMarch * 5) + 1;
+  const lastLevel = firstLevel + 4;
+  
+  // Level numbers display (LARGE, most prominent)
+  const levelNumbersGeometry = new THREE.TextGeometry(`LEVELS ${firstLevel}-${lastLevel}`, { 
+    font: font, 
+    size: 0.09, 
+    height: 0.012 
+  });
+  const levelNumbersMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00ffff,
+    emissive: 0x00ffff,
+    emissiveIntensity: 0.6
+  });
+  const levelNumbersMesh = new THREE.Mesh(levelNumbersGeometry, levelNumbersMaterial);
+  levelNumbersGeometry.computeBoundingBox();
+  const levelNumbersWidth = levelNumbersGeometry.boundingBox.max.x - levelNumbersGeometry.boundingBox.min.x;
+  levelNumbersMesh.position.set(-levelNumbersWidth/2, 0.32, 0);
+  menuContainer.add(levelNumbersMesh);
+  
+  // Month name display (smaller, below level numbers)
   const monthNameGeometry = new THREE.TextGeometry(`${monthName} ${year}`, { 
     font: font, 
-    size: 0.065, 
-    height: 0.01 
+    size: 0.04, 
+    height: 0.006 
   });
   const monthNameMaterial = new THREE.MeshStandardMaterial({ 
     color: 0xff00ff,
     emissive: 0xff00ff,
-    emissiveIntensity: 0.5
+    emissiveIntensity: 0.4
   });
   const monthNameMesh = new THREE.Mesh(monthNameGeometry, monthNameMaterial);
   monthNameGeometry.computeBoundingBox();
   const monthNameWidth = monthNameGeometry.boundingBox.max.x - monthNameGeometry.boundingBox.min.x;
-  monthNameMesh.position.set(-monthNameWidth/2, 0.28, 0);
+  monthNameMesh.position.set(-monthNameWidth/2, 0.24, 0);
   menuContainer.add(monthNameMesh);
   
-  // Month counter (e.g., "3 of 9")
-  const monthCounterText = `${currentMonthIndex + 1} of ${menuMonths.length}`;
+  // Month counter (e.g., "Month 3 of 9")
+  const monthCounterText = `Month ${currentMonthIndex + 1} of ${menuMonths.length}`;
   const counterGeometry = new THREE.TextGeometry(monthCounterText, { 
     font: font, 
-    size: 0.02, 
-    height: 0.003 
+    size: 0.018, 
+    height: 0.002 
   });
   const counterMesh = new THREE.Mesh(counterGeometry, 
-    new THREE.MeshStandardMaterial({ color: 0x888888 }));
+    new THREE.MeshStandardMaterial({ 
+      color: 0x999999,
+      emissive: 0x666666,
+      emissiveIntensity: 0.2
+    }));
   counterGeometry.computeBoundingBox();
   const counterWidth = counterGeometry.boundingBox.max.x - counterGeometry.boundingBox.min.x;
-  counterMesh.position.set(-counterWidth/2, 0.21, 0);
+  counterMesh.position.set(-counterWidth/2, 0.19, 0);
   menuContainer.add(counterMesh);
   
   // Left arrow button
@@ -533,14 +559,14 @@ function displaySelectedMonth() {
   menuContainer.add(rightArrow);
   
   // Decorative separator line
-  const separatorGeometry = new THREE.BoxGeometry(0.6, 0.003, 0.001);
+  const separatorGeometry = new THREE.BoxGeometry(0.65, 0.004, 0.002);
   const separatorMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x00ffff,
     emissive: 0x00ffff,
-    emissiveIntensity: 0.2
+    emissiveIntensity: 0.5
   });
   const separator = new THREE.Mesh(separatorGeometry, separatorMaterial);
-  separator.position.set(0, 0.15, 0);
+  separator.position.set(0, 0.14, 0);
   menuContainer.add(separator);
   
   // Start button (play this month) - bigger and more prominent
@@ -562,16 +588,16 @@ function displaySelectedMonth() {
   startButton.userData.pressColor = 0x88ffff;
   menuContainer.add(startButton);
   
-  const startTextGeometry = new THREE.TextGeometry('▶ START', { 
+  const startTextGeometry = new THREE.TextGeometry('>> PLAY <<', { 
     font: font, 
-    size: 0.032, 
-    height: 0.006 
+    size: 0.035, 
+    height: 0.007 
   });
   const startTextMesh = new THREE.Mesh(startTextGeometry, 
     new THREE.MeshStandardMaterial({ 
       color: 0xffffff,
       emissive: 0xffffff,
-      emissiveIntensity: 0.1
+      emissiveIntensity: 0.2
     }));
   startTextGeometry.computeBoundingBox();
   const startTextWidth = startTextGeometry.boundingBox.max.x - startTextGeometry.boundingBox.min.x;
@@ -596,17 +622,17 @@ function createArrowButton(direction, x, y) {
   arrowGroup.add(button);
   
   if (font) {
-    const arrowText = direction === 'left' ? '◀' : '▶';
+    const arrowText = direction === 'left' ? '<<' : '>>';
     const arrowGeometry = new THREE.TextGeometry(arrowText, { 
       font: font, 
-      size: 0.045, 
+      size: 0.035, 
       height: 0.006 
     });
     const arrowMesh = new THREE.Mesh(arrowGeometry, 
       new THREE.MeshStandardMaterial({ 
         color: 0xffffff,
         emissive: 0xffffff,
-        emissiveIntensity: 0.2
+        emissiveIntensity: 0.3
       }));
     arrowGeometry.computeBoundingBox();
     const arrowWidth = arrowGeometry.boundingBox.max.x - arrowGeometry.boundingBox.min.x;
@@ -631,16 +657,16 @@ async function loadMonthLeaderboard(monthId) {
     });
     
     // Display leaderboard title
-    const leaderboardTitleGeometry = new THREE.TextGeometry('🏆 TOP 5 FASTEST TIMES', { 
+    const leaderboardTitleGeometry = new THREE.TextGeometry('- TOP 5 FASTEST TIMES -', { 
       font: font, 
-      size: 0.028, 
+      size: 0.026, 
       height: 0.004 
     });
     const leaderboardTitleMesh = new THREE.Mesh(leaderboardTitleGeometry, 
       new THREE.MeshStandardMaterial({ 
-        color: 0xffaa00,
-        emissive: 0xffaa00,
-        emissiveIntensity: 0.3
+        color: 0xffcc00,
+        emissive: 0xffcc00,
+        emissiveIntensity: 0.4
       }));
     leaderboardTitleGeometry.computeBoundingBox();
     const titleWidth = leaderboardTitleGeometry.boundingBox.max.x - leaderboardTitleGeometry.boundingBox.min.x;
@@ -653,9 +679,8 @@ async function loadMonthLeaderboard(monthId) {
       leaderboard.forEach((entry, index) => {
         const yPos = -0.08 - (index * 0.038);
         
-        // Medal emojis for top 3
-        const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
-        const rankText = medals[index] || `${index + 1}.`;
+        // Rank prefix
+        const rankText = `${index + 1}.`;
         const playerName = entry.name || 'Anonymous';
         const truncatedName = playerName.length > 12 ? playerName.substring(0, 12) : playerName;
         const timeText = `${rankText} ${formatTime(entry.time)} - ${truncatedName}`;
@@ -1081,6 +1106,10 @@ function resetGameForNewMonth() {
   ring.rotation.set(0, Math.PI / 2, 0);
   ring.visible = true;
   
+  // Show controller spheres
+  if (sphere1) sphere1.visible = true;
+  if (sphere2) sphere2.visible = true;
+  
   // Create wire for first level
   wire = createWire(currentLevel);
   
@@ -1098,12 +1127,13 @@ function updateLevelText() {
     let endLevel = 5;
     
     if (selectedMonth) {
-      // Extract month from YYYY-MM format
-      const monthNum = parseInt(selectedMonth.split('-')[1]);
-      if (!isNaN(monthNum)) {
-        // Calculate base level: March=1, April=6, May=11, etc.
-        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2, etc.
-        baseLevel = (monthIndex * 5) + 1;
+      // Extract year and month from YYYY-MM format
+      const [year, monthNum] = selectedMonth.split('-').map(Number);
+      if (!isNaN(year) && !isNaN(monthNum)) {
+        // Calculate months since March 2025
+        // March 2025 = 0, April 2025 = 1, ..., December 2025 = 9, January 2026 = 10, etc.
+        const monthsSinceMarch = (year - 2025) * 12 + (monthNum - 3);
+        baseLevel = (monthsSinceMarch * 5) + 1;
         endLevel = baseLevel + 4; // Last level of this month
       }
     }
@@ -1245,8 +1275,10 @@ scene.add(timerMesh);
 const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x0078d7, transparent: true, opacity: 0.5 });
 sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+sphere1.visible = false; // Hide until game starts
 scene.add(sphere1);
 sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial);
+sphere2.visible = false; // Hide until game starts
 scene.add(sphere2);
 
 controller1 = renderer.xr.getController(0);
@@ -1329,7 +1361,6 @@ posArray[i + 2] = z;
 particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 const particlesMaterial = new THREE.PointsMaterial({ size: 0.2, color: 0x00ffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
 const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-particlesMesh.visible = false; // Hide particles to avoid visual clutter in menu
 scene.add(particlesMesh);
 
 // Don't create wire here - wait for month selection
