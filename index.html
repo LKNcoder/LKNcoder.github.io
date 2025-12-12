@@ -242,6 +242,8 @@ let menuMonths = [];
 let currentMonthIndex = 0;
 let menuContainer = null;
 let leaderboardMeshes = [];
+let wirePreviewCache = {}; // Cache wire preview geometries for performance
+
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -481,158 +483,256 @@ function displaySelectedMonth() {
   const month = menuMonths[currentMonthIndex];
   const [year, monthNum] = month.id.split('-').map(Number);
   const monthDate = new Date(year, monthNum - 1);
-  const monthName = monthDate.toLocaleString('default', { month: 'long' });
+  const monthName = monthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
   
   // Calculate level numbers for this month
   const monthsSinceMarch = (year - 2025) * 12 + (monthNum - 3);
   const firstLevel = (monthsSinceMarch * 5) + 1;
   const lastLevel = firstLevel + 4;
   
-  // Level numbers display (LARGE, most prominent)
-  const levelNumbersGeometry = new THREE.TextGeometry(`LEVELS ${firstLevel}-${lastLevel}`, { 
-    font: font, 
-    size: 0.09, 
-    height: 0.012 
-  });
-  const levelNumbersMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00ffff,
-    emissive: 0x00ffff,
-    emissiveIntensity: 0.6
-  });
-  const levelNumbersMesh = new THREE.Mesh(levelNumbersGeometry, levelNumbersMaterial);
-  levelNumbersGeometry.computeBoundingBox();
-  const levelNumbersWidth = levelNumbersGeometry.boundingBox.max.x - levelNumbersGeometry.boundingBox.min.x;
-  levelNumbersMesh.position.set(-levelNumbersWidth/2, 0.32, 0);
-  menuContainer.add(levelNumbersMesh);
+  // Show previous month (dimmed, in background)
+  if (currentMonthIndex > 0) {
+    const prevMonth = menuMonths[currentMonthIndex - 1];
+    const [prevYear, prevMonthNum] = prevMonth.id.split('-').map(Number);
+    const prevMonthDate = new Date(prevYear, prevMonthNum - 1);
+    const prevMonthName = prevMonthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
+    const prevMonthsSince = (prevYear - 2025) * 12 + (prevMonthNum - 3);
+    const prevFirstLevel = (prevMonthsSince * 5) + 1;
+    const prevLastLevel = prevFirstLevel + 4;
+    
+    const prevButton = createMonthButton(prevMonthName, prevYear, prevFirstLevel, prevLastLevel, -0.55, 0.2, 0.7, true);
+    // Add wire previews asynchronously
+    addWirePreviewsToButton(prevMonth.id, prevButton, 0.7, true);
+  }
   
-  // Month name display (smaller, below level numbers)
-  const monthNameGeometry = new THREE.TextGeometry(`${monthName} ${year}`, { 
-    font: font, 
-    size: 0.04, 
-    height: 0.006 
-  });
-  const monthNameMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xff00ff,
-    emissive: 0xff00ff,
-    emissiveIntensity: 0.4
-  });
-  const monthNameMesh = new THREE.Mesh(monthNameGeometry, monthNameMaterial);
-  monthNameGeometry.computeBoundingBox();
-  const monthNameWidth = monthNameGeometry.boundingBox.max.x - monthNameGeometry.boundingBox.min.x;
-  monthNameMesh.position.set(-monthNameWidth/2, 0.24, 0);
-  menuContainer.add(monthNameMesh);
+  // Show next month (dimmed, in background)
+  if (currentMonthIndex < menuMonths.length - 1) {
+    const nextMonth = menuMonths[currentMonthIndex + 1];
+    const [nextYear, nextMonthNum] = nextMonth.id.split('-').map(Number);
+    const nextMonthDate = new Date(nextYear, nextMonthNum - 1);
+    const nextMonthName = nextMonthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
+    const nextMonthsSince = (nextYear - 2025) * 12 + (nextMonthNum - 3);
+    const nextFirstLevel = (nextMonthsSince * 5) + 1;
+    const nextLastLevel = nextFirstLevel + 4;
+    
+    const nextButton = createMonthButton(nextMonthName, nextYear, nextFirstLevel, nextLastLevel, 0.55, 0.2, 0.7, true);
+    // Add wire previews asynchronously
+    addWirePreviewsToButton(nextMonth.id, nextButton, 0.7, true);
+  }
   
-  // Month counter (e.g., "Month 3 of 9")
-  const monthCounterText = `Month ${currentMonthIndex + 1} of ${menuMonths.length}`;
-  const counterGeometry = new THREE.TextGeometry(monthCounterText, { 
-    font: font, 
-    size: 0.018, 
-    height: 0.002 
-  });
-  const counterMesh = new THREE.Mesh(counterGeometry, 
-    new THREE.MeshStandardMaterial({ 
-      color: 0x999999,
-      emissive: 0x666666,
-      emissiveIntensity: 0.2
-    }));
-  counterGeometry.computeBoundingBox();
-  const counterWidth = counterGeometry.boundingBox.max.x - counterGeometry.boundingBox.min.x;
-  counterMesh.position.set(-counterWidth/2, 0.19, 0);
-  menuContainer.add(counterMesh);
+  // Current month - large, centered, clickable
+  const currentButton = createMonthButton(monthName, year, firstLevel, lastLevel, 0, 0.2, 1.0, false);
+  currentButton.userData.isButton = true;
+  currentButton.userData.buttonType = 'startMonth';
+  currentButton.userData.monthId = month.id;
+  currentButton.userData.defaultColor = 0x0055aa;
+  currentButton.userData.hoverColor = 0x0077dd;
+  currentButton.userData.pressColor = 0x00ddff;
+  // Add wire previews asynchronously
+  addWirePreviewsToButton(month.id, currentButton, 1.0, false);
   
   // Left arrow button
-  const leftArrow = createArrowButton('left', -0.4, 0.27);
+  const leftArrow = createArrowButton('left', -0.5, 0.2);
   leftArrow.userData.isButton = true;
   leftArrow.userData.buttonType = 'leftArrow';
-  leftArrow.userData.defaultColor = 0x00468e;
-  leftArrow.userData.hoverColor = 0x005bb5;
+  leftArrow.userData.defaultColor = 0x003366;
+  leftArrow.userData.hoverColor = 0x0055aa;
   leftArrow.userData.pressColor = 0x00ffff;
   menuContainer.add(leftArrow);
   
   // Right arrow button
-  const rightArrow = createArrowButton('right', 0.4, 0.27);
+  const rightArrow = createArrowButton('right', 0.5, 0.2);
   rightArrow.userData.isButton = true;
   rightArrow.userData.buttonType = 'rightArrow';
-  rightArrow.userData.defaultColor = 0x00468e;
-  rightArrow.userData.hoverColor = 0x005bb5;
+  rightArrow.userData.defaultColor = 0x003366;
+  rightArrow.userData.hoverColor = 0x0055aa;
   rightArrow.userData.pressColor = 0x00ffff;
   menuContainer.add(rightArrow);
-  
-  // Decorative separator line
-  const separatorGeometry = new THREE.BoxGeometry(0.65, 0.004, 0.002);
-  const separatorMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00ffff,
-    emissive: 0x00ffff,
-    emissiveIntensity: 0.5
-  });
-  const separator = new THREE.Mesh(separatorGeometry, separatorMaterial);
-  separator.position.set(0, 0.14, 0);
-  menuContainer.add(separator);
-  
-  // Start button (play this month) - bigger and more prominent
-  const startButtonGeometry = new THREE.BoxGeometry(0.35, 0.09, 0.015);
-  const startButtonMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00cc00,
-    emissive: 0x00ff00,
-    emissiveIntensity: 0.4,
-    metalness: 0.3,
-    roughness: 0.6
-  });
-  const startButton = new THREE.Mesh(startButtonGeometry, startButtonMaterial);
-  startButton.position.set(0, 0.06, 0);
-  startButton.userData.isButton = true;
-  startButton.userData.buttonType = 'startMonth';
-  startButton.userData.monthId = month.id;
-  startButton.userData.defaultColor = 0x00cc00;
-  startButton.userData.hoverColor = 0x00ff44;
-  startButton.userData.pressColor = 0x88ffff;
-  menuContainer.add(startButton);
-  
-  const startTextGeometry = new THREE.TextGeometry('>> PLAY <<', { 
-    font: font, 
-    size: 0.035, 
-    height: 0.007 
-  });
-  const startTextMesh = new THREE.Mesh(startTextGeometry, 
-    new THREE.MeshStandardMaterial({ 
-      color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 0.2
-    }));
-  startTextGeometry.computeBoundingBox();
-  const startTextWidth = startTextGeometry.boundingBox.max.x - startTextGeometry.boundingBox.min.x;
-  startTextMesh.position.set(-startTextWidth/2, -0.012, 0.01);
-  startButton.add(startTextMesh);
   
   // Load and display leaderboard
   loadMonthLeaderboard(month.id);
 }
 
+function createMonthButton(monthName, year, firstLevel, lastLevel, xPos, yPos, scale, isDimmed) {
+  const buttonGroup = new THREE.Group();
+  
+  // Background panel
+  const panelGeometry = new THREE.BoxGeometry(0.45 * scale, 0.18 * scale, 0.015);
+  const panelMaterial = new THREE.MeshStandardMaterial({ 
+    color: isDimmed ? 0x002244 : 0x0055aa,
+    emissive: isDimmed ? 0x001122 : 0x003388,
+    emissiveIntensity: isDimmed ? 0.2 : 0.5,
+    metalness: 0.4,
+    roughness: 0.5,
+    transparent: isDimmed,
+    opacity: isDimmed ? 0.4 : 1.0
+  });
+  const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+  buttonGroup.add(panel);
+  
+  if (font) {
+    // Month and year (small, top)
+    const monthYearText = `${monthName} ${year}`;
+    const monthYearGeometry = new THREE.TextGeometry(monthYearText, { 
+      font: font, 
+      size: 0.022 * scale, 
+      height: 0.004 * scale
+    });
+    const monthYearMesh = new THREE.Mesh(monthYearGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: isDimmed ? 0x6699cc : 0xaaddff,
+        emissive: isDimmed ? 0x4477aa : 0x88bbff,
+        emissiveIntensity: isDimmed ? 0.1 : 0.3
+      }));
+    monthYearGeometry.computeBoundingBox();
+    const monthYearWidth = monthYearGeometry.boundingBox.max.x - monthYearGeometry.boundingBox.min.x;
+    monthYearMesh.position.set(-monthYearWidth/2, 0.04 * scale, 0.01);
+    panel.add(monthYearMesh);
+    
+    // Levels (large, bold, bottom)
+    const levelsText = `LEVELS ${firstLevel}-${lastLevel}`;
+    const levelsGeometry = new THREE.TextGeometry(levelsText, { 
+      font: font, 
+      size: 0.042 * scale, 
+      height: 0.008 * scale
+    });
+    const levelsMesh = new THREE.Mesh(levelsGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: isDimmed ? 0x88ccff : 0xffffff,
+        emissive: isDimmed ? 0x4488cc : 0x00ffff,
+        emissiveIntensity: isDimmed ? 0.1 : 0.6
+      }));
+    levelsGeometry.computeBoundingBox();
+    const levelsWidth = levelsGeometry.boundingBox.max.x - levelsGeometry.boundingBox.min.x;
+    levelsMesh.position.set(-levelsWidth/2, -0.03 * scale, 0.01);
+    panel.add(levelsMesh);
+  }
+  
+  buttonGroup.position.set(xPos, yPos, isDimmed ? -0.1 : 0);
+  menuContainer.add(buttonGroup);
+  return buttonGroup;
+}
+
+async function addWirePreviewsToButton(monthId, buttonGroup, scale, isDimmed) {
+  // Check if we already have this cached
+  if (wirePreviewCache[monthId]) {
+    // Clone and add cached previews
+    wirePreviewCache[monthId].forEach(preview => {
+      const clonedPreview = preview.clone();
+      clonedPreview.material = preview.material.clone();
+      if (isDimmed) {
+        clonedPreview.material.opacity = 0.3;
+        clonedPreview.material.transparent = true;
+      }
+      buttonGroup.add(clonedPreview);
+    });
+    return;
+  }
+  
+  // Load month data to generate previews
+  try {
+    const newPathRef = firebase.database().ref(`monthlyWires/${monthId}`);
+    const snapshot = await newPathRef.once('value');
+    const monthData = snapshot.val();
+    
+    if (!monthData) return; // No data available
+    
+    const previews = [];
+    const previewScale = 0.015 * scale; // Tiny wires
+    const spacing = 0.075 * scale;
+    const startX = -0.15 * scale;
+    const previewY = 0.1 * scale;
+    
+    // Create mini wire previews for levels 1-5
+    for (let i = 1; i <= 5; i++) {
+      const levelData = monthData[`level${i}`];
+      if (!levelData || !levelData.params) continue;
+      
+      const params = levelData.params;
+      const points = [];
+      const segments = 50; // Lower detail for previews
+      
+      // Generate simplified wire curve
+      for (let j = 0; j <= segments; j++) {
+        const t = (j / segments) * Math.PI * 2;
+        const freq = params.frequencies || [8, 6, 6];
+        const amp = params.amplitudes || [0.05, 0.05, 0.05];
+        const offset = params.rotationOffset || 0;
+        
+        const x = Math.cos(t) * (1 + 
+          Math.sin(freq[0] * t + offset) * amp[0] + 
+          Math.sin(freq[1] * t) * amp[1] + 
+          Math.sin(freq[2] * t) * amp[2]
+        ) * previewScale;
+        
+        const y = Math.sin(t) * (1 + 
+          Math.sin(freq[0] * t + offset) * amp[0] + 
+          Math.sin(freq[1] * t) * amp[1] + 
+          Math.sin(freq[2] * t) * amp[2]
+        ) * previewScale;
+        
+        points.push(new THREE.Vector3(x, y, 0));
+      }
+      
+      // Create line from points
+      const curve = new THREE.CatmullRomCurve3(points, true);
+      const curvePoints = curve.getPoints(30); // Even simpler for display
+      const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+      
+      const material = new THREE.LineBasicMaterial({ 
+        color: levelData.color || 0x00aaff,
+        opacity: isDimmed ? 0.3 : 0.8,
+        transparent: true,
+        linewidth: 1
+      });
+      
+      const wireMesh = new THREE.Line(geometry, material);
+      wireMesh.position.set(startX + (i - 1) * spacing, previewY, 0.02);
+      buttonGroup.add(wireMesh);
+      
+      // Cache for reuse (only for non-dimmed version)
+      if (!isDimmed) {
+        previews.push(wireMesh.clone());
+      }
+    }
+    
+    // Store in cache
+    if (previews.length > 0) {
+      wirePreviewCache[monthId] = previews;
+    }
+  } catch (error) {
+    console.error(`Error loading wire previews for ${monthId}:`, error);
+  }
+}
+
 function createArrowButton(direction, x, y) {
   const arrowGroup = new THREE.Group();
-  const buttonGeometry = new THREE.BoxGeometry(0.09, 0.09, 0.012);
+  
+  // Sleek circular button background
+  const buttonGeometry = new THREE.CylinderGeometry(0.045, 0.045, 0.015, 32);
+  buttonGeometry.rotateX(Math.PI / 2);
   const buttonMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00468e,
-    emissive: 0x003366,
-    emissiveIntensity: 0.3,
-    metalness: 0.4,
-    roughness: 0.6
+    color: 0x003366,
+    emissive: 0x002244,
+    emissiveIntensity: 0.4,
+    metalness: 0.6,
+    roughness: 0.4
   });
   const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
   arrowGroup.add(button);
   
   if (font) {
-    const arrowText = direction === 'left' ? '<<' : '>>';
+    const arrowText = direction === 'left' ? '<' : '>';
     const arrowGeometry = new THREE.TextGeometry(arrowText, { 
       font: font, 
-      size: 0.035, 
-      height: 0.006 
+      size: 0.04, 
+      height: 0.008 
     });
     const arrowMesh = new THREE.Mesh(arrowGeometry, 
       new THREE.MeshStandardMaterial({ 
         color: 0xffffff,
-        emissive: 0xffffff,
-        emissiveIntensity: 0.3
+        emissive: 0x88ddff,
+        emissiveIntensity: 0.4
       }));
     arrowGeometry.computeBoundingBox();
     const arrowWidth = arrowGeometry.boundingBox.max.x - arrowGeometry.boundingBox.min.x;
@@ -657,27 +757,27 @@ async function loadMonthLeaderboard(monthId) {
     });
     
     // Display leaderboard title
-    const leaderboardTitleGeometry = new THREE.TextGeometry('- TOP 5 FASTEST TIMES -', { 
+    const leaderboardTitleGeometry = new THREE.TextGeometry('TOP 5 TIMES', { 
       font: font, 
-      size: 0.026, 
-      height: 0.004 
+      size: 0.024, 
+      height: 0.003 
     });
     const leaderboardTitleMesh = new THREE.Mesh(leaderboardTitleGeometry, 
       new THREE.MeshStandardMaterial({ 
-        color: 0xffcc00,
-        emissive: 0xffcc00,
+        color: 0xffdd00,
+        emissive: 0xffaa00,
         emissiveIntensity: 0.4
       }));
     leaderboardTitleGeometry.computeBoundingBox();
     const titleWidth = leaderboardTitleGeometry.boundingBox.max.x - leaderboardTitleGeometry.boundingBox.min.x;
-    leaderboardTitleMesh.position.set(-titleWidth/2, -0.02, 0);
+    leaderboardTitleMesh.position.set(-titleWidth/2, 0.0, 0);
     menuContainer.add(leaderboardTitleMesh);
     leaderboardMeshes.push(leaderboardTitleMesh);
     
     // Display each leaderboard entry
     if (leaderboard.length > 0) {
       leaderboard.forEach((entry, index) => {
-        const yPos = -0.08 - (index * 0.038);
+        const yPos = -0.05 - (index * 0.035);
         
         // Rank prefix
         const rankText = `${index + 1}.`;
@@ -687,17 +787,17 @@ async function loadMonthLeaderboard(monthId) {
         
         const entryGeometry = new THREE.TextGeometry(timeText, { 
           font: font, 
-          size: 0.022, 
-          height: 0.003 
+          size: 0.02, 
+          height: 0.002 
         });
         
-        // Color based on rank
-        const colors = [0xffd700, 0xc0c0c0, 0xcd7f32, 0x00ffff, 0x00ffff]; // Gold, Silver, Bronze, Cyan, Cyan
+        // Sleeker color scheme
+        const colors = [0xffd700, 0xe0e0e0, 0xcd7f32, 0x66ccff, 0x66ccff]; // Gold, Silver, Bronze, Cyan
         const entryMesh = new THREE.Mesh(entryGeometry, 
           new THREE.MeshStandardMaterial({ 
-            color: colors[index] || 0x00ffff,
-            emissive: colors[index] || 0x00ffff,
-            emissiveIntensity: 0.2
+            color: colors[index] || 0x66ccff,
+            emissive: colors[index] || 0x4499cc,
+            emissiveIntensity: 0.3
           }));
         entryGeometry.computeBoundingBox();
         const entryWidth = entryGeometry.boundingBox.max.x - entryGeometry.boundingBox.min.x;
@@ -706,20 +806,20 @@ async function loadMonthLeaderboard(monthId) {
         leaderboardMeshes.push(entryMesh);
       });
     } else {
-      const noRecordsGeometry = new THREE.TextGeometry('No records yet - be the first!', { 
+      const noRecordsGeometry = new THREE.TextGeometry('Be the first!', { 
         font: font, 
-        size: 0.022, 
-        height: 0.003 
+        size: 0.02, 
+        height: 0.002 
       });
       const noRecordsMesh = new THREE.Mesh(noRecordsGeometry, 
         new THREE.MeshStandardMaterial({ 
-          color: 0x888888,
-          emissive: 0x444444,
-          emissiveIntensity: 0.3
+          color: 0x6699cc,
+          emissive: 0x4477aa,
+          emissiveIntensity: 0.2
         }));
       noRecordsGeometry.computeBoundingBox();
       const noRecordsWidth = noRecordsGeometry.boundingBox.max.x - noRecordsGeometry.boundingBox.min.x;
-      noRecordsMesh.position.set(-noRecordsWidth/2, -0.08, 0);
+      noRecordsMesh.position.set(-noRecordsWidth/2, -0.05, 0);
       menuContainer.add(noRecordsMesh);
       leaderboardMeshes.push(noRecordsMesh);
     }
