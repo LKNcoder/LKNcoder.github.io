@@ -461,7 +461,7 @@ function createVRMonthMenu() {
     
     // Create 3D buttons for each month
     availableMonths.forEach((month, index) => {
-      createVRMonthButton(month, index, menuContainer);
+      createVRMonthButton(month, index, menuContainer, availableMonths);
     });
     
     // Add "Coming Soon" button - only if we have months
@@ -506,7 +506,7 @@ function createVRMonthMenu() {
   });
 }
 
-function createVRMonthButton(month, index, container) {
+function createVRMonthButton(month, index, container, allMonths) {
   // Set up button material and geometry
   const buttonWidth = 0.4;
   const buttonHeight = 0.1;
@@ -559,8 +559,9 @@ function createVRMonthButton(month, index, container) {
     button.add(themeMesh);
     
     // Add "NEW" badge for latest month
-    const latestMonth = [...availableMonths].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
-    if (month.id === latestMonth) {
+    const latestMonth = allMonths && allMonths.length > 0 ? 
+      [...allMonths].sort((a, b) => b.id.localeCompare(a.id))[0]?.id : null;
+    if (latestMonth && month.id === latestMonth) {
       const badgeGeometry = new THREE.TextGeometry("NEW", { 
         font: font, 
         size: 0.015, 
