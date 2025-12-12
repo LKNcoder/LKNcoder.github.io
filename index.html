@@ -162,8 +162,6 @@ canvas {
 
 </head>
 <body>
-<!--  Levelsio Vibe Jam link  -->
-<a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
 
 <div id="loadingContainer">
   <div id="titleContainer">
@@ -374,7 +372,7 @@ function createVRMonthMenu() {
   
   // Create a container for the menu
   menuContainer = new THREE.Group();
-  menuContainer.position.set(0, 1.6, -1.0); // Position in front of user
+  menuContainer.position.set(0, 1.4, -1.0); // Position in front of user at comfortable eye level
   scene.add(menuContainer);
   
   // Create title
@@ -392,7 +390,7 @@ function createVRMonthMenu() {
     const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
     titleGeometry.computeBoundingBox();
     const titleWidth = titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x;
-    titleMesh.position.set(-titleWidth/2, 0.4, 0);
+    titleMesh.position.set(-titleWidth/2, 0.3, 0);
     menuContainer.add(titleMesh);
   }
   
@@ -500,7 +498,7 @@ function displaySelectedMonth() {
     const prevFirstLevel = (prevMonthsSince * 5) + 1;
     const prevLastLevel = prevFirstLevel + 4;
     
-    const prevButton = createMonthButton(prevMonthName, prevYear, prevFirstLevel, prevLastLevel, -0.55, 0.2, 0.7, true);
+    const prevButton = createMonthButton(prevMonthName, prevYear, prevFirstLevel, prevLastLevel, -0.55, 0.0, 0.7, true);
     // Add wire previews asynchronously
     addWirePreviewsToButton(prevMonth.id, prevButton, 0.7, true);
   }
@@ -515,13 +513,13 @@ function displaySelectedMonth() {
     const nextFirstLevel = (nextMonthsSince * 5) + 1;
     const nextLastLevel = nextFirstLevel + 4;
     
-    const nextButton = createMonthButton(nextMonthName, nextYear, nextFirstLevel, nextLastLevel, 0.55, 0.2, 0.7, true);
+    const nextButton = createMonthButton(nextMonthName, nextYear, nextFirstLevel, nextLastLevel, 0.55, 0.0, 0.7, true);
     // Add wire previews asynchronously
     addWirePreviewsToButton(nextMonth.id, nextButton, 0.7, true);
   }
   
   // Current month - large, centered, clickable
-  const currentButton = createMonthButton(monthName, year, firstLevel, lastLevel, 0, 0.2, 1.0, false);
+  const currentButton = createMonthButton(monthName, year, firstLevel, lastLevel, 0, 0.0, 1.0, false);
   currentButton.userData.isButton = true;
   currentButton.userData.buttonType = 'startMonth';
   currentButton.userData.monthId = month.id;
@@ -532,7 +530,7 @@ function displaySelectedMonth() {
   addWirePreviewsToButton(month.id, currentButton, 1.0, false);
   
   // Left arrow button
-  const leftArrow = createArrowButton('left', -0.5, 0.2);
+  const leftArrow = createArrowButton('left', -0.5, 0.0);
   leftArrow.userData.isButton = true;
   leftArrow.userData.buttonType = 'leftArrow';
   leftArrow.userData.defaultColor = 0x003366;
@@ -541,7 +539,7 @@ function displaySelectedMonth() {
   menuContainer.add(leftArrow);
   
   // Right arrow button
-  const rightArrow = createArrowButton('right', 0.5, 0.2);
+  const rightArrow = createArrowButton('right', 0.5, 0.0);
   rightArrow.userData.isButton = true;
   rightArrow.userData.buttonType = 'rightArrow';
   rightArrow.userData.defaultColor = 0x003366;
@@ -556,19 +554,84 @@ function displaySelectedMonth() {
 function createMonthButton(monthName, year, firstLevel, lastLevel, xPos, yPos, scale, isDimmed) {
   const buttonGroup = new THREE.Group();
   
-  // Background panel
-  const panelGeometry = new THREE.BoxGeometry(0.45 * scale, 0.18 * scale, 0.015);
+  // Create layered 3D button with depth effect
+  
+  // Back shadow layer (darker, larger)
+  const shadowGeometry = new THREE.BoxGeometry(0.47 * scale, 0.19 * scale, 0.005);
+  const shadowMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x000011,
+    transparent: true,
+    opacity: isDimmed ? 0.2 : 0.5
+  });
+  const shadowLayer = new THREE.Mesh(shadowGeometry, shadowMaterial);
+  shadowLayer.position.z = -0.015;
+  buttonGroup.add(shadowLayer);
+  
+  // Main button body with bevel effect
+  const panelGeometry = new THREE.BoxGeometry(0.45 * scale, 0.18 * scale, 0.025);
   const panelMaterial = new THREE.MeshStandardMaterial({ 
     color: isDimmed ? 0x002244 : 0x0055aa,
     emissive: isDimmed ? 0x001122 : 0x003388,
     emissiveIntensity: isDimmed ? 0.2 : 0.5,
-    metalness: 0.4,
-    roughness: 0.5,
+    metalness: 0.6,
+    roughness: 0.3,
     transparent: isDimmed,
     opacity: isDimmed ? 0.4 : 1.0
   });
   const panel = new THREE.Mesh(panelGeometry, panelMaterial);
   buttonGroup.add(panel);
+  
+  // Top highlight edge for 3D effect
+  const highlightTopGeometry = new THREE.BoxGeometry(0.44 * scale, 0.005, 0.028);
+  const highlightMaterial = new THREE.MeshStandardMaterial({ 
+    color: isDimmed ? 0x4477aa : 0x00ddff,
+    emissive: isDimmed ? 0x2255aa : 0x00aaff,
+    emissiveIntensity: isDimmed ? 0.3 : 0.8,
+    transparent: true,
+    opacity: isDimmed ? 0.3 : 0.6
+  });
+  const highlightTop = new THREE.Mesh(highlightTopGeometry, highlightMaterial);
+  highlightTop.position.y = 0.09 * scale;
+  highlightTop.position.z = 0.002;
+  buttonGroup.add(highlightTop);
+  
+  // Bottom shadow edge for depth
+  const shadowEdgeGeometry = new THREE.BoxGeometry(0.44 * scale, 0.005, 0.028);
+  const shadowEdgeMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x000033,
+    transparent: true,
+    opacity: isDimmed ? 0.3 : 0.5
+  });
+  const shadowEdge = new THREE.Mesh(shadowEdgeGeometry, shadowEdgeMaterial);
+  shadowEdge.position.y = -0.09 * scale;
+  shadowEdge.position.z = 0.002;
+  buttonGroup.add(shadowEdge);
+  
+  // Left and right edge highlights
+  const sideHighlightGeometry = new THREE.BoxGeometry(0.005, 0.17 * scale, 0.028);
+  const leftHighlight = new THREE.Mesh(sideHighlightGeometry, highlightMaterial.clone());
+  leftHighlight.position.x = -0.225 * scale;
+  leftHighlight.position.z = 0.002;
+  buttonGroup.add(leftHighlight);
+  
+  const rightShadow = new THREE.Mesh(sideHighlightGeometry, shadowEdgeMaterial.clone());
+  rightShadow.position.x = 0.225 * scale;
+  rightShadow.position.z = 0.002;
+  buttonGroup.add(rightShadow);
+  
+  // Glossy front layer
+  const glossGeometry = new THREE.BoxGeometry(0.42 * scale, 0.08 * scale, 0.001);
+  const glossMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffffff,
+    transparent: true,
+    opacity: isDimmed ? 0.1 : 0.2,
+    metalness: 0.9,
+    roughness: 0.1
+  });
+  const glossLayer = new THREE.Mesh(glossGeometry, glossMaterial);
+  glossLayer.position.y = 0.03 * scale;
+  glossLayer.position.z = 0.014;
+  buttonGroup.add(glossLayer);
   
   if (font) {
     // Month and year (small, top)
@@ -688,6 +751,7 @@ async function addWirePreviewsToButton(monthId, buttonGroup, scale, isDimmed) {
       
       const wireMesh = new THREE.Line(geometry, material);
       wireMesh.position.set(startX + (i - 1) * spacing, previewY, 0.02);
+      wireMesh.rotation.x = Math.PI / 3; // 60 degree tilt to show geometry
       buttonGroup.add(wireMesh);
       
       // Cache for reuse (only for non-dimmed version)
@@ -1331,7 +1395,7 @@ for (let i = 1; i <= 5; i++) {
 }
 
 const loader = new THREE.FontLoader();
-loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (loadedFont) {
+loader.load('https://threejs.org/examples/fonts/optimer_bold.typeface.json', function (loadedFont) {
 font = loadedFont;
 console.log('Font loaded successfully!', font);
 const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
@@ -2978,8 +3042,8 @@ function proceedToNextLevel() {
 
 // implement keyboard hover effects
 function updateKeyboardHoverState() {
-  // Only check if keyboard is active
-  if (!keyboardActive && !gameCompleted) return;
+  // Only check if keyboard is active or menu is visible
+  if (!keyboardActive && !gameCompleted && (!menuContainer || !menuContainer.visible)) return;
   
   // Reset previously hovered button
   if (hoveredButton) {
@@ -3001,6 +3065,10 @@ function updateKeyboardHoverState() {
     let allInteractableObjects = [...gameCompletionMeshes];
     if (keyboardActive) {
       allInteractableObjects = [...allInteractableObjects, ...keyboardMeshes];
+    }
+    // Add menu buttons when menu is visible
+    if (menuContainer && menuContainer.visible) {
+      allInteractableObjects = [...allInteractableObjects, ...menuContainer.children];
     }
     
     // Use recursive intersection to check all child objects too
