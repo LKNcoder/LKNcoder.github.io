@@ -1813,6 +1813,7 @@ function hideControllerRays() {
 // Function to make the wire flash
 function flashWire(times = 3, isGameComplete = false) {
 if (isFlashing) return;
+if (!wire || !wire.geometry) return; // Don't flash if wire doesn't exist
 isFlashing = true;
 
 let flashCount = 0;
@@ -3019,6 +3020,7 @@ renderer.render(scene, camera);
 
 function updateWireColor() {
 if (levelCompleted) return;
+if (!wire || !wire.geometry) return; // Don't update if wire doesn't exist yet
 const ringBox = new THREE.Box3().setFromObject(ring);
 const colors = wire.geometry.attributes.color.array;
 
