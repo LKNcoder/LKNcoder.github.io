@@ -50,12 +50,12 @@ canvas {
 
 #monthsContainer {
   width: 100%;
-  max-width: 800px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr; /* Fixed 3-column layout */
-  gap: 12px; /* Smaller gap */
-  padding: 15px;
-  margin: 0 auto;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  margin: 0 auto 40px auto;
 }
 
 #titleContainer {
@@ -77,43 +77,7 @@ canvas {
   color: #ff00ff;
 }
 
-.monthButton {
-  padding: 10px 15px; /* Reduced padding */
-  min-height: 100px; /* Reduced height */
-  font-size: 24px; /* Keep text size the same */
-  background-color: #00468e;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-  max-width: 250px; /* Slightly smaller max-width */
-  box-sizing: border-box;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center; /* Better vertical centering */
-  position: relative;
-  margin: 0 auto; /* Center in grid cell */
-}
 
-.monthButton:hover { 
-  background-color: #005bb5; 
-  transform: scale(1.05);
-}
-
-.monthButton .monthName {
-  font-weight: bold;
-  font-size: 28px;
-  margin-bottom: 5px;
-}
-
-.monthButton .monthTheme {
-  font-size: 18px;
-  color: #00ffff;
-}
 
 .newBadge {
   background-color: #ff00ff;
@@ -198,16 +162,18 @@ canvas {
 
 </head>
 <body>
+<!--  Levelsio Vibe Jam link  -->
+<a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
 
 <div id="loadingContainer">
-  <div id="titleContainer">
-    <h1 id="gameTitle">RING RING</h1>
-    <div id="gameSubtitle">VR GAME</div>
-  </div>
-  
-  <div id="monthsContainer" style="display: flex; flex-direction: column; gap: 20px;">
-    <!-- Month buttons will be generated here -->
-  </div>
+  <h1>RING RING</h1>
+  <p>move small ring around big ring</p>
+  <button id="enterVRButton" style="padding: 12px 24px; margin-top: 20px; background: #00ccff; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">
+    Enter VR
+  </button>
+  <div id="monthsContainer"></div>
+</div>
+    
 </div>
 
 <script type="importmap">
@@ -275,345 +241,397 @@ const firebaseConfig = {
   databaseURL: "https://ring-ring-vr-game-default-rtdb.firebaseio.com/",
   projectId: "ring-ring-vr-game"
 };
-firebase.initializeApp(firebaseConfig);
 
-const levelsRef = firebase.database().ref('levels/months');
-const leaderboardRef = firebase.database().ref('leaderboard');
+let levelsRef, leaderboardRef;
 
-loadAvailableMonths();
-
-function loadAvailableMonths() {
-  console.log("Loading available months...");
+try {
+  firebase.initializeApp(firebaseConfig);
+  console.log('Firebase initialized successfully');
   
-  // STEP 1: Show placeholder buttons immediately
-  const placeholderMonths = [
-    {
-      id: "2025-03",
-      name: "March 2025",
-      theme: "Loading..."
-    },
-    {
-      id: "2025-04", 
-      name: "April 2025",
-      theme: "Loading..."
-    }
-  ];
+  levelsRef = firebase.database().ref('levels/months');
+  leaderboardRef = firebase.database().ref('leaderboard');
   
-  // Generate placeholder buttons immediately
-  generateMonthButtons(placeholderMonths, true);
-  
-  // Add some styling for placeholders
-  const styleElement = document.createElement('style');
-styleElement.textContent = `
-  .monthButton.placeholder {
-    background-image: linear-gradient(to right, #003366, #004488, #003366);
-    background-size: 200% 100%;
-    animation: loadingPulse 1.5s infinite;
-  }
-  
-  @keyframes loadingPulse {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  
-  .comingSoonRibbon {
-    position: absolute;
-    top: 30px;                /* Moved further up */
-    right: -65px;              /* Positioned from right instead of left */
-    width: 220px;              /* Made wider to fit text */
-    transform: rotate(45deg);  /* Rotated for right corner */
-    background: linear-gradient(45deg, #ff8800, #ffaa00);
-    color: white;
-    padding: 5px 0;
-    font-size: 12px;
-    font-weight: bold;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    z-index: 1;
-  }
-`;
-document.head.appendChild(styleElement);
-  
-  // Fetch the real data in the background
-  Promise.all([
-  levelsRef.once('value'),
-  firebase.database().ref('monthlyWires').once('value')
-])
-.then(([legacySnapshot, newFormatSnapshot]) => {
-  // Process both types of data
-  const availableMonths = [];
-  
-  // Process legacy format data
-  legacySnapshot.forEach(monthSnapshot => {
-    const monthId = monthSnapshot.key;
-    const monthData = monthSnapshot.val();
-    if (monthData) {
-      // Extract month and year from ID (format: "YYYY-MM")
-      const [year, month] = monthId.split('-');
-      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-      const monthName = monthDate.toLocaleString('default', { month: 'long' });
-      
-      availableMonths.push({
-        id: monthId,
-        name: `${monthName} ${year}`,
-        theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
-      });
+  // Test Firebase connection
+  firebase.database().ref('.info/connected').on('value', function(snapshot) {
+    if (snapshot.val() === true) {
+      console.log('Firebase connected');
+    } else {
+      console.log('Firebase disconnected');
     }
   });
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+}
+
+
+// Auto-enter VR when page loads
+window.addEventListener('load', function() {
+  console.log('Page loaded, checking WebXR support...');
   
-  // Process new format data
-  newFormatSnapshot.forEach(monthSnapshot => {
-    const monthId = monthSnapshot.key;
-    // Skip if we already added this month from legacy data
-    if (!availableMonths.some(m => m.id === monthId)) {
-      // Extract month and year from ID (format: "YYYY-MM")
-      const [year, month] = monthId.split('-');
-      const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-      const monthName = monthDate.toLocaleString('default', { month: 'long' });
-      
-      availableMonths.push({
-        id: monthId,
-        name: `${monthName} ${year}`,
-        theme: `Levels 1-5`  // Default theme
-      });
-    }
-  });
-  
-  if (availableMonths.length > 0) {
-    // Generate buttons with the fetched data
-    generateMonthButtons(availableMonths);
-  } else {
-    console.warn("No months found in Firebase, using defaults");
-    // If no months found, use default data
-    const defaultMonths = [
-      {
-        id: "2025-04",
-        name: "April 2025",
-        theme: "Levels 1-5"
-      },
-      {
-        id: "2025-03",
-        name: "March 2025",
-        theme: "Levels 6-10"
+  // Check if WebXR is supported
+  if (navigator.xr) {
+    console.log('WebXR is supported');
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      console.log('VR session supported:', supported);
+      if (supported) {
+        // Initialize first (needed for VR)
+        init();
+        
+        // Wait for essential resources to load
+        const resourceCheckInterval = setInterval(function() {
+          if (font && renderer) {
+            clearInterval(resourceCheckInterval);
+            console.log("Resources loaded, entering VR");
+            
+            // Request VR session
+            navigator.xr.requestSession('immersive-vr', {
+              optionalFeatures: ['local-floor', 'hand-tracking']
+            }).then(session => {
+              // Hide 2D UI once VR session starts
+              document.getElementById('loadingContainer').style.display = 'none';
+              
+              // Set up XR session
+              renderer.xr.setSession(session);
+              
+              // Set up session end handling
+              session.addEventListener('end', () => {
+                // Show 2D UI again when exiting VR
+                document.getElementById('loadingContainer').style.display = 'flex';
+                cleanupGameScene();
+              });
+              
+              // Create 3D month selection UI in VR
+              createVRMonthMenu();
+            }).catch(error => {
+              console.error('Failed to enter VR:', error);
+              // Fall back to 2D interface
+            });
+          }
+        }, 100);
       }
-    ];
+    });
+  }
+})
+
+// Add click handler for the VR button
+document.getElementById('enterVRButton').addEventListener('click', function() {
+  if (navigator.xr) {
+    console.log("Manual VR entry requested");
     
-    // Generate buttons with default data
-    generateMonthButtons(defaultMonths);
+    // Initialize if needed
+    if (!renderer) {
+      init();
+    }
     
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      if (supported) {
+        navigator.xr.requestSession('immersive-vr', {
+          optionalFeatures: ['local-floor', 'hand-tracking']
+        }).then(session => {
+          console.log("VR session granted");
+          document.getElementById('loadingContainer').style.display = 'none';
+          renderer.xr.setSession(session);
+          
+          // Set up session events
+          session.addEventListener('end', () => {
+            document.getElementById('loadingContainer').style.display = 'flex';
+            cleanupGameScene();
+          });
+          
+          // Create VR UI
+          createVRMonthMenu();
+        }).catch(error => {
+          console.error("Error starting VR session:", error);
+          alert(`Error starting VR: ${error.message}`);
+        });
+      } else {
+        console.error("VR not supported");
+        alert("VR not supported by your browser or headset not connected.");
+      }
+    });
+  } else {
+    console.error("WebXR not available");
+    alert("WebXR not supported by your browser.");
   }
 });
-}
 
-
-function generateMonthButtons(monthsArray) {
-  const monthsContainer = document.getElementById('monthsContainer');
-  monthsContainer.innerHTML = ''; // Clear existing content
-
-  // Ensure the container uses grid layout with 3 columns
-  monthsContainer.style.display = 'grid';
-  monthsContainer.style.gridTemplateColumns = '1fr 1fr 1fr';
-  monthsContainer.style.gap = '12px';
+function createVRMonthMenu() {
+  console.log('Creating VR month menu...');
   
-  // Get the current date to determine the next month
-  const currentDate = new Date();
+  // Create a container for the menu
+  const menuContainer = new THREE.Group();
+  menuContainer.position.set(0, 1.6, -1.0); // Position in front of user
+  scene.add(menuContainer);
   
-  // Find the newest month before sorting
-  const latestMonth = [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
-  
-  // Sort months by date (oldest first) - reversed from previous order
-  monthsArray.sort((a, b) => a.id.localeCompare(b.id));
-  
-  // Custom month labels based on month ID
-  monthsArray.forEach(month => {
-    // Set the correct theme based on month ID
-    if (month.id === "2025-03") {
-      month.theme = "Levels 1-5";
-    } else if (month.id === "2025-04") {
-      month.theme = "Levels 6-10";
-    } else {
-      // For May onwards, calculate dynamically
-      const monthNum = parseInt(month.id.split('-')[1]);
-      
-      if (!isNaN(monthNum)) {
-        const monthIndex = monthNum - 3; // March = 0, April = 1, May = 2
-        const startLevel = (monthIndex * 5) + 1;
-        const endLevel = startLevel + 4;
-        month.theme = `Levels ${startLevel}-${endLevel}`;
-      }
-    }
-  });
-  
-  // Create active month buttons
-  monthsArray.forEach((month, index) => {
-    const button = createMonthButton(month, index, latestMonth);
-    monthsContainer.appendChild(button);
-  });
-  
-  // Calculate the next month for "Coming Soon"
-  // Get the latest month by finding the month with the most recent date
-  const mostRecentMonth = monthsArray.length > 0 ? 
-    [...monthsArray].sort((a, b) => b.id.localeCompare(a.id))[0] : null;
-  let latestYearMonth = mostRecentMonth ? 
-    mostRecentMonth.id.split('-').map(Number) : [currentDate.getFullYear(), currentDate.getMonth() + 1];
-  
-  // Calculate the next month
-  let [nextYear, nextMonth] = latestYearMonth;
-  nextMonth++;
-  if (nextMonth > 12) {
-    nextYear++;
-    nextMonth = 1;
-  }
-  
-  // Format with leading zeros
-  const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-  const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
-  
-  // Create "Coming Soon" button for next month if it doesn't exist
-  if (!monthsArray.some(m => m.id === nextMonthId)) {
-    let nextMonthTheme = "Coming Soon";
-    
-    const nextMonthNum = parseInt(nextMonthId.split('-')[1]);
-    if (!isNaN(nextMonthNum)) {
-      const nextMonthIndex = nextMonthNum - 3;
-      const startLevel = (nextMonthIndex * 5) + 1;
-      const endLevel = startLevel + 4;
-      nextMonthTheme = `Levels ${startLevel}-${endLevel}`;
-    }
-    
-    const comingSoonButton = document.createElement('div');
-    comingSoonButton.className = 'monthButton';
-    comingSoonButton.style.opacity = '0.75';
-    comingSoonButton.style.transform = 'scale(0.9)';
-    comingSoonButton.style.pointerEvents = 'none';
-    comingSoonButton.style.position = 'relative';
-    comingSoonButton.style.overflow = 'hidden';
-    
-    comingSoonButton.innerHTML = `
-      <div class="comingSoonRibbon">COMING SOON</div>
-      <div class="monthName">${nextMonthName} ${nextYear}</div>
-      <div class="monthTheme">${nextMonthTheme}</div>
-    `;
-    monthsContainer.appendChild(comingSoonButton);
-  }
-  
-  // If there are more than 9 months, add pagination
-  if (monthsArray.length > 9) {
-    paginateMonths([...monthsArray]);
-  }
-}
-
-
-
-function fetchLeaderboardForTooltip(monthId, tooltipElement) {
-  const leaderboardContent = tooltipElement.querySelector('.leaderboardContent');
-  
-  // Reference to the monthly leaderboard
-  const monthLeaderboardRef = firebase.database().ref(`leaderboard/${monthId}`);
-  
-  monthLeaderboardRef.orderByChild('totalTime').limitToFirst(5).once('value')
-    .then(snapshot => {
-      const leaderboardData = [];
-      
-      // Convert Firebase snapshot to array
-      snapshot.forEach(childSnapshot => {
-        leaderboardData.push({
-          name: childSnapshot.val().playerName || 'Anonymous',
-          time: childSnapshot.val().totalTime || 0
-        });
-      });
-      
-      // Sort by time (lowest first)
-      leaderboardData.sort((a, b) => a.time - b.time);
-      
-      // Update tooltip content
-      if (leaderboardData.length > 0) {
-        let html = '';
-        leaderboardData.forEach((player, index) => {
-          html += `
-            <div class="leaderboardPlayer">
-              <span class="leaderboardRank">#${index + 1}</span>
-              <span class="leaderboardName">${player.name}</span>
-              <span class="leaderboardTime">${formatTime(player.time)}</span>
-            </div>
-          `;
-        });
-        leaderboardContent.innerHTML = html;
-      } else {
-        leaderboardContent.innerHTML = '<div class="noRecords">No records yet.<br>Be the first!</div>';
-      }
-    })
-    .catch(error => {
-      console.error("Error fetching leaderboard:", error);
-      leaderboardContent.innerHTML = '<div class="noRecords">Could not load leaderboard</div>';
+  // Create title
+  if (font) {
+    const titleGeometry = new THREE.TextGeometry("RING RING", { 
+      font: font, 
+      size: 0.08, 
+      height: 0.01 
     });
+    const titleMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ffff,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.5 
+    });
+    const titleMesh = new THREE.Mesh(titleGeometry, titleMaterial);
+    titleGeometry.computeBoundingBox();
+    const titleWidth = titleGeometry.boundingBox.max.x - titleGeometry.boundingBox.min.x;
+    titleMesh.position.set(-titleWidth/2, 0.3, 0);
+    menuContainer.add(titleMesh);
+    
+    // Subtitle
+    const subtitleGeometry = new THREE.TextGeometry("SELECT MONTH", { 
+      font: font, 
+      size: 0.04, 
+      height: 0.005 
+    });
+    const subtitleMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+    const subtitleMesh = new THREE.Mesh(subtitleGeometry, subtitleMaterial);
+    subtitleGeometry.computeBoundingBox();
+    const subtitleWidth = subtitleGeometry.boundingBox.max.x - subtitleGeometry.boundingBox.min.x;
+    subtitleMesh.position.set(-subtitleWidth/2, 0.2, 0);
+    menuContainer.add(subtitleMesh);
+  }
+  
+  // Fetch available months and create buttons
+  Promise.all([
+    levelsRef.once('value'),
+    firebase.database().ref('monthlyWires').once('value')
+  ]).then(([legacySnapshot, newFormatSnapshot]) => {
+    console.log('Firebase data loaded successfully');
+    const availableMonths = [];
+    
+    // Process legacy format data
+    legacySnapshot.forEach(monthSnapshot => {
+      const monthId = monthSnapshot.key;
+      const monthData = monthSnapshot.val();
+      if (monthData) {
+        const [year, month] = monthId.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
+        
+        availableMonths.push({
+          id: monthId,
+          name: `${monthName} ${year}`,
+          theme: monthData.theme || `Levels ${monthData.levels?.length || 5}`
+        });
+      }
+    });
+    
+    // Process new format data
+    newFormatSnapshot.forEach(monthSnapshot => {
+      const monthId = monthSnapshot.key;
+      if (!availableMonths.some(m => m.id === monthId)) {
+        const [year, month] = monthId.split('-');
+        const monthDate = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
+        
+        availableMonths.push({
+          id: monthId,
+          name: `${monthName} ${year}`,
+          theme: `Levels 1-5`
+        });
+      }
+    });
+    
+    // Sort months
+    availableMonths.sort((a, b) => a.id.localeCompare(b.id));
+    
+    console.log('Available months:', availableMonths.length, availableMonths.map(m => m.id));
+    
+    // Check if we have any months
+    if (availableMonths.length === 0) {
+      console.error('No months found in Firebase!');
+      // Create an error message in VR
+      if (font) {
+        const errorGeometry = new THREE.TextGeometry('No levels found!\nCheck Firebase connection', { 
+          font: font, 
+          size: 0.04, 
+          height: 0.005 
+        });
+        const errorMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const errorMesh = new THREE.Mesh(errorGeometry, errorMaterial);
+        errorMesh.position.set(-0.2, 0, 0);
+        menuContainer.add(errorMesh);
+      }
+      return;
+    }
+    
+    // Create 3D buttons for each month
+    availableMonths.forEach((month, index) => {
+      createVRMonthButton(month, index, menuContainer);
+    });
+    
+    // Add "Coming Soon" button - only if we have months
+    const latestMonth = availableMonths[availableMonths.length - 1];
+    const [year, month] = latestMonth.id.split('-').map(Number);
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear++;
+    }
+    const nextMonthId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    const nextMonthName = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long' });
+    
+    // Add "Coming Soon" month
+    if (!availableMonths.some(m => m.id === nextMonthId)) {
+      createVRComingSoonButton({
+        id: nextMonthId,
+        name: `${nextMonthName} ${nextYear}`,
+        theme: "Coming Soon"
+      }, availableMonths.length, menuContainer);
+    }
+    
+    // Create ray-based interaction system
+    createControllerRays();
+  }).catch(error => {
+    console.error('Error loading months from Firebase:', error);
+    // Create an error message in VR
+    if (font) {
+      const errorGeometry = new THREE.TextGeometry('Error loading levels!\nCheck console', { 
+        font: font, 
+        size: 0.04, 
+        height: 0.005 
+      });
+      const errorMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+      const errorMesh = new THREE.Mesh(errorGeometry, errorMaterial);
+      errorGeometry.computeBoundingBox();
+      const errorWidth = errorGeometry.boundingBox.max.x - errorGeometry.boundingBox.min.x;
+      errorMesh.position.set(-errorWidth/2, 0, 0);
+      menuContainer.add(errorMesh);
+    }
+  });
+}
+
+function createVRMonthButton(month, index, container) {
+  // Set up button material and geometry
+  const buttonWidth = 0.4;
+  const buttonHeight = 0.1;
+  const buttonGeometry = new THREE.BoxGeometry(buttonWidth, buttonHeight, 0.01);
+  const buttonMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00468e,
+    emissive: 0x002244,
+    emissiveIntensity: 0.3
+  });
+  
+  // Create button mesh
+  const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
+  button.position.set(0, 0.1 - (index * 0.12), 0);
+  container.add(button);
+  
+  // Store month ID in button's userData
+  button.userData.isButton = true;
+  button.userData.monthId = month.id;
+  button.userData.defaultColor = 0x00468e;
+  button.userData.hoverColor = 0x005bb5;
+  button.userData.pressColor = 0x00ffff;
+  button.userData.buttonType = 'monthSelect';
+  
+  // Add month name text
+  if (font) {
+    // Month name
+    const nameGeometry = new THREE.TextGeometry(month.name, { 
+      font: font, 
+      size: 0.025, 
+      height: 0.005 
+    });
+    const nameMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
+    nameGeometry.computeBoundingBox();
+    const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
+    nameMesh.position.set(-nameWidth/2, 0.01, 0.01);
+    button.add(nameMesh);
+    
+    // Theme text
+    const themeGeometry = new THREE.TextGeometry(month.theme, { 
+      font: font, 
+      size: 0.018, 
+      height: 0.002 
+    });
+    const themeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+    const themeMesh = new THREE.Mesh(themeGeometry, themeMaterial);
+    themeGeometry.computeBoundingBox();
+    const themeWidth = themeGeometry.boundingBox.max.x - themeGeometry.boundingBox.min.x;
+    themeMesh.position.set(-themeWidth/2, -0.02, 0.01);
+    button.add(themeMesh);
+    
+    // Add "NEW" badge for latest month
+    const latestMonth = [...availableMonths].sort((a, b) => b.id.localeCompare(a.id))[0]?.id;
+    if (month.id === latestMonth) {
+      const badgeGeometry = new THREE.TextGeometry("NEW", { 
+        font: font, 
+        size: 0.015, 
+        height: 0.002 
+      });
+      const badgeMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xff00ff,
+        emissive: 0xff00ff,
+        emissiveIntensity: 0.5
+      });
+      const badgeMesh = new THREE.Mesh(badgeGeometry, badgeMaterial);
+      badgeMesh.position.set(buttonWidth/2 - 0.05, buttonHeight/2 - 0.01, 0.01);
+      button.add(badgeMesh);
+    }
+  }
+  
+  return button;
+}
+
+function createVRComingSoonButton(month, index, container) {
+  // Similar to createVRMonthButton but with disabled state
+  const buttonWidth = 0.4;
+  const buttonHeight = 0.1;
+  const buttonGeometry = new THREE.BoxGeometry(buttonWidth, buttonHeight, 0.01);
+  const buttonMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x333333,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
+  button.position.set(0, 0.1 - (index * 0.12), 0);
+  container.add(button);
+  
+  if (font) {
+    // Month name
+    const nameGeometry = new THREE.TextGeometry(month.name, { 
+      font: font, 
+      size: 0.025, 
+      height: 0.005 
+    });
+    const nameMaterial = new THREE.MeshStandardMaterial({ color: 0x999999 });
+    const nameMesh = new THREE.Mesh(nameGeometry, nameMaterial);
+    nameGeometry.computeBoundingBox();
+    const nameWidth = nameGeometry.boundingBox.max.x - nameGeometry.boundingBox.min.x;
+    nameMesh.position.set(-nameWidth/2, 0.01, 0.01);
+    button.add(nameMesh);
+    
+    // Coming Soon text
+    const comingSoonGeometry = new THREE.TextGeometry("COMING SOON", { 
+      font: font, 
+      size: 0.018, 
+      height: 0.002 
+    });
+    const comingSoonMaterial = new THREE.MeshStandardMaterial({ color: 0xff8800 });
+    const comingSoonMesh = new THREE.Mesh(comingSoonGeometry, comingSoonMaterial);
+    comingSoonGeometry.computeBoundingBox();
+    const comingSoonWidth = comingSoonGeometry.boundingBox.max.x - comingSoonGeometry.boundingBox.min.x;
+    comingSoonMesh.position.set(-comingSoonWidth/2, -0.02, 0.01);
+    button.add(comingSoonMesh);
+  }
+  
+  return button;
 }
 
 
-function paginateMonths(monthsArray, monthsPerPage = 6) {
-  const totalPages = Math.ceil(monthsArray.length / monthsPerPage);
-  let currentPage = 0;
-  
-  // Initial display
-  displayMonthPage(currentPage);
-  
-  // Add pagination controls if needed
-  if (totalPages > 1) {
-    addPaginationControls(totalPages);
-  }
-  
-  function displayMonthPage(pageNum) {
-    const start = pageNum * monthsPerPage;
-    const end = start + monthsPerPage;
-    const pageMonths = monthsArray.slice(start, end);
-    
-    // Clear and display only this page's months
-    const monthsContainer = document.getElementById('monthsContainer');
-    monthsContainer.innerHTML = '';
-    generateMonthButtonsForPage(pageMonths, monthsContainer);
-    
-    // Update page indicator
-    document.getElementById('pageIndicator').textContent = `Page ${pageNum+1}/${totalPages}`;
-  }
-  
-  function addPaginationControls(totalPages) {
-    const controls = document.createElement('div');
-    controls.className = 'pagination-controls';
-    
-    // Add prev button
-    const prevBtn = document.createElement('button');
-    prevBtn.textContent = '← Previous';
-    prevBtn.onclick = () => {
-      if (currentPage > 0) {
-        currentPage--;
-        displayMonthPage(currentPage);
-      }
-    };
-    
-    // Add page indicator
-    const indicator = document.createElement('span');
-    indicator.id = 'pageIndicator';
-    indicator.textContent = `Page 1/${totalPages}`;
-    
-    // Add next button
-    const nextBtn = document.createElement('button');
-    nextBtn.textContent = 'Next →';
-    nextBtn.onclick = () => {
-      if (currentPage < totalPages - 1) {
-        currentPage++;
-        displayMonthPage(currentPage);
-      }
-    };
-    
-    controls.appendChild(prevBtn);
-    controls.appendChild(indicator);
-    controls.appendChild(nextBtn);
-    
-    // Add controls below months container
-    document.querySelector('#loadingContainer').appendChild(controls);
-  }
-}
+
+
+
+
+
 
 
 
@@ -641,90 +659,29 @@ function cleanupVisualEffects() {
   confettiStartTime = null;
 }
 
-function createMonthButton(month, index, latestMonth) {
-  const button = document.createElement('div');
-  button.className = 'monthButton';
+
+// New function that only handles month switching
+async function switchMonth(monthId) {
+  console.log(`Switching to month: ${monthId}`);
+  selectedMonth = monthId;
   
-  // Store the month ID as a data attribute for easy access
-  button.dataset.monthId = month.id;
-  
-  // Create HTML content
-  button.innerHTML = `
-    <div class="monthName">${month.name}</div>
-    <div class="monthTheme">${month.theme}</div>
-    ${month.id === latestMonth ? '<span class="newBadge">NEW</span>' : ''}
-  `;
-  
-  // Clear and set up the button click handler
-  button.onclick = function(event) {
-    // Prevent event bubbling if needed
-    event.stopPropagation();
-    
-    // Get the month ID from the dataset
-    const monthId = this.dataset.monthId;
-    
-    // Visual feedback
-    this.style.backgroundColor = '#00ffff';
-    
-    // Reset any global state flags
-    isQuitting = false;
-    gameCompleted = false;
-    isExploding = false;
-    isFlashing = false;
-    
-    // Clear any existing confetti and fragments
-    cleanupVisualEffects();
-    
-    // Call enterVR with the month ID
-    enterVR(monthId);
-    
-    // Reset the button color after a short delay
-    setTimeout(() => this.style.backgroundColor = '', 300);
-  };
-  
-  // Create tooltip and other functionality (unchanged)
-  const tooltip = document.createElement('div');
-  tooltip.className = 'leaderboardTooltip';
-  tooltip.innerHTML = '<h3>Fastest Times</h3><div class="leaderboardContent">Loading...</div>';
-  document.body.appendChild(tooltip);
-  
-  // Tooltip hover handlers
-  button.addEventListener('mouseenter', (event) => {
-    const rect = button.getBoundingClientRect();
-    tooltip.style.left = `${rect.right + 10}px`;
-    tooltip.style.top = `${rect.top + window.scrollY}px`;
-    tooltip.classList.add('visible');
-    fetchLeaderboardForTooltip(button.dataset.monthId, tooltip);
-  });
-  
-  button.addEventListener('mouseleave', () => {
-    tooltip.classList.remove('visible');
-  });
-  
-  return button;
+  try {
+    await loadMonthLevels(monthId);
+    resetGameForNewMonth();
+    if (chimeSound) {
+      chimeSound.play().catch(error => {});
+    }
+  } catch (error) {
+    console.error("Error switching month:", error);
+  }
 }
 
 
+  
 async function enterVR(monthId) {
-  console.log(`Selected month: ${monthId}`);
-  selectedMonth = monthId;
-  
-  // First check: are we already in a VR session?
-  const alreadyInVR = renderer && renderer.xr && renderer.xr.isPresenting;
-  
-  if (alreadyInVR) {
-    // Already in VR, just switch month
-    try {
-      await loadMonthLevels(monthId);
-      resetGameForNewMonth();
-      if (chimeSound) {
-        chimeSound.play().catch(error => {});
-      }
-      return;
-    } catch (error) {
-      console.error("Error switching month in VR:", error);
-      return;
-    }
+  // Already in VR? Just switch the month
+  if (renderer && renderer.xr && renderer.xr.isPresenting) {
+    return switchMonth(monthId);
   }
   
   // Not in VR yet, need to enter VR mode
@@ -2116,6 +2073,8 @@ function onSelectStart(event) {
         else if (button.userData.buttonType === 'quit') {
   console.log('Quitting game...');
   isQuitting = true;
+
+  
   
   // Stop all sounds and music immediately
   if (endGameMusic) endGameMusic.pause();
@@ -2130,11 +2089,11 @@ function onSelectStart(event) {
   isExploding = false;
   
   // Clear any active timers
-  const highestTimeoutId = setTimeout(";");
+const highestTimeoutId = setTimeout(() => {}, 0);
   for (let i = 0; i < highestTimeoutId; i++) {
     clearTimeout(i);
   }
-  
+ 
   // Clean up visual effects
   cleanupVisualEffects();
   
@@ -2158,6 +2117,49 @@ function onSelectStart(event) {
   
   return;
 }
+
+else if (button.userData.buttonType === 'monthSelect') {
+  // Handle month selection in VR
+  console.log('Month selected in VR:', button.userData.monthId);
+  
+  // Visual feedback
+  if (button.material) {
+    const originalColor = button.material.color.getHex();
+    button.material.color.setHex(button.userData.pressColor);
+    
+    setTimeout(() => {
+      if (button.material) {
+        button.material.color.setHex(button.userData.defaultColor);
+      }
+    }, 300);
+  }
+  
+  // Hide all month buttons
+  let menuContainer = button.parent;
+  if (menuContainer) {
+    menuContainer.visible = false;
+    
+    // Load the selected month
+    const monthId = button.userData.monthId;
+    selectedMonth = monthId;
+    
+    // Play chime sound
+    if (chimeSound) {
+      chimeSound.play().catch(error => {});
+    }
+    
+  // Use switchMonth instead of the direct calls
+  switchMonth(monthId).then(() => {
+    triggerHapticFeedbackByHandedness('left', 0.5, 100);
+    triggerHapticFeedbackByHandedness('right', 0.5, 100);
+  });
+  
+  return;
+}
+
+}
+
+
       }
     }
   }
