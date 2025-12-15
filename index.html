@@ -478,77 +478,55 @@ function displaySelectedMonth() {
   }
   leaderboardMeshes = [];
   
-  const month = menuMonths[currentMonthIndex];
-  const [year, monthNum] = month.id.split('-').map(Number);
-  const monthDate = new Date(year, monthNum - 1);
-  const monthName = monthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
+  // Display all months in a circular arc around the user
+  const radius = 1.2; // Distance from user
+  const totalMonths = menuMonths.length;
+  const arcSpan = Math.PI * 1.2; // 216 degrees arc
+  const angleStep = arcSpan / Math.max(totalMonths - 1, 1);
+  const startAngle = -arcSpan / 2; // Center the arc in front of user
   
-  // Calculate level numbers for this month
-  const monthsSinceMarch = (year - 2025) * 12 + (monthNum - 3);
-  const firstLevel = (monthsSinceMarch * 5) + 1;
-  const lastLevel = firstLevel + 4;
-  
-  // Show previous month (dimmed, in background)
-  if (currentMonthIndex > 0) {
-    const prevMonth = menuMonths[currentMonthIndex - 1];
-    const [prevYear, prevMonthNum] = prevMonth.id.split('-').map(Number);
-    const prevMonthDate = new Date(prevYear, prevMonthNum - 1);
-    const prevMonthName = prevMonthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
-    const prevMonthsSince = (prevYear - 2025) * 12 + (prevMonthNum - 3);
-    const prevFirstLevel = (prevMonthsSince * 5) + 1;
-    const prevLastLevel = prevFirstLevel + 4;
+  menuMonths.forEach((month, index) => {
+    const [year, monthNum] = month.id.split('-').map(Number);
+    const monthDate = new Date(year, monthNum - 1);
+    const monthName = monthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
     
-    const prevButton = createMonthButton(prevMonthName, prevYear, prevFirstLevel, prevLastLevel, -0.55, 0.0, 0.7, true);
-    // Add wire previews asynchronously
-    addWirePreviewsToButton(prevMonth.id, prevButton, 0.7, true);
-  }
-  
-  // Show next month (dimmed, in background)
-  if (currentMonthIndex < menuMonths.length - 1) {
-    const nextMonth = menuMonths[currentMonthIndex + 1];
-    const [nextYear, nextMonthNum] = nextMonth.id.split('-').map(Number);
-    const nextMonthDate = new Date(nextYear, nextMonthNum - 1);
-    const nextMonthName = nextMonthDate.toLocaleString('default', { month: 'long' }).toUpperCase();
-    const nextMonthsSince = (nextYear - 2025) * 12 + (nextMonthNum - 3);
-    const nextFirstLevel = (nextMonthsSince * 5) + 1;
-    const nextLastLevel = nextFirstLevel + 4;
+    // Calculate level numbers
+    const monthsSinceMarch = (year - 2025) * 12 + (monthNum - 3);
+    const firstLevel = (monthsSinceMarch * 5) + 1;
+    const lastLevel = firstLevel + 4;
     
-    const nextButton = createMonthButton(nextMonthName, nextYear, nextFirstLevel, nextLastLevel, 0.55, 0.0, 0.7, true);
+    // Calculate position on arc
+    const angle = startAngle + (index * angleStep);
+    const xPos = Math.sin(angle) * radius;
+    const zPos = -Math.cos(angle) * radius;
+    
+    // Determine if this is the current month
+    const isCurrent = index === currentMonthIndex;
+    const scale = isCurrent ? 1.0 : 0.7;
+    const isDimmed = !isCurrent;
+    
+    const button = createMonthButton(monthName, year, firstLevel, lastLevel, xPos, 0.0, scale, isDimmed);
+    
+    // Rotate button to face the user
+    button.rotation.y = angle;
+    button.position.z = zPos;
+    
+    // Make all buttons clickable
+    button.userData.isButton = true;
+    button.userData.buttonType = 'monthSelect';
+    button.userData.monthId = month.id;
+    button.userData.monthIndex = index;
+    button.userData.defaultColor = isCurrent ? 0x0055aa : 0x002244;
+    button.userData.hoverColor = isCurrent ? 0x0077dd : 0x0055aa;
+    button.userData.pressColor = 0x00ddff;
+    
     // Add wire previews asynchronously
-    addWirePreviewsToButton(nextMonth.id, nextButton, 0.7, true);
-  }
+    addWirePreviewsToButton(month.id, button, scale, isDimmed);
+  });
   
-  // Current month - large, centered, clickable
-  const currentButton = createMonthButton(monthName, year, firstLevel, lastLevel, 0, 0.0, 1.0, false);
-  currentButton.userData.isButton = true;
-  currentButton.userData.buttonType = 'startMonth';
-  currentButton.userData.monthId = month.id;
-  currentButton.userData.defaultColor = 0x0055aa;
-  currentButton.userData.hoverColor = 0x0077dd;
-  currentButton.userData.pressColor = 0x00ddff;
-  // Add wire previews asynchronously
-  addWirePreviewsToButton(month.id, currentButton, 1.0, false);
-  
-  // Left arrow button
-  const leftArrow = createArrowButton('left', -0.5, 0.0);
-  leftArrow.userData.isButton = true;
-  leftArrow.userData.buttonType = 'leftArrow';
-  leftArrow.userData.defaultColor = 0x003366;
-  leftArrow.userData.hoverColor = 0x0055aa;
-  leftArrow.userData.pressColor = 0x00ffff;
-  menuContainer.add(leftArrow);
-  
-  // Right arrow button
-  const rightArrow = createArrowButton('right', 0.5, 0.0);
-  rightArrow.userData.isButton = true;
-  rightArrow.userData.buttonType = 'rightArrow';
-  rightArrow.userData.defaultColor = 0x003366;
-  rightArrow.userData.hoverColor = 0x0055aa;
-  rightArrow.userData.pressColor = 0x00ffff;
-  menuContainer.add(rightArrow);
-  
-  // Load and display leaderboard
-  loadMonthLeaderboard(month.id);
+  // Load and display leaderboard for current month
+  const currentMonth = menuMonths[currentMonthIndex];
+  loadMonthLeaderboard(currentMonth.id);
 }
 
 function createMonthButton(monthName, year, firstLevel, lastLevel, xPos, yPos, scale, isDimmed) {
@@ -701,7 +679,7 @@ async function addWirePreviewsToButton(monthId, buttonGroup, scale, isDimmed) {
     if (!monthData) return; // No data available
     
     const previews = [];
-    const previewScale = 0.015 * scale; // Tiny wires
+    const previewScale = 0.045 * scale; // Bigger wires (3x original)
     const spacing = 0.075 * scale;
     const startX = -0.15 * scale;
     const previewY = 0.1 * scale;
@@ -752,6 +730,7 @@ async function addWirePreviewsToButton(monthId, buttonGroup, scale, isDimmed) {
       const wireMesh = new THREE.Line(geometry, material);
       wireMesh.position.set(startX + (i - 1) * spacing, previewY, 0.02);
       wireMesh.rotation.x = Math.PI / 3; // 60 degree tilt to show geometry
+      wireMesh.userData.isRotatingPreview = true; // Flag for animation
       buttonGroup.add(wireMesh);
       
       // Cache for reuse (only for non-dimmed version)
@@ -772,40 +751,42 @@ async function addWirePreviewsToButton(monthId, buttonGroup, scale, isDimmed) {
 function createArrowButton(direction, x, y) {
   const arrowGroup = new THREE.Group();
   
-  // Sleek circular button background
-  const buttonGeometry = new THREE.CylinderGeometry(0.045, 0.045, 0.015, 32);
-  buttonGeometry.rotateX(Math.PI / 2);
+  // Create triangle arrow shape
+  const triangleShape = new THREE.Shape();
+  if (direction === 'left') {
+    // Left-pointing triangle
+    triangleShape.moveTo(0.04, 0);
+    triangleShape.lineTo(-0.04, 0.05);
+    triangleShape.lineTo(-0.04, -0.05);
+    triangleShape.lineTo(0.04, 0);
+  } else {
+    // Right-pointing triangle
+    triangleShape.moveTo(-0.04, 0);
+    triangleShape.lineTo(0.04, 0.05);
+    triangleShape.lineTo(0.04, -0.05);
+    triangleShape.lineTo(-0.04, 0);
+  }
+  
+  const extrudeSettings = {
+    depth: 0.02,
+    bevelEnabled: true,
+    bevelThickness: 0.005,
+    bevelSize: 0.005,
+    bevelSegments: 2
+  };
+  
+  const buttonGeometry = new THREE.ExtrudeGeometry(triangleShape, extrudeSettings);
   const buttonMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x003366,
-    emissive: 0x002244,
-    emissiveIntensity: 0.4,
-    metalness: 0.6,
-    roughness: 0.4
+    emissive: 0x0055aa,
+    emissiveIntensity: 0.5,
+    metalness: 0.7,
+    roughness: 0.3
   });
   const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
   arrowGroup.add(button);
   
-  if (font) {
-    const arrowText = direction === 'left' ? '<' : '>';
-    const arrowGeometry = new THREE.TextGeometry(arrowText, { 
-      font: font, 
-      size: 0.04, 
-      height: 0.008 
-    });
-    const arrowMesh = new THREE.Mesh(arrowGeometry, 
-      new THREE.MeshStandardMaterial({ 
-        color: 0xffffff,
-        emissive: 0x88ddff,
-        emissiveIntensity: 0.4
-      }));
-    arrowGeometry.computeBoundingBox();
-    const arrowWidth = arrowGeometry.boundingBox.max.x - arrowGeometry.boundingBox.min.x;
-    const arrowHeight = arrowGeometry.boundingBox.max.y - arrowGeometry.boundingBox.min.y;
-    arrowMesh.position.set(-arrowWidth/2, -arrowHeight/2, 0.01);
-    button.add(arrowMesh);
-  }
-  
-  arrowGroup.position.set(x, y, 0);
+  arrowGroup.position.set(x, y, 0.3); // Move closer to user to avoid overlap
   return arrowGroup;
 }
 
@@ -1395,7 +1376,7 @@ for (let i = 1; i <= 5; i++) {
 }
 
 const loader = new THREE.FontLoader();
-loader.load('https://threejs.org/examples/fonts/optimer_bold.typeface.json', function (loadedFont) {
+loader.load('https://threejs.org/examples/fonts/droid/droid_sans_bold.typeface.json', function (loadedFont) {
 font = loadedFont;
 console.log('Font loaded successfully!', font);
 const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
@@ -2400,17 +2381,26 @@ function calculateClosestPointOnLineParameter(point, lineStart, lineEnd) {
 function onSelectStart(event) {
   const controllerPosition = event.target.position;
   
-  // Check for button interactions first if game is completed OR keyboard is active
-  if (gameCompletionMeshes.length > 0 || keyboardActive) {
-    console.log('Checking for UI interactions, keyboard active:', keyboardActive);
+  // Check for button interactions first if game is completed OR keyboard is active OR menu is visible
+  if (gameCompletionMeshes.length > 0 || keyboardActive || (menuContainer && menuContainer.visible)) {
+    console.log('Checking for UI interactions, keyboard active:', keyboardActive, 'menu visible:', menuContainer && menuContainer.visible);
     
     const raycaster = new THREE.Raycaster();
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(event.target.quaternion);
     raycaster.set(controllerPosition, direction);
     
+    // Collect all interactive objects
+    let allInteractiveObjects = [...gameCompletionMeshes];
+    if (keyboardActive) {
+      allInteractiveObjects = [...allInteractiveObjects, ...keyboardMeshes];
+    }
+    if (menuContainer && menuContainer.visible) {
+      allInteractiveObjects = [...allInteractiveObjects, ...menuContainer.children];
+    }
+    
     // Use recursive intersection to properly detect buttons in hierarchies
-    const buttonIntersects = raycaster.intersectObjects(gameCompletionMeshes, true);
+    const buttonIntersects = raycaster.intersectObjects(allInteractiveObjects, true);
     console.log('Button intersects:', buttonIntersects.length);
     
     if (buttonIntersects.length > 0) {
@@ -3101,6 +3091,13 @@ function updateKeyboardHoverState() {
           // Default hover color
           button.material.color.set(0x4477ff);
         }
+        
+        // Trigger haptic feedback if this is a new hover
+        if (hoveredButton !== button) {
+          triggerHapticFeedbackByHandedness('left', 0.2, 30);
+          triggerHapticFeedbackByHandedness('right', 0.2, 30);
+        }
+        
         hoveredButton = button;
       }
     }
@@ -3117,6 +3114,15 @@ function findButtonParent(obj) {
 }
 
 function render() {
+// Rotate wire previews
+if (menuContainer && menuContainer.visible) {
+  menuContainer.traverse((child) => {
+    if (child.userData.isRotatingPreview) {
+      child.rotation.z += 0.01; // Continuous rotation
+    }
+  });
+}
+
 // Update sphere positions to match controller positions
 if (controller1 && controller2) {
 sphere1.position.copy(controller1.position);
