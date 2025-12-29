@@ -377,7 +377,7 @@ function createVRMonthMenu() {
   
   // Create title
   if (font) {
-    const titleGeometry = new THREE.TextGeometry("RING RING", { 
+    const titleGeometry = new THREE.TextGeometry("SELECT LEVEL", { 
       font: font, 
       size: 0.08, 
       height: 0.01 
@@ -507,8 +507,8 @@ function displaySelectedMonth() {
     
     const button = createMonthButton(monthName, year, firstLevel, lastLevel, xPos, 0.0, scale, isDimmed);
     
-    // Rotate button to face the user
-    button.rotation.y = angle;
+    // Rotate button to face inward toward the user (add PI to flip direction)
+    button.rotation.y = angle + Math.PI;
     button.position.z = zPos;
     
     // Make all buttons clickable
@@ -520,13 +520,9 @@ function displaySelectedMonth() {
     button.userData.hoverColor = isCurrent ? 0x0077dd : 0x0055aa;
     button.userData.pressColor = 0x00ddff;
     
-    // Add wire previews asynchronously
-    addWirePreviewsToButton(month.id, button, scale, isDimmed);
+    // Load and attach leaderboard to this button
+    loadButtonLeaderboard(month.id, button, scale);
   });
-  
-  // Load and display leaderboard for current month
-  const currentMonth = menuMonths[currentMonthIndex];
-  loadMonthLeaderboard(currentMonth.id);
 }
 
 function createMonthButton(monthName, year, firstLevel, lastLevel, xPos, yPos, scale, isDimmed) {
@@ -627,26 +623,44 @@ function createMonthButton(monthName, year, firstLevel, lastLevel, xPos, yPos, s
       }));
     monthYearGeometry.computeBoundingBox();
     const monthYearWidth = monthYearGeometry.boundingBox.max.x - monthYearGeometry.boundingBox.min.x;
-    monthYearMesh.position.set(-monthYearWidth/2, 0.04 * scale, 0.01);
+    monthYearMesh.position.set(-monthYearWidth/2, 0.05 * scale, 0.01);
     panel.add(monthYearMesh);
     
-    // Levels (large, bold, bottom)
-    const levelsText = `LEVELS ${firstLevel}-${lastLevel}`;
-    const levelsGeometry = new THREE.TextGeometry(levelsText, { 
+    // Small "LEVELS" text
+    const levelsLabelText = `LEVELS`;
+    const levelsLabelGeometry = new THREE.TextGeometry(levelsLabelText, { 
       font: font, 
-      size: 0.042 * scale, 
-      height: 0.008 * scale
+      size: 0.018 * scale, 
+      height: 0.003 * scale
     });
-    const levelsMesh = new THREE.Mesh(levelsGeometry, 
+    const levelsLabelMesh = new THREE.Mesh(levelsLabelGeometry, 
       new THREE.MeshStandardMaterial({ 
-        color: isDimmed ? 0x88ccff : 0xffffff,
-        emissive: isDimmed ? 0x4488cc : 0x00ffff,
-        emissiveIntensity: isDimmed ? 0.1 : 0.6
+        color: isDimmed ? 0x6699cc : 0x88ccff,
+        emissive: isDimmed ? 0x4477aa : 0x6699ff,
+        emissiveIntensity: isDimmed ? 0.1 : 0.3
       }));
-    levelsGeometry.computeBoundingBox();
-    const levelsWidth = levelsGeometry.boundingBox.max.x - levelsGeometry.boundingBox.min.x;
-    levelsMesh.position.set(-levelsWidth/2, -0.03 * scale, 0.01);
-    panel.add(levelsMesh);
+    levelsLabelGeometry.computeBoundingBox();
+    const levelsLabelWidth = levelsLabelGeometry.boundingBox.max.x - levelsLabelGeometry.boundingBox.min.x;
+    levelsLabelMesh.position.set(-levelsLabelWidth/2, 0.01 * scale, 0.01);
+    panel.add(levelsLabelMesh);
+    
+    // Large, emphasized level numbers
+    const levelNumbersText = `${firstLevel}-${lastLevel}`;
+    const levelNumbersGeometry = new THREE.TextGeometry(levelNumbersText, { 
+      font: font, 
+      size: 0.06 * scale,  // Much larger
+      height: 0.012 * scale  // More depth
+    });
+    const levelNumbersMesh = new THREE.Mesh(levelNumbersGeometry, 
+      new THREE.MeshStandardMaterial({ 
+        color: isDimmed ? 0xaaddff : 0xffffff,
+        emissive: isDimmed ? 0x4488cc : 0x00ffff,
+        emissiveIntensity: isDimmed ? 0.2 : 0.8
+      }));
+    levelNumbersGeometry.computeBoundingBox();
+    const levelNumbersWidth = levelNumbersGeometry.boundingBox.max.x - levelNumbersGeometry.boundingBox.min.x;
+    levelNumbersMesh.position.set(-levelNumbersWidth/2, -0.05 * scale, 0.01);
+    panel.add(levelNumbersMesh);
   }
   
   buttonGroup.position.set(xPos, yPos, isDimmed ? -0.1 : 0);
@@ -748,46 +762,47 @@ async function addWirePreviewsToButton(monthId, buttonGroup, scale, isDimmed) {
   }
 }
 
-function createArrowButton(direction, x, y) {
-  const arrowGroup = new THREE.Group();
+async function loadButtonLeaderboard(monthId, buttonGroup, scale) {
+  if (!leaderboardRef || !font) return;
   
-  // Create triangle arrow shape
-  const triangleShape = new THREE.Shape();
-  if (direction === 'left') {
-    // Left-pointing triangle
-    triangleShape.moveTo(0.04, 0);
-    triangleShape.lineTo(-0.04, 0.05);
-    triangleShape.lineTo(-0.04, -0.05);
-    triangleShape.lineTo(0.04, 0);
-  } else {
-    // Right-pointing triangle
-    triangleShape.moveTo(-0.04, 0);
-    triangleShape.lineTo(0.04, 0.05);
-    triangleShape.lineTo(0.04, -0.05);
-    triangleShape.lineTo(-0.04, 0);
+  try {
+    const snapshot = await leaderboardRef.child(monthId).child('total').orderByChild('time').limitToFirst(3).once('value');
+    const leaderboard = [];
+    
+    snapshot.forEach(childSnapshot => {
+      leaderboard.push(childSnapshot.val());
+    });
+    
+    // Display top 3 times beneath the button
+    if (leaderboard.length > 0) {
+      leaderboard.forEach((entry, index) => {
+        const yPos = -0.09 * scale - (index * 0.025 * scale);
+        
+        const timeText = formatTime(entry.time);
+        
+        const entryGeometry = new THREE.TextGeometry(timeText, { 
+          font: font, 
+          size: 0.012 * scale, 
+          height: 0.001 * scale
+        });
+        
+        const colors = [0xffd700, 0xe0e0e0, 0xcd7f32]; // Gold, Silver, Bronze
+        const entryMesh = new THREE.Mesh(entryGeometry, 
+          new THREE.MeshStandardMaterial({ 
+            color: colors[index],
+            emissive: colors[index],
+            emissiveIntensity: 0.3
+          }));
+        entryGeometry.computeBoundingBox();
+        const entryWidth = entryGeometry.boundingBox.max.x - entryGeometry.boundingBox.min.x;
+        entryMesh.position.set(-entryWidth/2, yPos, 0.015);
+        buttonGroup.add(entryMesh);
+        leaderboardMeshes.push(entryMesh);
+      });
+    }
+  } catch (error) {
+    console.error('Error loading button leaderboard:', error);
   }
-  
-  const extrudeSettings = {
-    depth: 0.02,
-    bevelEnabled: true,
-    bevelThickness: 0.005,
-    bevelSize: 0.005,
-    bevelSegments: 2
-  };
-  
-  const buttonGeometry = new THREE.ExtrudeGeometry(triangleShape, extrudeSettings);
-  const buttonMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x003366,
-    emissive: 0x0055aa,
-    emissiveIntensity: 0.5,
-    metalness: 0.7,
-    roughness: 0.3
-  });
-  const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
-  arrowGroup.add(button);
-  
-  arrowGroup.position.set(x, y, 0.3); // Move closer to user to avoid overlap
-  return arrowGroup;
 }
 
 async function loadMonthLeaderboard(monthId) {
@@ -1376,7 +1391,7 @@ for (let i = 1; i <= 5; i++) {
 }
 
 const loader = new THREE.FontLoader();
-loader.load('https://threejs.org/examples/fonts/droid/droid_sans_bold.typeface.json', function (loadedFont) {
+loader.load('https://threejs.org/examples/fonts/gentilis_bold.typeface.json', function (loadedFont) {
 font = loadedFont;
 console.log('Font loaded successfully!', font);
 const textGeometry = new THREE.TextGeometry(`LEVEL ${currentLevel}/5`, { font: font, size: 0.02, height: 0.005 });
@@ -3037,8 +3052,16 @@ function updateKeyboardHoverState() {
   
   // Reset previously hovered button
   if (hoveredButton) {
-    if (hoveredButton.material && hoveredButton.userData.defaultColor) {
-      hoveredButton.material.color.setHex(hoveredButton.userData.defaultColor);
+    // Find the panel mesh to reset its color
+    let panelMesh = null;
+    hoveredButton.traverse((child) => {
+      if (!panelMesh && child.isMesh && child.geometry && child.material && child.material.color) {
+        panelMesh = child;
+      }
+    });
+    
+    if (panelMesh && panelMesh.material && hoveredButton.userData.defaultColor) {
+      panelMesh.material.color.setHex(hoveredButton.userData.defaultColor);
     }
     hoveredButton = null;
   }
@@ -3083,22 +3106,32 @@ function updateKeyboardHoverState() {
         button = findButtonParent(intersectedObj);
       }
       
-      if (button && button.material) {
-        // Apply hover color based on userData
-        if (button.userData.hoverColor) {
-          button.material.color.setHex(button.userData.hoverColor);
-        } else {
-          // Default hover color
-          button.material.color.set(0x4477ff);
-        }
+      if (button) {
+        // Find the panel mesh (first child with geometry and material)
+        let panelMesh = null;
+        button.traverse((child) => {
+          if (!panelMesh && child.isMesh && child.geometry && child.material && child.material.color) {
+            panelMesh = child;
+          }
+        });
         
-        // Trigger haptic feedback if this is a new hover
-        if (hoveredButton !== button) {
-          triggerHapticFeedbackByHandedness('left', 0.2, 30);
-          triggerHapticFeedbackByHandedness('right', 0.2, 30);
+        if (panelMesh && panelMesh.material) {
+          // Apply hover color based on userData
+          if (button.userData.hoverColor) {
+            panelMesh.material.color.setHex(button.userData.hoverColor);
+          } else {
+            // Default hover color
+            panelMesh.material.color.set(0x4477ff);
+          }
+          
+          // Trigger haptic feedback if this is a new hover
+          if (hoveredButton !== button) {
+            triggerHapticFeedbackByHandedness('left', 0.2, 30);
+            triggerHapticFeedbackByHandedness('right', 0.2, 30);
+          }
+          
+          hoveredButton = button;
         }
-        
-        hoveredButton = button;
       }
     }
   });
@@ -3114,15 +3147,6 @@ function findButtonParent(obj) {
 }
 
 function render() {
-// Rotate wire previews
-if (menuContainer && menuContainer.visible) {
-  menuContainer.traverse((child) => {
-    if (child.userData.isRotatingPreview) {
-      child.rotation.z += 0.01; // Continuous rotation
-    }
-  });
-}
-
 // Update sphere positions to match controller positions
 if (controller1 && controller2) {
 sphere1.position.copy(controller1.position);
