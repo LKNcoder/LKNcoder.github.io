@@ -255,6 +255,9 @@ let levelsRef, leaderboardRef;
 try {
   firebase.initializeApp(firebaseConfig);
   console.log('Firebase initialized successfully');
+  console.log('%cFirebase Performance Tip:', 'color: #ffaa00; font-weight: bold');
+  console.log('To eliminate indexing warnings, add this to Firebase Database Rules:');
+  console.log('{ "leaderboard": { "$monthId": { "total": { ".indexOn": ["time"] } } } }');
   
   levelsRef = firebase.database().ref('levels/months');
   leaderboardRef = firebase.database().ref('leaderboard');
@@ -507,9 +510,23 @@ function displaySelectedMonth() {
     
     const button = createMonthButton(monthName, year, firstLevel, lastLevel, xPos, 0.0, scale, isDimmed);
     
-    // Rotate button to face inward toward the user (add PI to flip direction)
-    button.rotation.y = angle + Math.PI;
-    button.position.z = zPos;
+    // Set button position first
+    button.position.set(xPos, 0.0, zPos);
+    
+    // Calculate rotation to face the camera at origin
+    // Since menuContainer is at (0, 1.4, -1.0), we need to account for that offset
+    // Use lookAt to make the button face toward the camera position
+    const worldPos = new THREE.Vector3();
+    button.getWorldPosition(worldPos);
+    
+    // Create a target position at the user/camera (origin in world space)
+    const cameraWorldPos = new THREE.Vector3(0, 1.4, 0); // Camera at origin, but at same Y as menu
+    
+    // Make button face the camera
+    button.lookAt(cameraWorldPos);
+    
+    // Adjust rotation to account for button's initial orientation (faces +Z by default)
+    button.rotateY(Math.PI);
     
     // Make all buttons clickable
     button.userData.isButton = true;
