@@ -508,6 +508,11 @@ function displaySelectedMonth() {
     const scale = isCurrent ? 1.0 : 0.7;
     const isDimmed = !isCurrent;
     
+    // Debug January 2026 issue
+    if (month.id === '2026-01') {
+      console.log('January 2026:', { index, currentMonthIndex, isCurrent, isDimmed, firstLevel, lastLevel });
+    }
+    
     const button = createMonthButton(monthName, year, firstLevel, lastLevel, xPos, 0.0, scale, isDimmed);
     
     // Set button position first
@@ -524,9 +529,6 @@ function displaySelectedMonth() {
     
     // Make button face the camera
     button.lookAt(cameraWorldPos);
-    
-    // Adjust rotation to account for button's initial orientation (faces +Z by default)
-    button.rotateY(Math.PI);
     
     // Make all buttons clickable
     button.userData.isButton = true;
