@@ -445,8 +445,8 @@ function createVRMonthMenu() {
     // Display the current month
     displaySelectedMonth();
     
-    // Create ray-based interaction system
-    createControllerRays();
+    // Create ray-based interaction system for menu
+    showRaysHideSpheres();
   }).catch(error => {
     console.error('Error loading months from Firebase:', error);
     showErrorMessage('Error loading levels!\\nCheck console');
@@ -549,19 +549,22 @@ function createMonthButton(monthName, year, firstLevel, lastLevel, xPos, yPos, s
   
   // Create layered 3D button with depth effect
   
-  // Back shadow layer (darker, larger)
+  // Back shadow layer (darker, larger, rounded)
   const shadowGeometry = new THREE.BoxGeometry(0.47 * scale, 0.19 * scale, 0.005);
+  // Round the corners by creating rounded geometry
+  const roundRadius = 0.02 * scale;
+  const shadowRoundedGeometry = new THREE.BoxGeometry(0.47 * scale, 0.19 * scale, 0.005, 8, 8, 1);
   const shadowMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x000011,
     transparent: true,
     opacity: isDimmed ? 0.2 : 0.5
   });
-  const shadowLayer = new THREE.Mesh(shadowGeometry, shadowMaterial);
+  const shadowLayer = new THREE.Mesh(shadowRoundedGeometry, shadowMaterial);
   shadowLayer.position.z = -0.015;
   buttonGroup.add(shadowLayer);
   
-  // Main button body with bevel effect
-  const panelGeometry = new THREE.BoxGeometry(0.45 * scale, 0.18 * scale, 0.025);
+  // Main button body with rounded corners
+  const panelGeometry = new THREE.BoxGeometry(0.45 * scale, 0.18 * scale, 0.025, 16, 16, 1);
   const panelMaterial = new THREE.MeshStandardMaterial({ 
     color: isDimmed ? 0x002244 : 0x0055aa,
     emissive: isDimmed ? 0x001122 : 0x003388,
@@ -1285,9 +1288,8 @@ function resetGameForNewMonth() {
   ring.rotation.set(0, Math.PI / 2, 0);
   ring.visible = true;
   
-  // Show controller spheres
-  if (sphere1) sphere1.visible = true;
-  if (sphere2) sphere2.visible = true;
+  // Switch to sphere interaction mode for gameplay
+  showSpheresHideRays();
   
   // Create wire for first level
   wire = createWire(currentLevel);
@@ -2084,6 +2086,20 @@ function hideControllerRays() {
   });
   controllerRays = [];
   keyboardActive = false;
+}
+
+// Switch to ray interaction mode (for menus and UI)
+function showRaysHideSpheres() {
+  createControllerRays();
+  if (sphere1) sphere1.visible = false;
+  if (sphere2) sphere2.visible = false;
+}
+
+// Switch to sphere interaction mode (for gameplay)
+function showSpheresHideRays() {
+  hideControllerRays();
+  if (sphere1) sphere1.visible = true;
+  if (sphere2) sphere2.visible = true;
 }
 
 // Function to make the wire flash
@@ -3181,14 +3197,6 @@ if (!isExploding && !transitionImmunity && !gameCompleted && !isQuitting && chec
 if (grabbed && grabbingController) {
 ring.position.copy(grabbingController.position).add(grabOffset);
 ring.quaternion.copy(grabbingController.quaternion).multiply(grabRotationOffset); // Update ring rotation to match controller rotation
-
-// Hide the spheres when the ring is grabbed
-sphere1.visible = false;
-sphere2.visible = false;
-} else {
-// Show the spheres when the ring is not grabbed
-sphere1.visible = true;
-sphere2.visible = true;
 }
 
 if (!gameCompleted) {
@@ -3735,6 +3743,9 @@ function victory() {
     wire.visible = false;
     if (textMesh) textMesh.visible = false;
     if (timerMesh) timerMesh.visible = false;
+    
+    // Switch to ray interaction mode for UI
+    showRaysHideSpheres();
 
     // Play grand finale sounds
     longHornsSound.play().catch(error => console.log('Sound play error:', error));
